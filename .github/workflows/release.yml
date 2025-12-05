@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-13]
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ED25519_PRIVATE_KEY: ${{ secrets.ED25519_PRIVATE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build packages
+        run: npm run package
+
+      - name: Generate manifest (linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run sign:manifest
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: slimchat-${{ matrix.os }}
+          path: dist/**/*

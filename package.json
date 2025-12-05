@@ -1,0 +1,77 @@
+{
+  "name": "slim-chat",
+  "version": "0.1.0",
+  "description": "Desktop app bootstrap with secure auto-updates",
+  "main": "dist/main/index.js",
+  "author": "",
+  "license": "MIT",
+  "scripts": {
+    "clean": "rimraf dist out release",
+    "dev:main": "tsup src/main/index.ts --format=cjs --target=node18 --out-dir=dist/main --watch --sourcemap",
+    "dev:preload": "tsup src/preload/index.ts --format=cjs --target=node18 --out-dir=dist/preload --watch --sourcemap",
+    "dev:renderer": "vite --config vite.renderer.config.ts",
+    "dev:app": "wait-on dist/main/index.js dist/preload/index.js && electron .",
+    "dev": "concurrently -k \"npm:dev:main\" \"npm:dev:preload\" \"npm:dev:renderer\" \"npm:dev:app\"",
+    "build:main": "tsup src/main/index.ts --format=cjs --target=node18 --out-dir=dist/main --sourcemap",
+    "build:preload": "tsup src/preload/index.ts --format=cjs --target=node18 --out-dir=dist/preload --sourcemap",
+    "build:renderer": "vite build --config vite.renderer.config.ts",
+    "build": "npm run clean && npm run build:main && npm run build:preload && npm run build:renderer",
+    "lint": "tsc --noEmit",
+    "package": "npm run build && electron-builder",
+    "postinstall": "electron-builder install-app-deps",
+    "sign:manifest": "ts-node scripts/generate-manifest.ts"
+  },
+  "dependencies": {
+    "electron-log": "^5.1.4",
+    "electron-updater": "^6.3.9",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.3",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "concurrently": "^8.2.2",
+    "electron": "^30.0.8",
+    "electron-builder": "^24.13.3",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.1.0",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.5",
+    "@vitejs/plugin-react": "^4.3.1",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.example.slimchat",
+    "productName": "SlimChat",
+    "files": [
+      "dist/main/**/*",
+      "dist/preload/**/*",
+      "dist/renderer/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "directories": {
+      "buildResources": "build"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.developer-tools",
+      "minimumSystemVersion": "12.0.0"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Utility",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "",
+        "repo": ""
+      }
+    ]
+  }
+}
