@@ -20,6 +20,16 @@ npm install
 
 ## Development
 
+### Understanding Electron's Architecture
+
+Electron applications consist of three distinct processes:
+
+- **Main Process**: The Node.js backend that manages the application lifecycle, creates browser windows, and handles system-level operations (file system, auto-updates, native OS features). Has full access to Node.js APIs.
+
+- **Preload Script**: A security bridge running in an isolated context. It selectively exposes APIs from the main process to the renderer using `contextBridge`, providing secure communication without exposing the entire Node.js environment.
+
+- **Renderer Process**: The Chromium-based frontend (React application) that users interact with. Runs in a sandboxed environment and communicates with the main process through the preload script's exposed API.
+
 ### Start Development Mode
 
 Run all processes (main, preload, renderer) with hot reload:
@@ -30,16 +40,16 @@ npm run dev
 
 ### Individual Process Development
 
-Run specific processes independently:
+Run specific processes independently for focused development:
 
 ```bash
-# Main process only
+# Main process only - backend development
 npm run dev:main
 
-# Preload script only
+# Preload script only - API bridge development
 npm run dev:preload
 
-# Renderer process only
+# Renderer process only - frontend/UI development
 npm run dev:renderer
 ```
 
