@@ -97,7 +97,6 @@
       ],
       "category": "Utility",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "publish": "never"
+    }
   }
 }

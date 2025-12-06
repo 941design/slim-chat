@@ -33,7 +33,7 @@ jobs:
         run: npm run lint
 
       - name: Build packages
-        run: npm run package
+        run: npm run package -- --publish=never
 
       - name: Generate manifest (linux only)
         if: matrix.os == 'ubuntu-latest'
