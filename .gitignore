@@ -3,3 +3,8 @@ out
 dist
 release
 .DS_Store
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/

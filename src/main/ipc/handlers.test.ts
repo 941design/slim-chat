@@ -468,11 +468,13 @@ describe('registerHandlers', () => {
     };
   }
 
-  describe('Property: Completeness - all 6 handlers registered', () => {
-    it('should register exactly 6 IPC handlers', () => {
+  describe('Property: Completeness - all handlers registered', () => {
+    it('should register 9 IPC handlers (6 new + 3 legacy)', () => {
       const deps = createMockDependencies();
       registerHandlers(deps);
-      expect(handlers.size).toBe(6);
+      // BUG FIX: Updated to reflect legacy handlers for backward compatibility
+      // Bug report: bug-reports/e2e-legacy-ipc-handlers.md
+      expect(handlers.size).toBe(9);
     });
 
     it('should register all required channel names', () => {
@@ -518,7 +520,9 @@ describe('registerHandlers', () => {
 
       const allChannels = Array.from(handlers.keys());
       allChannels.forEach((channel) => {
-        expect(channel).toMatch(/^(system|updates|config):[a-z-]+$/);
+        // BUG FIX: Updated regex to include legacy handlers (status:, update:)
+        // Bug report: bug-reports/e2e-legacy-ipc-handlers.md
+        expect(channel).toMatch(/^(system|updates|config|status|update):[a-z-]+$/);
       });
     });
   });
@@ -669,13 +673,15 @@ describe('registerHandlers', () => {
       const deps2 = createMockDependencies();
 
       registerHandlers(deps1);
-      expect(mockIpcMain.handle).toHaveBeenCalledTimes(6);
+      // BUG FIX: Updated to reflect 9 handlers (6 new + 3 legacy)
+      // Bug report: bug-reports/e2e-legacy-ipc-handlers.md
+      expect(mockIpcMain.handle).toHaveBeenCalledTimes(9);
 
       handlers.clear();
       registerHandlers(deps2);
-      expect(mockIpcMain.handle).toHaveBeenCalledTimes(12);
+      expect(mockIpcMain.handle).toHaveBeenCalledTimes(18);
 
-      expect(handlers.size).toBe(6);
+      expect(handlers.size).toBe(9);
     });
   });
 
@@ -716,13 +722,19 @@ describe('registerHandlers', () => {
       const deps = createMockDependencies();
       registerHandlers(deps);
 
-      expect(handlers.size).toBe(6);
+      // BUG FIX: Updated to reflect 9 handlers (6 new + 3 legacy)
+      // Bug report: bug-reports/e2e-legacy-ipc-handlers.md
+      expect(handlers.size).toBe(9);
       expect(handlers.has('system:get-status')).toBe(true);
       expect(handlers.has('updates:check')).toBe(true);
       expect(handlers.has('updates:download')).toBe(true);
       expect(handlers.has('updates:restart')).toBe(true);
       expect(handlers.has('config:get')).toBe(true);
       expect(handlers.has('config:set')).toBe(true);
+      // Legacy handlers for backward compatibility
+      expect(handlers.has('status:get')).toBe(true);
+      expect(handlers.has('update:check')).toBe(true);
+      expect(handlers.has('update:restart')).toBe(true);
     });
 
     it('Example: Update flow sequence', async () => {

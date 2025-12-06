@@ -1,0 +1,59 @@
+
+> slim-chat@0.1.0 test
+> jest
+
+(node:488) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+FAIL src/main/security/crypto.test.ts
+  ● Test suite failed to run
+
+    Your test suite must contain at least one test.
+
+      at onResult (node_modules/@jest/core/build/index.js:1057:18)
+      at node_modules/@jest/core/build/index.js:1127:165
+      at node_modules/emittery/index.js:363:13
+          at Array.map (<anonymous>)
+      at Emittery.emit (node_modules/emittery/index.js:361:23)
+
+(node:484) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/main/security/version.test.ts
+✔ Property: Determinism - identical file hashes are identical (6.087125ms)
+✔ Property: Collision resistance - different content produces different hashes (2.204291ms)
+✔ Property: Format compliance - hash is exactly 64 lowercase hex characters (1.110334ms)
+✔ Property: Known value - empty file produces e4d909c290d0fb1ca068ffaddf22cbd0 (0.833708ms)
+✔ Error handling: Non-existent file throws error (0.776709ms)
+✔ Property: Large file handling - 15MB file completes without memory issues (57.982792ms)
+✔ Property: Sensitivity - single byte change produces different hash (1.359334ms)
+✔ Property: Random input - random content always produces valid hash (2.838208ms)
+✔ Property: Stream integrity - streaming hash matches direct hash (0.89875ms)
+✔ Property: File size variation - different file sizes produce valid hashes (4.463291ms)
+(node:481) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/main/update/controller.test.ts
+(node:483) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/main/ipc/handlers.test.ts
+(node:478) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/main/update/manifest-generator.test.ts
+(node:479) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/main/integration.test.ts
+(node:475) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS src/main/security/verify.test.ts (19.144 s)
+
+Test Suites: 1 failed, 6 passed, 7 total
+Tests:       227 passed, 227 total
+Snapshots:   0 total
+Time:        19.415 s
+Ran all test suites.
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18417.30875

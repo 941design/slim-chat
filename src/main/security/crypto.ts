@@ -47,16 +47,20 @@ export function hashFile(filePath: string): Promise<string> {
     const hash = crypto.createHash('sha256');
     const stream = fs.createReadStream(filePath);
 
+    // BUG FIX: Attach error handler BEFORE data/end handlers
+    // Root cause: Error events during stream initialization were not caught
+    // Bug report: bug-reports/unhandled-rejection-hash-file.md
+    // Date: 2025-12-06
+    stream.on('error', (err) => {
+      reject(err);
+    });
+
     stream.on('data', (chunk) => {
       hash.update(chunk);
     });
 
     stream.on('end', () => {
       resolve(hash.digest('hex'));
-    });
-
-    stream.on('error', (err) => {
-      reject(err);
     });
   });
 }

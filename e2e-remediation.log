@@ -1,0 +1,87 @@
+
+> slim-chat@0.1.0 test:e2e
+> npm run build && playwright test
+
+
+> slim-chat@0.1.0 build
+> npm run clean && npm run build:main && npm run build:preload && npm run build:renderer
+
+
+> slim-chat@0.1.0 clean
+> rimraf dist out release
+
+
+> slim-chat@0.1.0 build:main
+> tsup src/main/index.ts --format=cjs --target=node18 --out-dir=dist/main --sourcemap
+
+CLI Building entry: src/main/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Using tsup config: /Users/mrother/Projects/941design/slim-chat/tsup.config.ts
+CLI Target: node18
+CJS Build start
+CJS dist/main/index.js     15.76 KB
+CJS dist/main/index.js.map 50.27 KB
+CJS ⚡️ Build success in 7ms
+
+> slim-chat@0.1.0 build:preload
+> tsup src/preload/index.ts --format=cjs --target=node18 --out-dir=dist/preload --sourcemap
+
+CLI Building entry: src/preload/index.ts
+CLI Using tsconfig: tsconfig.json
+CLI tsup v8.5.1
+CLI Using tsup config: /Users/mrother/Projects/941design/slim-chat/tsup.config.ts
+CLI Target: node18
+CJS Build start
+CJS dist/preload/index.js     2.43 KB
+CJS dist/preload/index.js.map 3.20 KB
+CJS ⚡️ Build success in 4ms
+
+> slim-chat@0.1.0 build:renderer
+> vite build --config vite.renderer.config.ts
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+vite v5.4.21 building for production...
+transforming...
+✓ 31 modules transformed.
+rendering chunks...
+computing gzip size...
+../../dist/renderer/index.html                   0.40 kB │ gzip:  0.28 kB
+../../dist/renderer/assets/index-CN5OYYXH.css    2.22 kB │ gzip:  0.88 kB
+../../dist/renderer/assets/index-BYIr3MOg.js   146.01 kB │ gzip: 46.83 kB
+✓ built in 236ms
+
+Running 30 tests using 1 worker
+
+  ✓   1 e2e/app.spec.ts:5:7 › SlimChat Application › should launch application successfully (557ms)
+  ✓   2 e2e/app.spec.ts:10:7 › SlimChat Application › should display application header and footer (497ms)
+  ✓   3 e2e/app.spec.ts:21:7 › SlimChat Application › should display version information (459ms)
+  ✓   4 e2e/app.spec.ts:29:7 › SlimChat Application › should display status dashboard (484ms)
+  ✓   5 e2e/app.spec.ts:38:7 › SlimChat Application › should display sidebar with update status (478ms)
+  ✓   6 e2e/app.spec.ts:48:7 › SlimChat Application › should have check for updates button (524ms)
+  ✓   7 e2e/app.spec.ts:56:7 › SlimChat Application › should display log panel (487ms)
+  ✓   8 e2e/app.spec.ts:63:7 › SlimChat Application › should display platform information correctly (490ms)
+  ✓   9 e2e/logs.spec.ts:5:7 › Log Panel › should display log panel (471ms)
+  ✓  10 e2e/logs.spec.ts:12:7 › Log Panel › should show message when no logs exist (540ms)
+  ✓  11 e2e/logs.spec.ts:26:7 › Log Panel › should display log entries with correct structure (448ms)
+  ✓  12 e2e/logs.spec.ts:58:7 › Log Panel › should format timestamps correctly (454ms)
+  ✓  13 e2e/logs.spec.ts:71:7 › Log Panel › should display log level (498ms)
+  ✓  14 e2e/logs.spec.ts:83:7 › Log Panel › should apply level-based styling (542ms)
+  ✓  15 e2e/updates.spec.ts:5:7 › Update System › should start with idle update state (545ms)
+  ✓  16 e2e/updates.spec.ts:12:7 › Update System › should have correct button label for idle state (534ms)
+  ✓  17 e2e/updates.spec.ts:19:7 › Update System › should display update status information (459ms)
+  ✓  18 e2e/updates.spec.ts:27:7 › Update System › should have sidebar footer with security information (444ms)
+  ✓  19 e2e/updates.spec.ts:35:7 › Update System › should show last update check as not yet checked initially (441ms)
+  ✓  20 e2e/updates.spec.ts:44:7 › Update System › button should be disabled during downloading state (471ms)
+  ✓  21 e2e/updates.spec.ts:59:7 › Update System › button should be disabled during verifying state (515ms)
+  ✓  22 e2e/updates.spec.ts:74:7 › Update System › should show restart button when update is ready (465ms)
+  ✓  23 e2e/updates.spec.ts:94:7 › Update System › should display version in update detail when available (531ms)
+  ✓  24 e2e/window.spec.ts:4:7 › Electron Window › should create browser window (494ms)
+  ✓  25 e2e/window.spec.ts:14:7 › Electron Window › should have correct window title (527ms)
+  ✓  26 e2e/window.spec.ts:19:7 › Electron Window › should have correct window dimensions (523ms)
+  ✓  27 e2e/window.spec.ts:30:7 › Electron Window › should have context isolation enabled (530ms)
+  ✓  28 e2e/window.spec.ts:37:7 › Electron Window › should have preload API available (528ms)
+  ✓  29 e2e/window.spec.ts:44:7 › Electron Window › should expose required API methods (532ms)
+  ✓  30 e2e/window.spec.ts:61:7 › Electron Window › should be able to get app status via API (536ms)
+
+  30 passed (15.4s)

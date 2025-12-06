@@ -5,7 +5,7 @@
  * Replaces flat API structure with nested domains: updates, config, system.
  */
 
-import { ipcMain, app, BrowserWindow } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { AppConfig, AppStatus, UpdateState } from '../../shared/types';
 
 /**
@@ -86,6 +86,22 @@ export function registerHandlers(dependencies: {
 
   ipcMain.handle('config:set', async (_, config: Partial<AppConfig>) => {
     return dependencies.setConfig(config);
+  });
+
+  // BUG FIX: Legacy IPC handlers for backward compatibility
+  // Root cause: E2E tests using old API channel names (status:get, update:check, update:restart)
+  // Bug report: bug-reports/e2e-legacy-ipc-handlers.md
+  // Date: 2025-12-06
+  ipcMain.handle('status:get', async () => {
+    return dependencies.getStatus();
+  });
+
+  ipcMain.handle('update:check', async () => {
+    return dependencies.checkForUpdates();
+  });
+
+  ipcMain.handle('update:restart', async () => {
+    return dependencies.restartToUpdate();
   });
 }
 
