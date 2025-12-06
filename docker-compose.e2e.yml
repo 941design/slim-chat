@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  e2e-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    container_name: slim-chat-e2e-test
+    volumes:
+      # Mount test results and reports for local inspection
+      - ./test-results:/app/test-results
+      - ./playwright-report:/app/playwright-report
+    environment:
+      - CI=true
+      - NODE_ENV=test
+      - FORCE_COLOR=1
+    # Allocate sufficient shared memory for Chromium
+    shm_size: '2gb'
+    # Show output in real-time
+    stdin_open: true
+    tty: true

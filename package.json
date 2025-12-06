@@ -23,6 +23,8 @@
     "test:e2e:ui": "npm run build && playwright test --ui",
     "test:e2e:headed": "npm run build && playwright test --headed",
     "test:e2e:debug": "npm run build && playwright test --debug",
+    "test:e2e:docker": "docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit",
+    "test:e2e:docker:clean": "docker-compose -f docker-compose.e2e.yml down -v && rm -rf test-results playwright-report",
     "package": "npm run build && electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "sign:manifest": "ts-node scripts/generate-manifest.ts"

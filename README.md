@@ -124,6 +124,31 @@ Debug E2E tests with **Playwright Inspector**:
 npm run test:e2e:debug
 ```
 
+#### Testing in Linux Environment (Docker)
+
+On macOS, you can simulate the GitHub Actions Ubuntu CI environment using Docker to verify that E2E tests will pass on Linux:
+
+```bash
+# Run E2E tests in Docker container (simulates Ubuntu CI)
+npm run test:e2e:docker
+
+# Clean up Docker resources and test artifacts
+npm run test:e2e:docker:clean
+```
+
+**Prerequisites**: Docker Desktop must be installed and running.
+
+**What this does**:
+- Builds a Ubuntu 22.04 container matching the GitHub Actions runner
+- Installs Xvfb (X Virtual Frame Buffer) for headless GUI testing
+- Runs the complete E2E test suite with the same flags as CI
+- Mounts `test-results/` and `playwright-report/` for local inspection
+
+This is useful for:
+- Debugging Linux-specific test failures before pushing
+- Verifying fixes for CI issues locally
+- Testing display server configurations
+
 ## Code Quality
 
 Run type checking:
@@ -196,24 +221,26 @@ To create an automated release:
 ## Available Make Commands
 
 ```bash
-make help               # Show all available commands
-make clean              # Remove build artifacts
-make install            # Install dependencies
-make dev                # Start development mode
-make build              # Build for production
-make test               # Run unit tests
-make test-watch         # Run unit tests in watch mode
-make test-e2e           # Run E2E tests
-make test-e2e-ui        # Run E2E tests in interactive UI mode
-make test-e2e-headed    # Run E2E tests in headed mode
-make test-e2e-debug     # Debug E2E tests with Playwright Inspector
-make test-all           # Run all tests (unit + E2E)
-make lint               # Run type checking
-make package            # Create distributable packages
-make release            # Full release build
-make verify             # Run lint and all tests
-make ci                 # CI pipeline (install, verify, build)
-make dist-clean         # Deep clean including node_modules
+make help                    # Show all available commands
+make clean                   # Remove build artifacts
+make install                 # Install dependencies
+make dev                     # Start development mode
+make build                   # Build for production
+make test                    # Run unit tests
+make test-watch              # Run unit tests in watch mode
+make test-e2e                # Run E2E tests
+make test-e2e-ui             # Run E2E tests in interactive UI mode
+make test-e2e-headed         # Run E2E tests in headed mode
+make test-e2e-debug          # Debug E2E tests with Playwright Inspector
+make test-e2e-docker         # Run E2E tests in Docker (simulates Ubuntu CI)
+make test-e2e-docker-clean   # Clean up Docker resources and test artifacts
+make test-all                # Run all tests (unit + E2E)
+make lint                    # Run type checking
+make package                 # Create distributable packages
+make release                 # Full release build
+make verify                  # Run lint and all tests
+make ci                      # CI pipeline (install, verify, build)
+make dist-clean              # Deep clean including node_modules
 ```
 
 ## Security Features

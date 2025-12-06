@@ -1,4 +1,4 @@
-.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-all
+.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all
 
 .DEFAULT_GOAL := help
 
@@ -58,6 +58,12 @@ test-e2e-headed: ## Run E2E tests in headed mode (visible browser)
 
 test-e2e-debug: ## Debug E2E tests with Playwright Inspector
 	npm run test:e2e:debug
+
+test-e2e-docker: ## Run E2E tests in Docker (simulates Ubuntu CI environment)
+	npm run test:e2e:docker
+
+test-e2e-docker-clean: ## Clean up Docker resources and test artifacts
+	npm run test:e2e:docker:clean
 
 test-all: test test-e2e ## Run all tests (unit + E2E)
 	@echo "All tests completed!"
