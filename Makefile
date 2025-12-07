@@ -1,4 +1,4 @@
-.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all dev-update-release dev-update-prerelease dev-update-local
+.PHONY: help clean install dev build test lint package release sign-manifest test-e2e test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-docker test-e2e-docker-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade
 
 .DEFAULT_GOAL := help
 
@@ -106,3 +106,85 @@ ci: install verify build ## CI pipeline (install, verify, build)
 dist-clean: clean ## Deep clean including node_modules
 	rm -rf node_modules package-lock.json
 	@echo "Deep clean completed. Run 'make install' to reinstall dependencies."
+
+# Local Release for Version Upgrade Testing
+LOCAL_RELEASE_DIR ?= $(PWD)/local-release
+
+local-release: ## Package HEAD into local directory for version upgrade testing
+	@echo "Building and packaging current HEAD..."
+	@echo "Output directory: $(LOCAL_RELEASE_DIR)"
+	@if [ -z "$$SLIM_CHAT_RSA_PRIVATE_KEY" ]; then \
+		echo ""; \
+		echo "ERROR: SLIM_CHAT_RSA_PRIVATE_KEY is required to sign the manifest"; \
+		echo ""; \
+		echo "Usage:"; \
+		echo "  export SLIM_CHAT_RSA_PRIVATE_KEY=\$$(gopass show slimchat/slimchat-release.key)"; \
+		echo "  make local-release"; \
+		echo ""; \
+		exit 1; \
+	fi
+	npm run build
+	npm run package
+	npm run sign:manifest
+	@mkdir -p $(LOCAL_RELEASE_DIR)
+	@echo "Copying artifacts to $(LOCAL_RELEASE_DIR)..."
+	@cp dist/manifest.json $(LOCAL_RELEASE_DIR)/ 2>/dev/null || true
+	@cp dist/*.dmg $(LOCAL_RELEASE_DIR)/ 2>/dev/null || true
+	@cp dist/*.zip $(LOCAL_RELEASE_DIR)/ 2>/dev/null || true
+	@cp dist/*.AppImage $(LOCAL_RELEASE_DIR)/ 2>/dev/null || true
+	@echo ""
+	@echo "Local release created at: $(LOCAL_RELEASE_DIR)"
+	@echo ""
+	@echo "Contents:"
+	@ls -lh $(LOCAL_RELEASE_DIR)/
+	@echo ""
+	@echo "Version in manifest:"
+	@grep '"version"' $(LOCAL_RELEASE_DIR)/manifest.json | head -1
+	@echo ""
+	@echo "To test version upgrade:"
+	@echo "  1. git stash (if needed)"
+	@echo "  2. git checkout <older-version-tag>"
+	@echo "  3. npm install"
+	@echo "  4. DEV_UPDATE_SOURCE=file://$(LOCAL_RELEASE_DIR) make dev-update-local"
+	@echo "  5. Click 'Check for Updates' in the app"
+	@echo ""
+
+local-release-clean: ## Remove local release directory
+	rm -rf $(LOCAL_RELEASE_DIR)
+	@echo "Local release directory removed."
+
+test-version-upgrade: ## Interactive guide for testing version upgrades
+	@echo ""
+	@echo "=== Version Upgrade Testing Workflow ==="
+	@echo ""
+	@echo "This workflow tests upgrading from an older version to HEAD."
+	@echo ""
+	@echo "Prerequisites:"
+	@echo "  - SLIM_CHAT_RSA_PRIVATE_KEY environment variable set"
+	@echo "  - Clean working directory (commit or stash changes)"
+	@echo ""
+	@echo "Step 1: Package current HEAD as local release"
+	@echo "  make local-release"
+	@echo ""
+	@echo "Step 2: Checkout older version"
+	@echo "  git checkout v1.0.0  # or any older tag"
+	@echo ""
+	@echo "Step 3: Install dependencies for older version"
+	@echo "  npm install"
+	@echo ""
+	@echo "Step 4: Run older version with local release source"
+	@echo "  DEV_UPDATE_SOURCE=file://$(LOCAL_RELEASE_DIR) make dev-update-local"
+	@echo ""
+	@echo "Step 5: Test the update flow"
+	@echo "  - Click 'Check for Updates'"
+	@echo "  - Verify update is discovered"
+	@echo "  - Test download and verification"
+	@echo ""
+	@echo "Step 6: Return to HEAD"
+	@echo "  git checkout -"
+	@echo "  npm install"
+	@echo "  make local-release-clean  # optional cleanup"
+	@echo ""
+	@echo "Available tags:"
+	@git tag --sort=-creatordate | head -10 || echo "  (no tags found)"
+	@echo ""

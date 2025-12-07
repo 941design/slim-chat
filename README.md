@@ -159,6 +159,8 @@ This is useful for:
 
 Test the auto-update system in development mode before releasing to users.
 
+> **Detailed Guide**: See [docs/dev-mode-update-testing.md](docs/dev-mode-update-testing.md) for comprehensive documentation including local manifest testing, upstream release testing, and troubleshooting.
+
 ### Quick Start
 
 Run the app in dev mode:
@@ -385,6 +387,11 @@ make dist-clean              # Deep clean including node_modules
 make dev-update-release      # Test against specific GitHub release (set DEV_UPDATE_SOURCE)
 make dev-update-prerelease   # Test pre-release updates (beta, alpha, rc)
 make dev-update-local        # Test with local file:// manifest (dev mode only)
+
+# Version upgrade testing (local release workflow)
+make local-release           # Package HEAD into ./local-release for testing
+make local-release-clean     # Remove local release directory
+make test-version-upgrade    # Show interactive guide for version upgrade testing
 ```
 
 ## Security Features
