@@ -5,6 +5,7 @@
  * Replaces automatic download with user-initiated download after approval.
  */
 
+import { app } from 'electron';
 import { autoUpdater, ProgressInfo } from 'electron-updater';
 import { UpdateState, DownloadProgress } from '../../shared/types';
 
@@ -116,6 +117,7 @@ export function formatBytes(bytes: number): string {
  *   Invariants:
  *     - autoUpdater.autoDownload set to autoDownloadEnabled
  *     - autoUpdater.autoInstallOnAppQuit always false (user must restart manually)
+ *     - autoUpdater.setFeedURL configured for generic provider
  *
  *   Properties:
  *     - Configuration persistence: settings remain until next call
@@ -124,11 +126,25 @@ export function formatBytes(bytes: number): string {
  *   Algorithm:
  *     1. Set autoUpdater.autoDownload to autoDownloadEnabled
  *     2. Set autoUpdater.autoInstallOnAppQuit to false
+ *     3. Configure feed URL for generic provider
  */
 export function setupUpdater(autoDownloadEnabled: boolean): void {
   // TRIVIAL: Implemented directly
   autoUpdater.autoDownload = autoDownloadEnabled;
   autoUpdater.autoInstallOnAppQuit = false;
+
+  // BUG FIX: Configure electron-updater to use generic provider
+  // Root cause: Without setFeedURL(), electron-updater defaults to GitHub provider
+  //             which expects latest-mac.yml at /latest, causing 404 errors
+  // Bug report: bug-reports/bug-auto-update-404.md
+  // Fixed: 2025-12-07
+  const owner = '941design';
+  const repo = 'slim-chat';
+  const version = app.getVersion();
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: `https://github.com/${owner}/${repo}/releases/download/v${version}`
+  });
 }
 
 /**

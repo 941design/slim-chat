@@ -61,6 +61,7 @@ jobs:
           files: |
             release-artifacts/**/*.dmg
             release-artifacts/**/*.AppImage
+            release-artifacts/**/*.yml
             release-artifacts/**/manifest.json
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
