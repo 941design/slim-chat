@@ -81,13 +81,14 @@ jobs:
         run: |
           mkdir -p dist
           cp -v release-artifacts/**/*.dmg dist/ 2>/dev/null || true
+          cp -v release-artifacts/**/*.zip dist/ 2>/dev/null || true
           cp -v release-artifacts/**/*.AppImage dist/ 2>/dev/null || true
 
           # Validate artifacts were found
-          ARTIFACT_COUNT=$(ls -1 dist/*.{dmg,AppImage} 2>/dev/null | wc -l)
+          ARTIFACT_COUNT=$(ls -1 dist/*.{dmg,zip,AppImage} 2>/dev/null | wc -l)
           if [ "$ARTIFACT_COUNT" -eq 0 ]; then
             echo "::error::No artifacts found in release-artifacts/"
-            echo "Expected: *.dmg and *.AppImage files"
+            echo "Expected: *.dmg, *.zip, and *.AppImage files"
             ls -laR release-artifacts/
             exit 1
           fi
@@ -103,11 +104,16 @@ jobs:
       # Root cause: builder-debug.yml and app-update.yml exist in both platform builds
       # Bug report: bug-reports/duplicate-release-assets-upload-report.md
       # Fixed: 2025-12-07
+      # BUG FIX: Include .zip files required by electron-updater
+      # Root cause: latest-mac.yml references .zip as primary artifact, but .zip wasn't uploaded
+      # Bug report: bug-reports/macos-download-404-zip-missing-report.md
+      # Fixed: 2025-12-07
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             release-artifacts/**/*.dmg
+            release-artifacts/**/*.zip
             release-artifacts/**/*.AppImage
             release-artifacts/**/latest-*.yml
             release-artifacts/**/manifest.json
