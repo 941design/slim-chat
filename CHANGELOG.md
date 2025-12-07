@@ -86,3 +86,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Disabled button during 'checking' phase to prevent user-triggered concurrency issues
   - Added regression test to verify download button behavior
   - Bug report: bug-reports/download-update-button-not-working-report.md
+- Fixed footer timestamp not updating immediately when update checks complete
+  - Root cause: onUpdateState listener only updated updateState, not full AppStatus including lastUpdateCheck
+  - Footer displayed stale "Not yet checked" until user manually reloaded page
+  - Added status refresh when update check completes (idle/failed states)
+  - Added regression tests to verify timestamp updates for all check completion scenarios
+  - Bug report: bug-reports/footer-timestamp-not-updating-report.md

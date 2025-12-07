@@ -17,7 +17,21 @@ function useStatus() {
       setUpdateState(next.updateState);
     }
     load();
-    const unsubscribe = window.api.onUpdateState((state) => setUpdateState(state));
+    const unsubscribe = window.api.onUpdateState(async (state) => {
+      setUpdateState(state);
+
+      // BUG FIX: Re-fetch full status when update check completes
+      // Root cause: onUpdateState only updated updateState, not full status including lastUpdateCheck
+      // Bug report: bug-reports/footer-timestamp-not-updating-report.md
+      // Fixed: 2025-12-07
+      // This ensures lastUpdateCheck timestamp is displayed immediately when checks complete
+      // Note: Only refresh for 'idle' and 'failed' states (check completion)
+      // 'ready' state doesn't need timestamp update (comes from 'downloaded' -> 'verifying' -> 'ready')
+      if (state.phase === 'idle' || state.phase === 'failed') {
+        const refreshed = await window.api.getStatus();
+        setStatus(refreshed);
+      }
+    });
     return unsubscribe;
   }, []);
 

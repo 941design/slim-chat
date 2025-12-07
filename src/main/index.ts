@@ -46,6 +46,14 @@ function broadcastUpdateStateToMain() {
   }
 }
 
+// CODE QUALITY: Extract duplicate timestamp recording logic
+// Used when update check starts (both auto and manual triggers)
+// Records timestamp that's displayed in footer via getStatus() IPC
+// Bug report: bug-reports/footer-timestamp-not-updating-report.md
+function recordUpdateCheckTimestamp() {
+  lastUpdateCheck = new Date().toISOString();
+}
+
 function setupAutoUpdater() {
   // Configure autoUpdater based on user preference (GAP-005)
   // Default to 'manual' for safe, privacy-respecting behavior
@@ -59,7 +67,7 @@ function setupAutoUpdater() {
   autoUpdater.on('checking-for-update', () => {
     updateState = { phase: 'checking' };
     broadcastUpdateStateToMain();
-    lastUpdateCheck = new Date().toISOString();
+    recordUpdateCheckTimestamp();
   });
 
   autoUpdater.on('update-available', (info) => {
@@ -144,7 +152,7 @@ async function checkForUpdates(): Promise<void> {
   }
   updateState = { phase: 'checking' };
   broadcastUpdateStateToMain();
-  lastUpdateCheck = new Date().toISOString();
+  recordUpdateCheckTimestamp();
   await autoUpdater.checkForUpdates();
 }
 
