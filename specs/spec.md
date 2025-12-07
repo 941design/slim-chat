@@ -9,6 +9,7 @@ Provide a **production-ready bootstrap** for a cross-platform desktop applicatio
 * A **robust self-update pipeline** from day one.
 * A stable **UI layout shell** to host future features.
 * A **secure, open-source style** update verification model (no Apple ID / notarization).
+* A **dev mode testing system** for validating updates before release.
 
 The **first release** will have **minimal user-facing functionality** beyond:
 
@@ -29,8 +30,8 @@ In scope for the first production-ready release:
 * Self-updater using:
 
   * **GitHub Releases** as the update backend.
-  * **electron-updater** (GitHub provider).
-  * **Ed25519-signed manifest verification** before applying updates.
+  * **electron-updater** (generic provider with custom feed URL).
+  * **RSA-4096 signed manifest verification** before applying updates.
 * UI shell:
 
   * **Header**
@@ -50,10 +51,15 @@ In scope for the first production-ready release:
 * Logging:
 
   * **Local logs only**, no external telemetry.
+* Dev mode testing:
+
+  * Test auto-updates locally before releasing to users.
+  * Configure update sources via environment variables.
+  * Production safety enforced in packaged builds.
 * CI/CD pipeline:
 
   * Automatic builds and GitHub Releases from tags (macOS + Linux AppImage).
-  * Creation and signing of the release manifest (Ed25519).
+  * Creation and signing of the release manifest (RSA-4096).
 
 ### 1.3 Explicit Non-goals (Initial Release)
 
@@ -85,28 +91,29 @@ In scope for the first production-ready release:
 
 * **Main process**
 
-  * Electron (latest LTS-compatible version).
+  * Electron 30+.
   * TypeScript.
 * **Renderer**
 
-  * React + TypeScript.
-  * Modern bundler (e.g., Vite or equivalent; exact tooling can be swapped if needed).
+  * React 18 + TypeScript.
+  * Vite bundler.
 * **Cryptography**
 
-  * Ed25519 signatures (e.g., via a small Node library; exact library TBD).
+  * RSA-4096 signatures with SHA-256 hash algorithm.
+  * SHA-256 file hashes for artifact verification.
 * **Packaging & Updates**
 
   * electron-builder.
-  * electron-updater (GitHub provider, custom flow).
+  * electron-updater (generic provider, custom feed URL).
   * GitHub Releases as artifact host.
 
 ### 2.2 Supported Platforms
 
 * **macOS**
 
-  * Minimum version: **macOS 12+** (configurable).
+  * Minimum version: **macOS 12+**.
   * Unsigned / self-signed binary; users must bypass Gatekeeper on first install.
-  * Subsequent updates performed by app’s own updater.
+  * Subsequent updates performed by app's own updater.
 * **Linux**
 
   * Target: modern distributions supporting **AppImage**.
@@ -117,12 +124,12 @@ In scope for the first production-ready release:
 * **Main process**
 
   * Controls BrowserWindows.
-  * Owns auto-update logic and Ed25519 verification.
+  * Owns auto-update logic and RSA-4096 verification.
   * Handles IPC requests for updates, configuration, logs, and system info.
 * **Preload script**
 
   * `contextIsolation: true`, `nodeIntegration: false`.
-  * Exposes a **strict, typed IPC façade** via `contextBridge` (`window.api`).
+  * Exposes a **strict, typed IPC facade** via `contextBridge` (`window.api`).
 * **Renderer process**
 
   * React app rendering layout (header/footer/sidebar/main).
@@ -130,38 +137,38 @@ In scope for the first production-ready release:
 
 ### 2.4 Directory Structure
 
-Base structure (Option B – modular, domain-separated):
-
 ```text
 /src
   /main
-    /update          # auto-update orchestration, GitHub/electron-updater integration
-    /security        # Ed25519 verification, manifest/hash checks
-    /ipc             # IPC channel definitions and handlers
-    /config          # config loading/saving (JSON)
-    /logging         # log file management
-    main.ts          # app bootstrap, window creation, wiring
+    /update          # controller.ts, manifest-generator.ts
+    /security        # verify.ts, crypto.ts, version.ts
+    /ipc             # handlers.ts
+    index.ts         # app bootstrap, window creation, state machine
+    integration.ts   # manifest fetching, verification orchestration
+    dev-env.ts       # dev mode detection and configuration
+    config.ts        # config loading/saving (JSON)
+    logging.ts       # log file management
   /renderer
-    /layout          # header, footer, sidebar, main layout components
-    /components      # shared UI components (buttons, panels, indicators)
-    /features
-      /status        # status dashboard feature
-      /updates       # sidebar update UI, hooks for update state
-    index.tsx        # React bootstrap
-  /common            # shared types, enums, constants (between main & renderer)
-  /assets            # icons, images, fonts (placeholder initial icon)
+    main.tsx         # React application entry
+    styles.css       # Application styles
+    index.html       # HTML template
+    types.d.ts       # Window API type declarations
+  /preload
+    index.ts         # IPC bridge, contextBridge exposure
+  /shared
+    types.ts         # shared types (between main & renderer)
 /scripts             # build, release, manifest signing scripts
 /release             # built artifacts & manifest.json
 /tests               # unit and integration tests
 package.json
 tsconfig.json
-electron-builder.yml (or electron-builder.config.*)
-vite.config.ts (or equivalent bundler config)
+electron-builder.yml (embedded in package.json)
+vite.renderer.config.ts
 ```
 
 ---
 
-## 3. Core Functionality (Initial Release)
+## 3. Core Functionality
 
 ### 3.1 Self-Update Flow (High-level)
 
@@ -171,7 +178,7 @@ vite.config.ts (or equivalent bundler config)
 * `package.json` version: `MAJOR.MINOR.PATCH` (must match tag number).
 * Build artifacts for each release:
 
-  * macOS: `.dmg` or `.zip` (decision per packaging best practice).
+  * macOS: `.dmg` and `.zip`.
   * Linux: `.AppImage`.
 * A signed **manifest JSON** (see §4) stored in the same GitHub Release.
 
@@ -180,9 +187,9 @@ vite.config.ts (or equivalent bundler config)
 1. Load configuration (JSON).
 2. Initialize logging.
 3. Create BrowserWindow and load React UI.
-4. Kick off **background update check**:
+4. Kick off **background update check** (if enabled in config):
 
-   * Use `electron-updater`’s `autoUpdater.checkForUpdates()` (no auto-notify) or equivalent.
+   * Use `electron-updater`'s `autoUpdater.checkForUpdates()`.
    * Listen for events and propagate status via IPC to renderer.
 
 **Update UX (UI model: explicit states):**
@@ -194,45 +201,51 @@ Timeline:
 
 1. **Idle state**:
 
-   * Sidebar shows e.g. “Up to date” or “No updates checked yet”.
-   * Optional “Check for update” button.
+   * Sidebar shows e.g. "Up to date" or "No updates checked yet".
+   * "Check for updates" button available.
 
 2. **Checking state**:
 
-   * Sidebar shows spinner + text “Checking for updates…”.
+   * Sidebar shows "Checking..." button text.
 
 3. **Update available**:
 
-   * Sidebar indicates “Update available vX.Y.Z”.
-   * User can initiate download with a button: “Download update”.
+   * Sidebar indicates "Update available" with version.
+   * User can initiate download with "Download update" button.
 
 4. **Downloading**:
 
-   * Sidebar shows progress: percentage and/or bytes.
+   * Sidebar shows "Downloading..." button text.
    * Update progress remains visible; app content is usable.
 
-5. **Download complete & verified**:
+5. **Downloaded**:
 
-   * The main process:
+   * Brief transition state before verification begins.
 
-     * Verifies the Ed25519-signed manifest.
-     * Verifies the downloaded artifact’s hash matches the manifest.
+6. **Verifying**:
+
+   * The main process verifies the RSA-signed manifest.
+   * Verifies the downloaded artifact's hash matches the manifest.
+   * Sidebar shows "Verifying..." button text.
+
+7. **Ready**:
+
    * If verification succeeds:
+     * Sidebar shows "Restart to apply" button.
+   * Button: "Restart to update" / "Restart now".
 
-     * Sidebar shows “Update ready – Restart to apply”.
-     * Button: “Restart to update”.
-   * If verification fails:
+8. **Failed**:
 
-     * Sidebar shows error state, provides “Retry” and logs entry.
+   * If verification fails or any error occurs:
+     * Sidebar shows error state, provides "Retry" button.
+     * Error logged with detailed message.
 
-6. **Restart to install**:
+9. **Restart to install**:
 
    * On user click:
-
-     * Main process calls `autoUpdater.quitAndInstall()` or equivalent custom installer invocation.
+     * Main process calls `autoUpdater.quitAndInstall()`.
      * App quits and relaunches into the **new version**.
    * On next startup:
-
      * (Future) DB migrations run if present.
      * Configuration and log locations remain stable.
 
@@ -242,84 +255,76 @@ Timeline:
 
 * Usage:
 
-  * Configure `autoUpdater` with GitHub provider using electron-builder config.
-  * Prefer **manual control model**:
+  * Configure `autoUpdater` with **generic provider** using `setFeedURL()`.
+  * Manual control model:
 
     * `autoUpdater.checkForUpdates()`.
-    * Handle `update-available`, `download-progress`, `update-downloaded`, `error`, `update-not-available`.
-    * Use `autoUpdater.downloadUpdate()` only after user chooses to download.
-    * Call `autoUpdater.quitAndInstall()` when the user initiates restart **after manifest verification**.
+    * Handle `checking-for-update`, `update-available`, `download-progress`, `update-downloaded`, `error`, `update-not-available`.
+    * Use `autoUpdater.downloadUpdate()` after user chooses to download (when `autoUpdateBehavior` is `manual`).
+    * Call `autoUpdater.quitAndInstall()` when user initiates restart **after manifest verification**.
 
 * `autoUpdater` event handlers:
 
-  * Forward status to renderer via IPC, e.g.:
+  * Forward status to renderer via IPC:
 
-    * `update:status` with payload:
+    * Channel: `update-state` with payload:
 
-      * `state` (`idle | checking | available | downloading | downloaded | error`).
-      * `availableVersion`.
-      * `progress` (0–100, bytes downloaded / total).
-      * `message` (human-readable).
-    * `update:log` for update-related messages (optional).
+      * `phase`: `idle | checking | available | downloading | downloaded | verifying | ready | failed`
+      * `version?`: available/downloading version
+      * `detail?`: error message or additional info
+      * `progress?`: download progress object
 
 ### 3.3 UI Layout & Behavior
 
 * **Header**
 
-  * App title, placeholder for future top-bar icon/symbol.
-  * Basic menu/placeholder area (e.g., future settings/help icons).
+  * App title: "SlimChat Bootstrap".
+  * Subtitle: "Secure auto-update shell".
 
 * **Footer**
 
-  * Short text: e.g., `vX.Y.Z` (current version, from IPC).
-  * Platform indicator (e.g., “macOS” or “Linux”).
-  * Optional status text (“All systems normal”).
+  * Version text: `vX.Y.Z` (current version, from IPC).
+  * Security indicator: "RSA manifest verification enabled".
 
 * **Sidebar (left)**
 
   * Upper portion:
+    * Status section showing current update phase.
+    * Detail text (version or error message).
 
-    * Placeholder navigation items (e.g., “Status”).
   * Lower portion:
+    * **Primary action button** (context-dependent):
+      * "Check for updates" (idle)
+      * "Checking..." (checking, disabled)
+      * "Download update" (available)
+      * "Downloading..." (downloading, disabled)
+      * "Verifying..." (verifying, disabled)
+      * "Restart to apply" (ready)
+      * "Retry" (failed)
+    * Secondary "Restart now" button when ready.
 
-    * **Update module**:
-
-      * Status text.
-      * Progress bar (for downloading).
-      * Button(s): “Check for update”, “Download update”, “Restart to update” (context-dependent).
-    * Error indicator if last update failed.
+  * Footer:
+    * "Updates served via GitHub Releases"
+    * "Manifest signature required"
 
 * **Main area (right) — Status Dashboard**
 
   * Cards/sections:
 
-    * **App Info**:
-
-      * App name.
-      * Current version.
-      * Build channel (stable; later could add pre-release).
-    * **System Info**:
-
-      * OS name, version.
-      * Architecture.
-    * **Update Status**:
-
-      * Last update check time.
-      * Result (up to date / available / failed).
-    * **Recent Logs**:
-
-      * Tail of log with filter on update-related entries.
-      * Clear log view / open log file button.
+    * **Version**: Current app version.
+    * **Platform**: OS platform identifier.
+    * **Last update check**: Timestamp or "Not yet checked".
+    * **Recent Logs**: Tail of log with update-related entries.
 
 ### 3.4 Logging
 
-* Logging subsystem in `/src/main/logging`:
+* Logging subsystem in `/src/main/logging.ts`:
 
-  * Writes to a log file in user data directory:
-
-    * macOS: `~/Library/Application Support/<AppName>/logs/<date>.log`
-    * Linux: `$XDG_STATE_HOME/<AppName>/logs/` or fallback under `$HOME/.local/state/<AppName>/logs/`.
+  * Writes to a single log file in user data directory:
+    * Location: `app.getPath('userData')/logs/app.log`
   * Log levels: `debug`, `info`, `warn`, `error`.
+  * Level filtering based on configuration.
+  * Maximum 200 lines returned for dashboard display.
 
 * Log entries include:
 
@@ -329,39 +334,43 @@ Timeline:
 
 * Renderer access:
 
-  * IPC method to fetch a small window of recent log lines (e.g., last 200 lines) to display in status dashboard.
+  * IPC method to fetch recent log lines via `system:get-status`.
   * No direct file access from renderer.
 
 ### 3.5 Configuration
 
 * Config file:
 
-  * Location:
+  * Location: `app.getPath('userData')/config.json`
+  * Schema:
 
-    * macOS: `~/Library/Application Support/<AppName>/config.json`.
-    * Linux: `$XDG_CONFIG_HOME/<AppName>/config.json` or fallback to `$HOME/.config/<AppName>/config.json`.
-  * Schema (initial version):
-
-    ```jsonc
-    {
-      "autoUpdateEnabled": true,          // whether to check for updates at startup
-      "allowPrerelease": false,           // future use
-      "updateCheckIntervalHours": 0,      // 0 = only at startup, may extend later
-      "logLevel": "info"                  // "debug" | "info" | "warn" | "error"
+    ```typescript
+    interface AppConfig {
+      autoUpdate: boolean;               // whether to check for updates
+      logLevel: LogLevel;                // "debug" | "info" | "warn" | "error"
+      manifestUrl?: string;              // custom manifest URL override
+      autoUpdateBehavior?: 'manual' | 'auto-download';  // download behavior
+      logRetentionDays?: number;         // future: log retention
+      logMaxFileSizeMB?: number;         // future: log size limit
+      forceDevUpdateConfig?: boolean;    // dev mode: force update checks
+      devUpdateSource?: string;          // dev mode: custom update source
+      allowPrerelease?: boolean;         // dev mode: allow pre-release versions
     }
     ```
 
 * Behavior:
 
   * On startup: load config; if file missing, use defaults and create file.
-  * On update: config schema may be extended; maintain backward compatibility.
-  * IPC methods: `config.get()`, `config.update(partialConfig)` (used by future settings UI).
+  * Default values: `{ autoUpdate: true, logLevel: 'info' }`.
+  * Config normalization validates all field types.
+  * On update: config schema may be extended; maintains backward compatibility.
+  * IPC methods: `config:get`, `config:set` (used by future settings UI).
 
 ---
 
 ## 4. Update Security Model
 
-### 4.1 Ed25519 Signing
+### 4.1 RSA-4096 Signing
 
 * A **release manifest JSON** is generated for each GitHub Release by CI.
 
@@ -373,19 +382,19 @@ Example `manifest.json`:
   "createdAt": "2025-01-01T12:00:00Z",
   "artifacts": [
     {
-      "platform": "macos",
+      "platform": "darwin",
       "type": "dmg",
-      "filename": "AppName-1.2.3-mac.dmg",
+      "url": "https://github.com/941design/slim-chat/releases/download/v1.2.3/SlimChat-1.2.3.dmg",
       "sha256": "<hex-encoded-sha256>"
     },
     {
       "platform": "linux",
       "type": "AppImage",
-      "filename": "AppName-1.2.3.AppImage",
+      "url": "https://github.com/941design/slim-chat/releases/download/v1.2.3/SlimChat-1.2.3-x64.AppImage",
       "sha256": "<hex-encoded-sha256>"
     }
   ],
-  "signature": "<base64-ed25519-signature-over-manifest-without-signature-field>"
+  "signature": "<base64-rsa-signature-over-manifest-without-signature-field>"
 }
 ```
 
@@ -394,68 +403,165 @@ Example `manifest.json`:
   1. Build artifacts for macOS and Linux.
   2. Compute SHA-256 for each artifact.
   3. Create `manifest.json` (without `signature`).
-  4. Sign the canonicalized manifest (e.g., stable JSON serialization) with Ed25519 private key.
-  5. Insert `signature` field.
+  4. Sign the canonicalized manifest JSON payload (version, artifacts, createdAt) with RSA-4096 private key using SHA-256.
+  5. Insert `signature` field (base64-encoded).
   6. Upload `manifest.json` to the GitHub Release alongside artifacts.
 
 * Private key handling:
 
-  * Stored securely in GitHub Actions secrets.
+  * Stored securely in GitHub Actions secrets as `SLIM_CHAT_RSA_PRIVATE_KEY`.
   * Never checked into repository.
-  * Used exclusively in CI scripts under `/scripts/sign-manifest.ts` (or similar).
+  * Must be in PKCS8 PEM format.
+  * Used in manifest generation script via environment variable.
 
 * App-side:
 
-  * Embed corresponding Ed25519 **public key** constant in `/src/main/security/publicKey.ts`.
-  * `security.verifyManifest(manifestJson)`:
+  * RSA public key embedded in `/src/main/index.ts` or via `RSA_PUBLIC_KEY` environment variable.
+  * Public key must be in SPKI PEM format.
+  * `security/verify.ts`:
 
-    * Ensures manifest version is greater than app’s current version before accepting.
-    * Validates Ed25519 signature.
-    * Verifies all listed artifacts have valid `sha256` values.
-  * `security.verifyArtifact(artifactPath, manifestEntry)`:
+    * `verifySignature(manifest, publicKeyPem)`: Validates RSA signature using SHA-256.
+    * `validateVersion(manifestVersion, currentVersion)`: Ensures manifest version > current version.
+    * `findArtifactForPlatform(artifacts, platform)`: Finds matching artifact.
+    * `verifyManifest(manifest, filePath, currentVersion, platform, publicKeyPem)`: Full verification flow.
 
-    * Computes SHA-256 for downloaded file.
-    * Compares to `manifestEntry.sha256`.
+  * `security/crypto.ts`:
+
+    * `hashFile(filePath)`: Computes SHA-256 hash of downloaded file.
+    * `hashMatches(hash1, hash2)`: Case-insensitive hash comparison.
 
 ### 4.2 Verification Flow
 
 1. `autoUpdater` identifies a new version and downloads the artifact.
 2. Main process:
 
-   * Downloads `manifest.json` from GitHub.
-   * Calls `verifyManifest`.
-   * Finds the artifact entry matching current platform.
-   * Calls `verifyArtifact`.
-3. If both manifest and artifact verification succeed:
+   * Sets state to `downloaded`, then `verifying`.
+   * Fetches `manifest.json` from configured URL.
+   * Calls `verifyManifest`:
+     1. Verify RSA signature on manifest.
+     2. Validate version is newer than current.
+     3. Find artifact entry matching current platform.
+     4. Compute SHA-256 hash of downloaded file.
+     5. Compare hash with manifest entry.
+3. If all verification succeeds:
 
-   * App updates UI state to “update ready”.
+   * App updates state to `ready`.
    * Allows `quitAndInstall`.
 4. If verification fails:
 
    * App logs detailed error.
+   * Sets state to `failed` with error detail.
    * Does **not** apply the update.
-   * Sidebar shows error state; user can retry or ignore.
+   * Sidebar shows error state; user can retry.
 
-### 4.3 MacOS & Linux Security Constraints
+### 4.3 macOS & Linux Security Constraints
 
 * macOS:
 
   * No Apple notarization; system-level trust is limited to user accepting the app once.
   * After first install, updates are enforced by:
 
-    * Ed25519 signatures for integrity & authenticity.
+    * RSA-4096 signatures for integrity & authenticity.
     * GitHub HTTPS delivery.
 
 * Linux:
 
-  * Similar Ed25519 + HTTPS model.
+  * Similar RSA + HTTPS model.
   * No distribution packaging trust (e.g., no .deb with distro keys) by default.
 
 ---
 
-## 5. Non-Functional Requirements
+## 5. Dev Mode Update Testing
 
-### 5.1 Performance
+### 5.1 Purpose
+
+Enable developers to test the complete update flow in development mode (`npm run dev`) before releasing to users. This provides confidence that:
+
+* Update checking works correctly.
+* Cryptographic verification functions properly.
+* UI properly handles various update states.
+* State transitions occur as expected.
+
+### 5.2 Environment Variables
+
+Dev mode is automatically detected when `VITE_DEV_SERVER_URL` is set (done by `npm run dev`).
+
+Configuration environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VITE_DEV_SERVER_URL` | Dev mode indicator (set by npm run dev) | unset |
+| `DEV_UPDATE_SOURCE` | Custom update source URL | GitHub releases |
+| `ALLOW_PRERELEASE` | Allow pre-release versions ("true"/"false") | false |
+| `FORCE_DEV_UPDATE_CONFIG` | Force update checks in unpacked app | auto |
+
+### 5.3 Dev Mode Configuration
+
+The `dev-env.ts` module provides:
+
+```typescript
+interface DevUpdateConfig {
+  forceDevUpdateConfig: boolean;
+  devUpdateSource?: string;
+  allowPrerelease: boolean;
+}
+
+function isDevMode(): boolean;           // Returns true if VITE_DEV_SERVER_URL is set
+function getDevUpdateConfig(): DevUpdateConfig;  // Parse environment variables
+```
+
+Configuration precedence: Environment variables > Config file > Defaults
+
+### 5.4 Production Safety (Critical Constraint)
+
+**Production builds MUST NOT accept dev mode features:**
+
+* When `isDevMode()` returns false:
+  * `forceDevUpdateConfig` always false.
+  * `allowPrerelease` always false.
+  * `devUpdateSource` always undefined.
+
+This is enforced in `getDevUpdateConfig()` which returns safe defaults for production.
+
+### 5.5 Testing Workflow
+
+```bash
+# Basic dev mode (auto-enabled)
+npm run dev
+
+# Test against specific GitHub release
+DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/v1.0.1 npm run dev
+
+# Test pre-release versions
+ALLOW_PRERELEASE=true npm run dev
+```
+
+### 5.6 Graceful Error Handling
+
+The update system handles unavailable sources without crashing:
+
+* Network errors (404, timeout, DNS failure) → `failed` state with error detail.
+* Invalid manifests (malformed JSON, missing fields) → Clear error messages.
+* Version comparison failures → Reported as errors.
+* Signature verification failures → Detailed diagnostic info.
+* **Timeout protection**: Manifest fetch times out after 30 seconds (configurable).
+* **Concurrency protection**: Prevents race conditions from overlapping update checks.
+
+### 5.7 Diagnostic Logging
+
+In dev mode, detailed logs are written for:
+
+* Manifest URL being fetched.
+* Version comparisons (current vs available).
+* Signature verification steps.
+* HTTP response codes and network errors.
+* Update source configuration.
+
+---
+
+## 6. Non-Functional Requirements
+
+### 6.1 Performance
 
 * Startup time:
 
@@ -465,7 +571,7 @@ Example `manifest.json`:
   * Background check should not block UI.
   * Update status should appear in sidebar within **5 seconds** of startup (network permitting).
 
-### 5.2 Reliability
+### 6.2 Reliability
 
 * The app must:
 
@@ -482,7 +588,7 @@ Example `manifest.json`:
 
     * On next startup, any incomplete update is discarded and a new check is performed.
 
-### 5.3 Security
+### 6.3 Security
 
 * Renderer:
 
@@ -492,120 +598,150 @@ Example `manifest.json`:
 * IPC:
 
   * No generic `eval` or dynamic code loading.
-  * Typed channels, e.g., `updates:check`, `updates:getStatus`, `updates:restart`, `logs:getRecent`.
+  * Typed channels with domain prefixes.
 * Content:
 
   * Only load local renderer code (no remote URLs).
-  * Optional CSP in HTML to restrict resources.
 * Updates:
 
-  * HTTPS + Ed25519 + SHA-256 verification.
+  * HTTPS + RSA-4096 + SHA-256 verification.
 
-### 5.4 Privacy
+### 6.4 Privacy
 
 * No external telemetry.
 * No user data sent to any server (other than standard GitHub update HTTP requests).
 * Logs stored locally only.
 
-### 5.5 Accessibility (Baseline)
+### 6.5 Accessibility (Baseline)
 
 * Keyboard navigation for sidebar and main content (focus states, tab order).
 * Reasonable color contrast for default theme.
 * Text content readable; no tiny fonts.
 * Future TODO: ARIA landmarks and screen-reader optimizations.
 
-### 5.6 Internationalization
+### 6.6 Internationalization
 
 * Initial release: English-only text.
-* All user-visible strings centralized to facilitate future i18n (e.g., `src/renderer/i18n/en.ts`).
+* All user-visible strings in renderer components (facilitate future i18n).
 
 ---
 
-## 6. Data & Interfaces
+## 7. Data & Interfaces
 
-### 6.1 Domain Data
+### 7.1 Domain Data
 
-Initial domain entities:
+Domain entities in `/src/shared/types.ts`:
 
-* **AppVersion**
+* **LogLevel**
 
-  * `currentVersion: string`
-  * `latestKnownVersion?: string`
-  * `channel: "stable"` (future: `beta`, etc.)
+  * `'debug' | 'info' | 'warn' | 'error'`
 
-* **UpdateStatus**
+* **AppConfig**
 
-  * `state: "idle" | "checking" | "available" | "downloading" | "downloaded" | "error"`
-  * `availableVersion?: string`
-  * `progress?: { percent: number; transferred: number; total?: number }`
-  * `lastCheckAt?: string`
-  * `errorMessage?: string`
+  * See §3.5 Configuration schema.
 
-* **SystemInfo**
+* **AppStatus**
 
-  * `platform: "macos" | "linux"`
-  * `osVersion: string`
-  * `arch: string`
-
-* **Config**
-
-  * As defined in §3.5.
+  * `version: string`
+  * `platform: NodeJS.Platform`
+  * `lastUpdateCheck?: string`
+  * `updateState: UpdateState`
+  * `logs: LogEntry[]`
 
 * **LogEntry**
 
-  * `timestamp: string`
-  * `level: "debug" | "info" | "warn" | "error"`
+  * `level: LogLevel`
   * `message: string`
-  * `context?: Record<string, unknown>`
+  * `timestamp: string`
 
-### 6.2 IPC Surface (Preload API)
+* **UpdatePhase**
 
-Exposed via `contextBridge` as `window.api` (TypeScript types in `/src/common/ipc.ts`):
+  * `'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'verifying' | 'ready' | 'failed'`
 
-```ts
-interface UpdatesAPI {
-  checkNow(): Promise<void>;
-  getStatus(): Promise<UpdateStatus>;
-  onStatusChanged(callback: (status: UpdateStatus) => void): () => void; // returns unsubscribe
-  restartToApplyUpdate(): Promise<void>;
-}
+* **DownloadProgress**
 
-interface SystemAPI {
-  getInfo(): Promise<SystemInfo>;
-}
+  * `percent: number`
+  * `bytesPerSecond: number`
+  * `transferred: number`
+  * `total: number`
 
-interface LogsAPI {
-  getRecent(limit?: number): Promise<LogEntry[]>;
-}
+* **UpdateState**
 
-interface ConfigAPI {
-  get(): Promise<Config>;
-  update(patch: Partial<Config>): Promise<Config>;
-}
+  * `phase: UpdatePhase`
+  * `detail?: string`
+  * `version?: string`
+  * `progress?: DownloadProgress`
 
-interface AppAPI {
-  getVersion(): Promise<string>;
-}
+* **ManifestArtifact**
 
-declare global {
-  interface Window {
-    api: {
-      updates: UpdatesAPI;
-      system: SystemAPI;
-      logs: LogsAPI;
-      config: ConfigAPI;
-      app: AppAPI;
-    };
-  }
+  * `url: string`
+  * `sha256: string`
+  * `platform: 'darwin' | 'linux' | 'win32'`
+  * `type: 'dmg' | 'zip' | 'AppImage' | 'exe'`
+
+* **SignedManifest**
+
+  * `version: string`
+  * `artifacts: ManifestArtifact[]`
+  * `createdAt: string`
+  * `signature: string`
+
+### 7.2 IPC Surface (Preload API)
+
+Exposed via `contextBridge` as `window.api`:
+
+**Nested API structure (current):**
+
+```typescript
+interface RendererApi {
+  updates: {
+    checkNow(): Promise<void>;
+    downloadUpdate(): Promise<void>;
+    restartToUpdate(): Promise<void>;
+    onUpdateState(callback: (state: UpdateState) => void): () => void;
+  };
+  config: {
+    get(): Promise<AppConfig>;
+    set(config: Partial<AppConfig>): Promise<AppConfig>;
+  };
+  system: {
+    getStatus(): Promise<AppStatus>;
+  };
 }
 ```
 
-IPC implementation details:
+**Legacy flat API (backward compatibility):**
 
-* Separate channels (e.g., `updates:check`, `updates:getStatus`, `updates:subscribe`).
-* Renderer never directly uses `ipcRenderer`; only uses `window.api`.
+```typescript
+interface LegacyRendererApi {
+  getStatus(): Promise<AppStatus>;
+  checkForUpdates(): Promise<void>;
+  restartToUpdate(): Promise<void>;
+  onUpdateState(callback: (state: UpdateState) => void): () => void;
+  getConfig(): Promise<AppConfig>;
+  setConfig(config: Partial<AppConfig>): Promise<AppConfig>;
+}
+```
 
-### 6.3 Future SQLite Integration (Design Hooks)
+**IPC Channels:**
+
+| Channel | Handler | Description |
+|---------|---------|-------------|
+| `system:get-status` | getStatus() | Get app status, logs, update state |
+| `updates:check` | checkForUpdates() | Trigger update check |
+| `updates:download` | downloadUpdate() | Start update download |
+| `updates:restart` | restartToUpdate() | Restart to apply update |
+| `config:get` | getConfig() | Get current configuration |
+| `config:set` | setConfig(partial) | Update configuration |
+| `status:get` | getStatus() | Legacy alias |
+| `update:check` | checkForUpdates() | Legacy alias |
+| `update:restart` | restartToUpdate() | Legacy alias |
+
+**Broadcast channel:**
+
+* `update-state`: Sent from main to renderer when update state changes.
+
+### 7.3 Future SQLite Integration (Design Hooks)
 
 Not implemented in initial release, but design must anticipate:
 
@@ -620,106 +756,184 @@ Not implemented in initial release, but design must anticipate:
     * If migration is fast, no extra UI shown.
     * If migration is potentially long or complex:
 
-      * Show a minimal “Updating data…” screen (splash or blocking view) before main UI.
+      * Show a minimal "Updating data..." screen (splash or blocking view) before main UI.
 
 ---
 
-## 7. Build, Packaging & CI
+## 8. Build, Packaging & CI
 
-### 7.1 electron-builder Configuration
+### 8.1 electron-builder Configuration
 
-* `electron-builder.yml` or equivalent:
+Configuration embedded in `package.json`:
 
-  * **App metadata**
+```json
+{
+  "build": {
+    "appId": "com.example.slimchat",
+    "productName": "SlimChat",
+    "files": [
+      "dist/main/**/*",
+      "dist/preload/**/*",
+      "dist/renderer/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "directories": {
+      "buildResources": "build"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.developer-tools",
+      "minimumSystemVersion": "12.0.0"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Utility",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    }
+  }
+}
+```
 
-    * `appId`: `com.example.<appname>`
-    * `productName`: `<AppName>`
-    * `directories.output`: `release/`
-
-  * **Files**
-
-    * Include `dist` (renderer bundle), main TS compiled JS, assets.
-
-  * **macOS target**
-
-    * `mac`:
-
-      * `target`: `["dmg", "zip"]` (choose at least one).
-      * `category`: `"public.app-category.productivity"` or similar.
-      * **Note**: signing config either disabled or minimal self-sign; no notarization.
-
-  * **Linux target**
-
-    * `linux`:
-
-      * `target`: `["AppImage"]`
-      * `category`: `"Utility"` or similar.
-
-  * **Publish**
-
-    * `publish`:
-
-      * `provider`: `"github"`
-      * `owner`: `<github-user-or-org>`
-      * `repo`: `<repo-name>`
-
-### 7.2 GitHub Repository & Releases
+### 8.2 GitHub Repository & Releases
 
 * Repo:
 
-  * Hosted on GitHub: `<github-user-or-org>/<repo-name>`.
+  * Hosted on GitHub: `941design/slim-chat`.
 * Versioning:
 
-  * Tags in format `vMAJOR.MINOR.PATCH`.
+  * Tags in format `MAJOR.MINOR.PATCH` (e.g., `1.0.0`).
   * `package.json` version: `MAJOR.MINOR.PATCH` to match tag.
 * Releases:
 
   * Created automatically by CI on tag push.
   * Attach artifacts:
 
-    * macOS `.dmg` / `.zip`.
+    * macOS `.dmg` and `.zip`.
     * Linux `.AppImage`.
     * `manifest.json` (signed).
+    * `latest-mac.yml` / `latest-linux.yml` (electron-updater metadata).
 
-### 7.3 GitHub Actions CI
+### 8.3 GitHub Actions CI
+
+**Workflow file:** `.github/workflows/release.yml`
 
 Workflow triggers:
 
-* On `push` of tags matching `v*`.
+* On `push` of tags matching `[0-9]+.[0-9]+.[0-9]+`.
 
 Jobs:
 
-1. **build-linux**
+1. **build** (matrix: ubuntu-latest, macos-13)
 
-   * Runs on `ubuntu-latest`.
-   * Installs dependencies.
-   * Builds AppImage via electron-builder.
-   * Produces artifact: `AppName-<version>.AppImage`.
+   * Checkout repository.
+   * Setup Node.js 20.
+   * Install dependencies (`npm ci`).
+   * Run linting (`npm run lint`).
+   * Build packages (`npm run package -- --publish=never`).
+   * Generate manifest (Linux only, uses `SLIM_CHAT_RSA_PRIVATE_KEY` secret).
+   * Upload artifacts.
 
-2. **build-macos**
+2. **create-release** (needs: build)
 
-   * Runs on `macos-latest`.
-   * Installs dependencies.
-   * Builds macOS target(s).
-   * Produces artifact(s): `.dmg` and/or `.zip`.
-
-3. **create-release-and-sign**
-
-   * Needs `build-linux` and `build-macos`.
-   * Creates or updates GitHub Release corresponding to the tag.
-   * Computes SHA-256 hashes.
-   * Generates unsigned `manifest.json`.
-   * Signs manifest using Ed25519 private key from secrets.
-   * Uploads artifacts and `manifest.json` to the Release.
+   * Download all build artifacts.
+   * Create GitHub Release with:
+     * `.dmg` files
+     * `.AppImage` files
+     * `.yml` metadata files
+     * `manifest.json`
 
 Security:
 
-* Ed25519 private key stored in a GitHub Actions secret.
-* CI uses short-lived environment variables to pass key to signing script.
+* RSA-4096 private key stored in GitHub Actions secret `SLIM_CHAT_RSA_PRIVATE_KEY`.
+* CI uses environment variables to pass key to signing script.
 
 ---
 
-## 8. Constraints & Assumptions
+## 9. State Machine
+
+### 9.1 Update State Transitions
+
+```
+                    ┌─────────────────────────────────────┐
+                    │                                     │
+                    ▼                                     │
+┌──────┐  check   ┌──────────┐  not-available  ┌──────┐ │
+│ idle │─────────▶│ checking │────────────────▶│ idle │◀┘
+└──────┘          └──────────┘                 └──────┘
+    ▲                   │
+    │                   │ update-available
+    │                   ▼
+    │             ┌───────────┐  download
+    │             │ available │─────────────┐
+    │             └───────────┘             │
+    │                                       ▼
+    │                              ┌─────────────┐
+    │                              │ downloading │
+    │                              └─────────────┘
+    │                                       │
+    │                                       │ download-complete
+    │                                       ▼
+    │                              ┌────────────┐
+    │                              │ downloaded │
+    │                              └────────────┘
+    │                                       │
+    │                                       │ auto
+    │                                       ▼
+    │                              ┌───────────┐
+    │                              │ verifying │
+    │                              └───────────┘
+    │                                   │
+    │               ┌───────────────────┴───────────────────┐
+    │               │ verify-success                         │ verify-failed
+    │               ▼                                        ▼
+    │          ┌─────────┐                             ┌────────┐
+    │          │  ready  │                             │ failed │
+    │          └─────────┘                             └────────┘
+    │               │                                        │
+    │               │ restart                                │ retry
+    │               ▼                                        │
+    │       [App restarts]                                   │
+    │                                                        │
+    └────────────────────────────────────────────────────────┘
+
+Error from any state → failed
+```
+
+### 9.2 State Machine Properties
+
+**Event Handler Behavior:**
+
+| Event | State Transition | Side Effects |
+|-------|------------------|--------------|
+| `checking-for-update` | → `checking` | Broadcast state, update lastUpdateCheck |
+| `update-available` | → `available` | Broadcast state, log version |
+| `download-progress` | → `downloading` | Broadcast state with progress |
+| `update-not-available` | → `idle` | Broadcast state |
+| `update-downloaded` | → `downloaded` → `verifying` → `ready`/`failed` | Fetch and verify manifest |
+| `error` | → `failed` | Broadcast state, log error |
+
+**Critical Properties:**
+
+* **Deterministic**: Same event from same state always produces same next state.
+* **Broadcast Consistency**: Every state change calls `broadcastUpdateStateToMain()`.
+* **Version Tracking**: Version info preserved through downloading/verifying/ready phases.
+* **Error Recovery**: All error events result in `failed` state with detail message.
+* **Concurrency Guard**: Prevents overlapping update checks (`checking` → skip new check).
+
+### 9.3 Test Coverage
+
+Property-based tests in `/src/main/index.test.ts` verify:
+
+* Each event handler updates `updateState` correctly.
+* Each event handler calls `broadcastUpdateStateToMain()`.
+* Error events transition to `failed` from any phase.
+* Verification workflow follows correct sequence.
+* Version information propagates correctly through states.
+
+---
+
+## 10. Constraints & Assumptions
 
 * **No Windows** support in initial scope.
 * **No Apple ID or notarization**; users must manually allow app on macOS.
@@ -728,12 +942,13 @@ Security:
 
   * Internet connectivity to check for and download updates.
   * File system permissions to write config, logs, and future DB.
+* **Node.js 20.x** required for development.
 
 ---
 
-## 9. Acceptance Criteria
+## 11. Acceptance Criteria
 
-### 9.1 Installation & Startup
+### 11.1 Installation & Startup
 
 * App installs and starts successfully on:
 
@@ -748,26 +963,26 @@ Security:
 
     * Current version.
     * Platform information.
-    * Last update check as “Never” or equivalent.
+    * Last update check as "Not yet checked" or equivalent.
 
-### 9.2 Update Behavior
+### 11.2 Update Behavior
 
 * When a new release is published on GitHub:
 
   * An app with an older version, on startup, eventually transitions:
 
-    * `idle → checking → available → downloading → downloaded`.
+    * `idle → checking → available → downloading → downloaded → verifying → ready`.
   * Sidebar reflects these states with appropriate labels and progress.
   * After download and successful verification:
 
-    * Sidebar shows “Update ready – Restart to apply” with a button.
+    * Sidebar shows "Restart to apply" with a button.
   * On clicking the button:
 
     * App restarts and runs the new version (version text updated in footer and status dashboard).
 
 * When no new release is available:
 
-  * App shows `idle → checking → idle` with “Up to date” message.
+  * App shows `idle → checking → idle` with "Up to date" message.
 
 * Update failures (e.g., network issue, manifest signature invalid, hash mismatch):
 
@@ -775,10 +990,10 @@ Security:
   * Result in:
 
     * Log entry at `error` level.
-    * Sidebar showing “Update failed” or similar.
+    * Sidebar showing error state with "Retry" option.
     * App remains usable.
 
-### 9.3 Security & IPC
+### 11.3 Security & IPC
 
 * Renderer has no direct access to Node APIs:
 
@@ -787,17 +1002,18 @@ Security:
 * All operations (update check, restart, config access, logs access, system info, version) are performed via `window.api.*` methods.
 * Update is not applied if:
 
-  * Manifest verification fails.
-  * Artifact hash verification fails.
+  * Manifest RSA signature verification fails.
+  * Artifact SHA-256 hash verification fails.
+  * Manifest version is not newer than current version.
 
-### 9.4 Logging & Config
+### 11.4 Logging & Config
 
-* A log file is created on first run in the user’s data directory.
+* A log file is created on first run in the user's data directory.
 * Status dashboard can display recent log entries.
-* Changing log level in config (if manually edited) affects new log entries on next startup.
+* Changing log level in config affects new log entries on next startup.
 * Config file is created with default values if nonexistent, and loading it does not crash the app even if partially corrupted (fallback to defaults with logged warning).
 
-### 9.5 UX & Layout
+### 11.5 UX & Layout
 
 * Layout is consistent across platforms:
 
@@ -808,51 +1024,64 @@ Security:
   * Tab order allows reaching sidebar controls and main content.
 * Text and colors are readable under default OS conditions.
 
+### 11.6 Dev Mode Testing
+
+* When running `npm run dev`:
+
+  * Update checks can execute (not skipped for "not packed" app).
+  * Custom update sources can be configured via environment variables.
+  * Pre-release versions can be tested with `ALLOW_PRERELEASE=true`.
+
+* In production builds:
+
+  * Dev mode features are automatically disabled.
+  * Pre-release versions are never accepted.
+  * Custom update sources are ignored.
+
 ---
 
-## 10. Delivery & Milestones
+## 12. Delivery & Milestones
 
-### Milestone 1 — Core Shell & Local Build
+### Milestone 1 — Core Shell & Local Build ✓
 
 * Electron + React + TypeScript project scaffolded.
 * Layout implemented (header, footer, sidebar, main).
-* Preload and strict IPC façade in place.
-* Status dashboard displays:
-
-  * Version (hardcoded or read from package metadata via IPC).
-  * Platform info.
+* Preload and strict IPC facade in place.
+* Status dashboard displays version and platform info.
 * Local logging to file implemented.
 * Local config (JSON) implemented with default values.
 
-### Milestone 2 — Self-Update Integration (GitHub + electron-updater)
+### Milestone 2 — Self-Update Integration ✓
 
 * electron-builder configured for macOS + Linux AppImage.
-* GitHub Releases integrated (manual / local test).
-* `autoUpdater` wired in with event handling.
+* GitHub Releases integrated.
+* `autoUpdater` wired in with event handling via generic provider.
 * Sidebar update UI integrated with actual update state from main process.
-* Update flow:
+* Update flow: Check → available → download → downloaded → verifying → ready → restart.
 
-  * Check → available → download → ready → restart.
-* Basic manifest download (without yet verifying Ed25519) wired in.
+### Milestone 3 — RSA-4096 Security & CI ✓
 
-### Milestone 3 — Ed25519 Security & CI
-
-* Ed25519 public key embedded in app.
-* Ed25519 private key set up as CI secret.
+* RSA-4096 public key embedded in app.
+* RSA-4096 private key set up as CI secret.
 * CI pipeline:
 
   * Builds artifacts.
-  * Computes hashes.
+  * Computes SHA-256 hashes.
   * Generates and signs `manifest.json`.
   * Publishes artifacts + manifest to GitHub Release.
 * App verifies manifest and artifact before applying update.
-* Negative tests:
 
-  * Tampered manifest.
-  * Tampered artifact.
-  * Both rejected and logged.
+### Milestone 4 — Dev Mode Testing ✓
 
-### Milestone 4 — Polish & Hardening
+* Dev mode detection via `VITE_DEV_SERVER_URL`.
+* Environment variable configuration for update sources.
+* Pre-release testing support.
+* Production safety enforcement.
+* Manifest fetch timeout (30 seconds).
+* Concurrency protection for update checks.
+* Comprehensive test coverage (292+ tests including property-based tests).
+
+### Milestone 5 — Polish & Hardening
 
 * Refine update UI states and error messages in sidebar.
 * Improve log view in status dashboard.
@@ -872,7 +1101,7 @@ Security:
 * Add SQLite DB and migration system:
 
   * DB module in `/src/main/db`.
-  * Automatic migrations on startup with optional “Updating data…” screen.
+  * Automatic migrations on startup with optional "Updating data..." screen.
 * Add icons and top bar symbol.
 * Introduce feature pages in main area (beyond status dashboard).
 * Add settings UI for configuration:
