@@ -41,6 +41,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - See README.md "RSA Key Setup" section for key generation and configuration instructions
 
 ### Fixed
+- Fixed manifest.json missing macOS .dmg artifact in GitHub releases, breaking auto-update for macOS users
+  - Root cause: Manifest generated on ubuntu-latest runner before macOS artifacts available
+  - Moved manifest generation from build job to create-release job after all artifacts consolidated
+  - Added manifest validation to verify all expected platform artifacts present
+  - Deleted dead code: manifest-generator.ts and its test (superseded by inline generation)
+  - Added 5 regression tests to verify manifest includes all platform artifacts
+  - Bug report: bug-reports/manifest-missing-artifacts-report.md
 - Fixed duplicate release asset uploads in release workflow
   - Root cause: Glob pattern matched identical filenames (builder-debug.yml, app-update.yml) from both platform builds, causing upload conflicts
   - Changed pattern from `**/*.yml` to `**/latest-*.yml` to match only platform-specific update files

@@ -14,9 +14,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-13]
-    env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SLIM_CHAT_RSA_PRIVATE_KEY: ${{ secrets.SLIM_CHAT_RSA_PRIVATE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,10 +44,6 @@ jobs:
       - name: Build packages
         run: npm run package -- --publish=never
 
-      - name: Generate manifest (linux only)
-        if: matrix.os == 'ubuntu-latest'
-        run: npm run sign:manifest
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -61,11 +54,50 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      SLIM_CHAT_RSA_PRIVATE_KEY: ${{ secrets.SLIM_CHAT_RSA_PRIVATE_KEY }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-artifacts
+
+      # BUG FIX: Generate manifest after all artifacts are downloaded
+      # Root cause: Manifest generated per-platform missed artifacts from other platforms
+      # Bug report: bug-reports/manifest-missing-artifacts-report.md
+      # Fixed: 2025-12-07
+      - name: Consolidate artifacts for manifest generation
+        run: |
+          mkdir -p dist
+          cp -v release-artifacts/**/*.dmg dist/ 2>/dev/null || true
+          cp -v release-artifacts/**/*.AppImage dist/ 2>/dev/null || true
+
+          # Validate artifacts were found
+          ARTIFACT_COUNT=$(ls -1 dist/*.{dmg,AppImage} 2>/dev/null | wc -l)
+          if [ "$ARTIFACT_COUNT" -eq 0 ]; then
+            echo "::error::No artifacts found in release-artifacts/"
+            echo "Expected: *.dmg and *.AppImage files"
+            ls -laR release-artifacts/
+            exit 1
+          fi
+          echo "Found $ARTIFACT_COUNT artifact(s) for manifest generation"
+
+      - name: Generate manifest with all platform artifacts
+        run: npm run sign:manifest
+
+      - name: Move manifest to release artifacts
+        run: mv -v dist/manifest.json release-artifacts/
 
       # BUG FIX: Use latest-*.yml pattern to avoid duplicate uploads
       # Root cause: builder-debug.yml and app-update.yml exist in both platform builds

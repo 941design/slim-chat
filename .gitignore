@@ -4,6 +4,7 @@ dist
 release
 local-release
 .DS_Store
+*.log
 
 # Playwright
 test-results/
