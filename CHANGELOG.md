@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - See README.md "RSA Key Setup" section for key generation and configuration instructions
 
 ### Fixed
+- Fixed auto-update 404 error when checking for updates
+  - Root cause: setupUpdater() did not configure electron-updater's feed URL, causing it to default to GitHub provider which expects latest-mac.yml instead of manifest.json
+  - Added setFeedURL() call with generic provider configuration
+  - Added regression tests to verify generic provider configuration
+  - Bug report: bug-reports/bug-auto-update-404.md
 - Fixed crypto test error handling assertion to use duck-typing instead of instanceof check
   - Root cause: Error constructors don't preserve instanceof across module boundaries in Jest
   - Updated assertion to check error message content instead of error type
