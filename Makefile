@@ -113,19 +113,9 @@ LOCAL_RELEASE_DIR ?= $(PWD)/local-release
 local-release: ## Package HEAD into local directory for version upgrade testing
 	@echo "Building and packaging current HEAD..."
 	@echo "Output directory: $(LOCAL_RELEASE_DIR)"
-	@if [ -z "$$SLIM_CHAT_RSA_PRIVATE_KEY" ]; then \
-		echo ""; \
-		echo "ERROR: SLIM_CHAT_RSA_PRIVATE_KEY is required to sign the manifest"; \
-		echo ""; \
-		echo "Usage:"; \
-		echo "  export SLIM_CHAT_RSA_PRIVATE_KEY=\$$(gopass show slimchat/slimchat-release.key)"; \
-		echo "  make local-release"; \
-		echo ""; \
-		exit 1; \
-	fi
 	npm run build
 	npm run package
-	npm run sign:manifest
+	SLIM_CHAT_RSA_PRIVATE_KEY="$${SLIM_CHAT_RSA_PRIVATE_KEY:-$$(gopass show slimchat/slimchat-release.key)}" npm run sign:manifest
 	@mkdir -p $(LOCAL_RELEASE_DIR)
 	@echo "Copying artifacts to $(LOCAL_RELEASE_DIR)..."
 	@cp dist/manifest.json $(LOCAL_RELEASE_DIR)/ 2>/dev/null || true
