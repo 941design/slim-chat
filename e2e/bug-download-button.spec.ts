@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { waitForAppReady, waitForUpdatePhase } from './helpers';
+import { waitForAppReady, waitForUpdatePhase, getStatusText } from './helpers';
 
 test.describe('Bug: Download Update Button Not Working', () => {
   test('should call downloadUpdate when clicking Download update button', async ({ page, electronApp }) => {
@@ -11,7 +11,7 @@ test.describe('Bug: Download Update Button Not Working', () => {
      * Root cause: handlePrimary() in src/renderer/main.tsx was calling onCheck()
      *             for all non-ready phases, including 'available'
      *
-     * Protection: Ensures that when phase is 'available' and user clicks "Download update",
+     * Protection: Ensures that when phase is 'available' and user clicks "Download Update",
      *            the app calls downloadUpdate() (nested API), not checkForUpdates()
      *
      * Expected: Phase should NOT be 'checking' or 'available' after clicking
@@ -32,27 +32,27 @@ test.describe('Bug: Download Update Button Not Working', () => {
 
     await waitForUpdatePhase(page, 'available');
 
-    // Verify button shows "Download update"
-    const button = page.locator('button.primary');
-    await expect(button).toHaveText('Download update');
+    // Verify "Download Update" button is visible (new layout uses .footer-button)
+    const button = page.locator('.footer-button:has-text("Download Update")');
+    await expect(button).toBeVisible();
 
-    // Click the "Download update" button
+    // Click the "Download Update" button
     await button.click();
 
     // Wait a moment for the state change
     await page.waitForTimeout(200);
 
-    // Get current phase after button click
-    const phaseAfterClick = await page.locator('.update-phase').textContent();
-    console.log('Phase after clicking Download update:', phaseAfterClick);
+    // Get current status after button click
+    const statusAfterClick = await getStatusText(page);
+    console.log('Status after clicking Download Update:', statusAfterClick);
 
-    // BUG: Currently the phase will be 'checking' or 'available'
+    // BUG: Currently the status will show 'Checking' or 'available'
     // (because it re-checks instead of downloading)
-    // Expected: Should be 'downloading'
+    // Expected: Should show 'Downloading'
 
     // This assertion will FAIL, demonstrating the bug
-    // When fixed, clicking "Download update" should NOT trigger a check
-    expect(phaseAfterClick).not.toContain('checking');
-    expect(phaseAfterClick).not.toContain('available'); // Should have moved to downloading
+    // When fixed, clicking "Download Update" should NOT trigger a check
+    expect(statusAfterClick).not.toContain('Checking');
+    expect(statusAfterClick).not.toContain('available'); // Should have moved to downloading
   });
 });

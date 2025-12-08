@@ -24,11 +24,14 @@ test.describe('SlimChat Application', () => {
     expect(version).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
-  test('should display sidebar with update status', async ({ page }) => {
+  test('should display sidebar and footer with update status', async ({ page }) => {
     await waitForAppReady(page);
 
+    // Sidebar is present (placeholder for future features)
     await expect(page.locator('.sidebar')).toBeVisible();
-    await expect(page.locator('.sidebar h3:has-text("Status")')).toBeVisible();
+
+    // Update status is shown in footer, not sidebar
+    await expect(page.locator('.footer-status')).toBeVisible();
 
     const phase = await getUpdatePhase(page);
     expect(['idle', 'checking', 'available', 'downloading', 'downloaded', 'verifying', 'ready', 'failed']).toContain(phase);
@@ -37,7 +40,8 @@ test.describe('SlimChat Application', () => {
   test('should have check for updates button', async ({ page }) => {
     await waitForAppReady(page);
 
-    const button = page.locator('button.primary');
+    // New layout uses icon button in footer for refresh
+    const button = page.locator('.footer-icon-button');
     await expect(button).toBeVisible();
     await expect(button).toBeEnabled();
   });

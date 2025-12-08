@@ -87,7 +87,8 @@ describe('Footer Component - Property-Based Tests', () => {
             };
 
             const status = getStatusText(updateState);
-            if (newVersion) {
+            // Implementation trims whitespace-only versions, so check trimmed value
+            if (newVersion && newVersion.trim()) {
               expect(status).toContain(`v${newVersion}`);
             }
           },
@@ -106,7 +107,8 @@ describe('Footer Component - Property-Based Tests', () => {
             };
 
             const status = getStatusText(updateState);
-            if (newVersion) {
+            // Implementation trims whitespace-only versions, so check trimmed value
+            if (newVersion && newVersion.trim()) {
               expect(status).toContain(`v${newVersion}`);
             }
           },
@@ -128,10 +130,11 @@ describe('Footer Component - Property-Based Tests', () => {
             };
 
             const status = getStatusText(updateState);
-            if (hasDetail && detail) {
+            // Implementation trims whitespace-only details, so check trimmed value
+            if (hasDetail && detail && detail.trim()) {
               expect(status).toContain(detail);
             } else {
-              // If no detail, should still indicate failure
+              // If no detail or whitespace-only, should still indicate failure
               expect(status).toContain('Update failed');
             }
           },

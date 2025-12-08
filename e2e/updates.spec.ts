@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { waitForAppReady, getUpdatePhase, clickButton, waitForUpdatePhase } from './helpers';
+import { waitForAppReady, getUpdatePhase, clickButton, waitForUpdatePhase, getStatusText } from './helpers';
 
 test.describe('Update System', () => {
   test('should start with idle update state', async ({ page }) => {
@@ -12,16 +12,19 @@ test.describe('Update System', () => {
   test('should have correct button label for idle state', async ({ page }) => {
     await waitForAppReady(page);
 
-    const button = page.locator('button.primary');
-    await expect(button).toHaveText('Check for updates');
+    // New layout uses icon button with ↻ symbol for refresh
+    const button = page.locator('.footer-icon-button');
+    await expect(button).toBeVisible();
+    await expect(button).toHaveAttribute('title', 'Check for updates');
   });
 
   test('should display update status information', async ({ page }) => {
     await waitForAppReady(page);
 
-    await expect(page.locator('.update-phase')).toBeVisible();
-    const statusText = await page.locator('.update-phase').textContent();
-    expect(statusText).toContain('Update:');
+    await expect(page.locator('.footer-status')).toBeVisible();
+    const statusText = await getStatusText(page);
+    // Idle state shows "Up to date"
+    expect(statusText).toBe('Up to date');
   });
 
   test('button should be disabled during downloading state', async ({ page, electronApp }) => {
@@ -35,7 +38,8 @@ test.describe('Update System', () => {
     });
 
     await waitForUpdatePhase(page, 'downloading');
-    const button = page.locator('button.primary');
+    // Refresh button should be disabled during downloading
+    const button = page.locator('.footer-icon-button');
     await expect(button).toBeDisabled();
   });
 
@@ -50,7 +54,8 @@ test.describe('Update System', () => {
     });
 
     await waitForUpdatePhase(page, 'verifying');
-    const button = page.locator('button.primary');
+    // Refresh button should be disabled during verifying
+    const button = page.locator('.footer-icon-button');
     await expect(button).toBeDisabled();
   });
 
@@ -66,12 +71,14 @@ test.describe('Update System', () => {
 
     await waitForUpdatePhase(page, 'ready');
 
-    const primaryButton = page.locator('button.primary');
-    await expect(primaryButton).toHaveText('Restart to apply');
+    // New layout shows "Restart to Update" button in footer-right
+    const restartButton = page.locator('.footer-button:has-text("Restart to Update")');
+    await expect(restartButton).toBeVisible();
 
-    const secondaryButton = page.locator('button.secondary');
-    await expect(secondaryButton).toBeVisible();
-    await expect(secondaryButton).toHaveText('Restart now');
+    // Status should show ready state with version
+    const statusText = await getStatusText(page);
+    expect(statusText).toContain('Update ready');
+    expect(statusText).toContain('v1.0.1');
   });
 
   test('should display version in update detail when available', async ({ page, electronApp }) => {
@@ -89,7 +96,9 @@ test.describe('Update System', () => {
 
     await waitForUpdatePhase(page, 'available');
 
-    const detail = await page.locator('.sidebar-section .muted').textContent();
-    expect(detail).toBe('2.0.0');
+    // New layout shows version in footer status text
+    const statusText = await getStatusText(page);
+    expect(statusText).toContain('Update available');
+    expect(statusText).toContain('v2.0.0');
   });
 });

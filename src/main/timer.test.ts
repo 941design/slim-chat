@@ -74,10 +74,21 @@ jest.mock('./dev-env', () => ({
   })),
 }));
 
-const mockAutoUpdater = new (require('events').EventEmitter)();
-jest.mock('electron-updater', () => ({
-  autoUpdater: mockAutoUpdater,
-}));
+jest.mock('electron-updater', () => {
+  const EventEmitter = require('events').EventEmitter;
+  return {
+    autoUpdater: Object.assign(new EventEmitter(), {
+      checkForUpdates: jest.fn(() => Promise.resolve(null)),
+      downloadUpdate: jest.fn(() => Promise.resolve(null)),
+      quitAndInstall: jest.fn(),
+      setFeedURL: jest.fn(),
+      autoDownload: false,
+      autoInstallOnAppQuit: false,
+      allowPrerelease: false,
+      forceDevUpdateConfig: false,
+    }),
+  };
+});
 
 describe('Automatic Update Check Timer (FR2, FR7)', () => {
   let timeoutSpy: any;
