@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { autoUpdater } from 'electron-updater';
-import { AppConfig, AppStatus, UpdateState } from '../shared/types';
+import { AppConfig, AppStatus, UpdateState, DownloadProgress } from '../shared/types';
 import { getRecentLogs, log, setLogLevel } from './logging';
 import { loadConfig, saveConfig } from './config';
 import { verifyDownloadedUpdate, constructManifestUrl, sanitizeError } from './integration';
@@ -76,8 +76,18 @@ function setupAutoUpdater() {
     broadcastUpdateStateToMain();
   });
 
-  autoUpdater.on('download-progress', () => {
-    updateState = { phase: 'downloading', version: updateState.version };
+  autoUpdater.on('download-progress', (progressInfo: any) => {
+    const progress: DownloadProgress = {
+      percent: progressInfo.percent,
+      bytesPerSecond: progressInfo.bytesPerSecond,
+      transferred: progressInfo.transferred,
+      total: progressInfo.total,
+    };
+    updateState = {
+      phase: 'downloading',
+      version: updateState.version,
+      progress,
+    };
     broadcastUpdateStateToMain();
   });
 
@@ -140,20 +150,30 @@ async function getStatus(): Promise<AppStatus> {
   };
 }
 
+let checkInProgress = false;
+
 async function checkForUpdates(): Promise<void> {
   if (!config.autoUpdate) {
     log('warn', 'Auto-update disabled in config');
     return;
   }
-  // CRITICAL: Concurrency guard to prevent race conditions on updateState
-  if (updateState.phase === 'checking') {
+
+  if (checkInProgress) {
     log('warn', 'Update check already in progress, skipping concurrent request');
     return;
   }
-  updateState = { phase: 'checking' };
-  broadcastUpdateStateToMain();
-  recordUpdateCheckTimestamp();
-  await autoUpdater.checkForUpdates();
+
+  checkInProgress = true;
+  try {
+    updateState = { phase: 'checking' };
+    broadcastUpdateStateToMain();
+    recordUpdateCheckTimestamp();
+    await autoUpdater.checkForUpdates();
+  } finally {
+    checkInProgress = false;
+  }
+
+  restartAutoCheckTimer();
 }
 
 async function restartToUpdate(): Promise<void> {
@@ -174,7 +194,72 @@ async function getConfig(): Promise<AppConfig> {
 async function setConfig(partial: Partial<AppConfig>): Promise<AppConfig> {
   config = saveConfig({ ...config, ...partial });
   setLogLevel(config.logLevel);
+  // Auto-update footer: restart timer if autoCheckInterval changed
+  if (partial.autoCheckInterval !== undefined) {
+    restartAutoCheckTimer();
+  }
   return config;
+}
+
+/**
+ * AUTO-UPDATE FOOTER FEATURE: Automatic Update Check Timer (FR2, FR7)
+ *
+ * Implements automatic update check timer with configurable intervals.
+ * Timer respects autoUpdate config and restarts on manual checks.
+ */
+// Module-level timer variable
+let autoCheckTimer: NodeJS.Timeout | null = null;
+
+// Helper function to convert interval string to milliseconds
+function intervalToMilliseconds(interval: string): number {
+  const intervalMap: Record<string, number> = {
+    '1h': 3600000,    // 1 hour
+    '2h': 7200000,    // 2 hours
+    '4h': 14400000,   // 4 hours
+    '12h': 43200000,  // 12 hours
+    '24h': 86400000,  // 24 hours
+  };
+  return intervalMap[interval] || 3600000; // Default to 1h if unknown
+}
+
+// Start automatic update check timer based on config
+function startAutoCheckTimer(): void {
+  // Disable timer if autoUpdate is false or interval is 'never'
+  if (!config.autoUpdate || config.autoCheckInterval === 'never') {
+    if (autoCheckTimer !== null) {
+      clearTimeout(autoCheckTimer);
+      autoCheckTimer = null;
+    }
+    return;
+  }
+
+  // Clear any existing timer
+  if (autoCheckTimer !== null) {
+    clearTimeout(autoCheckTimer);
+    autoCheckTimer = null;
+  }
+
+  // Convert interval to milliseconds
+  const intervalMs = intervalToMilliseconds(config.autoCheckInterval || '1h');
+
+  // Schedule first check after startup delay (5 seconds)
+  autoCheckTimer = setTimeout(() => {
+    checkForUpdates();
+
+    // Schedule periodic checks at the configured interval
+    autoCheckTimer = setInterval(() => {
+      checkForUpdates();
+    }, intervalMs);
+  }, 5000);
+}
+
+// Clear and restart automatic update check timer
+function restartAutoCheckTimer(): void {
+  if (autoCheckTimer !== null) {
+    clearTimeout(autoCheckTimer);
+    autoCheckTimer = null;
+  }
+  startAutoCheckTimer();
 }
 
 app.on('ready', () => {
@@ -192,6 +277,14 @@ app.on('ready', () => {
   setLogLevel(config.logLevel);
   createWindow();
   setupAutoUpdater();
+  startAutoCheckTimer();
+});
+
+app.on('before-quit', () => {
+  if (autoCheckTimer !== null) {
+    clearTimeout(autoCheckTimer);
+    autoCheckTimer = null;
+  }
 });
 
 app.on('window-all-closed', () => {

@@ -1,11 +1,14 @@
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
+export type AutoCheckInterval = '1h' | '2h' | '4h' | '12h' | '24h' | 'never';
+
 export interface AppConfig {
   autoUpdate: boolean;
   logLevel: LogLevel;
   // manifestUrl removed - manifest URL now always derived from GitHub repo in production
   // or from devUpdateSource in dev mode
   autoUpdateBehavior?: 'manual' | 'auto-download'; // GAP-005
+  autoCheckInterval?: AutoCheckInterval; // Auto-update footer feature: configurable check interval
   logRetentionDays?: number; // GAP-011
   logMaxFileSizeMB?: number; // GAP-011
   forceDevUpdateConfig?: boolean; // Dev mode: force update checks in unpacked app

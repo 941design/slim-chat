@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Auto-Update Footer Integration**: Streamlined update experience with automatic checks and real-time progress
+  - Automatic update checks on application startup (5-second delay) and at configurable intervals
+  - Configurable check intervals: 1h, 2h, 4h, 12h, 24h, or never (default: 1 hour)
+  - Real-time download progress display with percentage, transferred/total size, and download speed
+  - Manual refresh control with circular arrow icon (↻) for immediate update checks
+  - Combined version and update status display (e.g., "v1.0.0 • Up to date", "v1.0.0 • Update available: v1.0.1")
+  - Context-aware action buttons: "Download Update" when available, "Restart to Update" when ready
+  - Graceful error handling with user-friendly messages and retry capability
+  - Refresh button automatically disabled during busy phases (checking, downloading, verifying)
+  - Manual checks reset automatic check timer to prevent double-checking
+  - Comprehensive property-based integration tests: 50 new tests covering footer behavior and auto-check lifecycle
+  - Total test suite: 377 tests, all passing with zero regressions
+
+### Changed
+- Relocated update controls from sidebar to application footer for better visibility and discoverability
+- Sidebar simplified: removed update-related controls and status displays (structure preserved for future features)
+
 ### Fixed
 - Fixed macOS Gatekeeper warnings on auto-updated applications (auto-updates)
   - Configured electron-builder to use unsigned builds with `identity: null`

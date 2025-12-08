@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './styles.css';
 import { AppStatus, UpdateState } from '../shared/types';
 import './types.d.ts';
+import { getStatusText, isRefreshEnabled } from './utils';
 
 const initialUpdateState: UpdateState = { phase: 'idle' };
 
@@ -76,68 +77,67 @@ function Header() {
   );
 }
 
-function Footer({ version, lastUpdateCheck }: { version?: string; lastUpdateCheck?: string }) {
+/**
+ * AUTO-UPDATE FOOTER FEATURE: Enhanced Footer Component (FR1, FR3, FR4, FR5, FR6, FR8)
+ *
+ * Displays current version, update status, progress, and provides update controls.
+ * Implements all footer requirements from specification.
+ */
+
+interface FooterProps {
+  version?: string;
+  updateState: UpdateState;
+  onRefresh: () => void;
+  onDownload: () => void;
+  onRestart: () => void;
+}
+
+function Footer({ version, updateState, onRefresh, onDownload, onRestart }: FooterProps) {
+  const statusText = useMemo(() => getStatusText(updateState), [updateState]);
+  const refreshEnabled = useMemo(() => isRefreshEnabled(updateState.phase), [updateState.phase]);
+
+  const showDownloadButton = updateState.phase === 'available';
+  const showRestartButton = updateState.phase === 'ready';
+
   return (
     <footer className="app-footer">
-      <span>{version ? `v${version}` : 'Loading version...'}</span>
-      <span className="mono">Last check: {lastUpdateCheck ? new Date(lastUpdateCheck).toLocaleString() : 'Not yet checked'}</span>
+      <div className="footer-left">
+        <span className="footer-version">{version ? `v${version}` : 'Loading version...'}</span>
+        <span className="footer-separator">•</span>
+        <span className="footer-status">{statusText}</span>
+      </div>
+      <div className="footer-right">
+        {showDownloadButton && (
+          <button className="footer-button" onClick={onDownload}>
+            Download Update
+          </button>
+        )}
+        {showRestartButton && (
+          <button className="footer-button" onClick={onRestart}>
+            Restart to Update
+          </button>
+        )}
+        <button
+          className="footer-icon-button"
+          onClick={onRefresh}
+          disabled={!refreshEnabled}
+          title="Check for updates"
+        >
+          ↻
+        </button>
+      </div>
     </footer>
   );
 }
 
-function Sidebar({ updateState, onCheck, onRestart, onDownload }: { updateState: UpdateState; onCheck: () => void; onRestart: () => void; onDownload: () => void }) {
-  const buttonLabel = useMemo(() => {
-    switch (updateState.phase) {
-      case 'checking':
-        return 'Checking...';
-      case 'available':
-        return 'Download update';
-      case 'downloading':
-        return 'Downloading...';
-      case 'downloaded':
-      case 'verifying':
-        return 'Verifying...';
-      case 'ready':
-        return 'Restart to apply';
-      case 'failed':
-        return 'Retry';
-      default:
-        return 'Check for updates';
-    }
-  }, [updateState.phase]);
-
-  const detail = updateState.detail || updateState.version;
-
-  // BUG FIX: Differentiate 'available' phase to call onDownload
-  // Root cause: Was calling onCheck() for all non-ready phases including 'available'
-  // Bug report: bug-reports/download-update-button-not-working-report.md
-  // Fixed: 2025-12-07
-  const handlePrimary = () => {
-    if (updateState.phase === 'ready') {
-      onRestart();
-    } else if (updateState.phase === 'available') {
-      onDownload();
-    } else {
-      onCheck();
-    }
-  };
-
+function Sidebar() {
+  // Auto-update footer feature: Update controls moved to footer (FR9)
+  // Sidebar kept intact for future features
   return (
     <aside className="sidebar">
       <div className="sidebar-section">
-        <h3>Status</h3>
-        <p className="update-phase">Update: {updateState.phase}</p>
-        {detail && <p className="muted">{detail}</p>}
-      </div>
-      <div className="sidebar-section">
-        <button className="primary" onClick={handlePrimary} disabled={updateState.phase === 'checking' || updateState.phase === 'downloading' || updateState.phase === 'verifying'}>
-          {buttonLabel}
-        </button>
-        {updateState.phase === 'ready' && (
-          <button className="secondary" onClick={onRestart}>
-            Restart now
-          </button>
-        )}
+        <h3>Placeholder</h3>
+        <p className="muted">Future features here</p>
       </div>
     </aside>
   );
@@ -150,10 +150,16 @@ function App() {
     <div className="app-shell">
       <Header />
       <div className="body">
-        <Sidebar updateState={updateState} onCheck={refresh} onRestart={restart} onDownload={download} />
+        <Sidebar />
         <main className="content"></main>
       </div>
-      <Footer version={status?.version} lastUpdateCheck={status?.lastUpdateCheck} />
+      <Footer
+        version={status?.version}
+        updateState={updateState}
+        onRefresh={refresh}
+        onDownload={download}
+        onRestart={restart}
+      />
     </div>
   );
 }

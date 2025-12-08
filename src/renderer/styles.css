@@ -128,11 +128,84 @@ button {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-.update-phase {
-  margin: 6px 0;
-  font-weight: 600;
+/* Footer styling for enhanced update display */
+.footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
-.small {
-  font-size: 0.85rem;
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-version {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.footer-separator {
+  color: var(--muted);
+}
+
+.footer-status {
+  color: var(--text);
+  font-size: 0.95rem;
+  max-width: 600px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footer-button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #041017;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.footer-button:hover {
+  opacity: 0.9;
+}
+
+.footer-button:active {
+  opacity: 0.8;
+}
+
+.footer-icon-button {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.footer-icon-button:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.1);
+}
+
+.footer-icon-button:active:not(:disabled) {
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.footer-icon-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

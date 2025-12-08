@@ -5,6 +5,13 @@ Desktop app bootstrap with secure auto-updates built with Electron, React, and T
 ## Features
 
 - Secure auto-update system with cryptographic verification
+- **Auto-update footer integration** - Streamlined update experience with automatic checks and real-time progress
+  - Automatic update checks on startup and at configurable intervals (1h/2h/4h/12h/24h/never)
+  - Real-time download progress with percentage, size, and speed metrics
+  - Manual refresh control with circular arrow icon for immediate checks
+  - Combined version and status display (e.g., "v1.0.0 • Up to date")
+  - Context-aware action buttons (Download Update / Restart to Update)
+  - All downloads require explicit user action (no silent updates)
 - **Dev mode update testing** - Test updates locally before releasing to users
 - **GitHub Provider hardening**:
   - Download concurrency protection (prevents race conditions)
