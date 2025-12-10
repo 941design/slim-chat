@@ -181,15 +181,46 @@ async function checkForUpdates(manual = false): Promise<void> {
   }
 }
 
+// Module-level concurrency guard for restart operations
+let restartInProgress = false;
+
 async function restartToUpdate(): Promise<void> {
-  if (updateState.phase === 'ready') {
-    // BUG FIX: Log quitAndInstall() invocation for production debugging
-    // Root cause: Missing visibility into update installation flow
-    // Bug report: bug-reports/macos-gatekeeper-warning-unsigned-app.md
-    // Fixed: 2025-12-08
-    log('info', `Initiating app restart to install update: ${app.getVersion()} -> ${updateState.version}`);
-    autoUpdater.quitAndInstall();
+  if (updateState.phase !== 'ready') {
+    log('warn', `Cannot restart: update not ready (current phase: ${updateState.phase})`);
+    return;
   }
+
+  // CODE QUALITY: Concurrency guard to prevent multiple simultaneous restart attempts
+  if (restartInProgress) {
+    log('warn', 'Restart already in progress, ignoring duplicate request');
+    return;
+  }
+
+  restartInProgress = true;
+
+  // CODE QUALITY: Runtime validation that autoInstallOnAppQuit is actually enabled
+  // This validates the fix for bug 0016 is properly applied
+  const autoInstallEnabled = (autoUpdater as any).autoInstallOnAppQuit;
+  if (!autoInstallEnabled) {
+    log('error', 'BUG: autoInstallOnAppQuit=false, installation will fail. Check controller.ts line 127');
+    updateState = { phase: 'failed', detail: 'Update configuration error' };
+    broadcastUpdateStateToMain();
+    restartInProgress = false;
+    return;
+  }
+
+  // BUG FIX: Use app.quit() instead of autoUpdater.quitAndInstall()
+  // Root cause: quitAndInstall() incompatible with autoInstallOnAppQuit=true
+  // Bug reports: bug-reports/autoupdater-restart-download-loop.md
+  //              bug-reports/macos-gatekeeper-warning-unsigned-app.md
+  // Fixed: 2025-12-10
+  // When autoInstallOnAppQuit=true, quitAndInstall() causes redundant install attempts.
+  // app.quit() allows autoUpdater to handle installation automatically on quit.
+  log('info', `Initiating app restart to install update: ${app.getVersion()} -> ${updateState.version} (autoInstallOnAppQuit=true)`);
+
+  // Note: Cannot add error handlers after app.quit() - process terminates.
+  // Installation errors from Squirrel will be detected on next startup if app version unchanged.
+  app.quit();
 }
 
 async function getConfig(): Promise<AppConfig> {

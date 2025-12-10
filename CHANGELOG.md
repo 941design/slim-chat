@@ -127,3 +127,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added regression test verifying autoInstallOnAppQuit=true is set correctly
   - Bug report: bug-reports/0015-update-signature-verification-after-restart-report.md
   - NOTE: Requires manual testing on macOS arm64 to confirm Squirrel.Mac accepts ad-hoc signed apps with this configuration
+- Fixed update not installed after restart causing re-download loop (auto-updates)
+  - Changed restartToUpdate() to use app.quit() instead of autoUpdater.quitAndInstall()
+  - Prevents redundant install attempts and repeated Gatekeeper warnings on macOS
+  - Root cause: quitAndInstall() incompatible with autoInstallOnAppQuit=true causing conflicting install mechanisms
+  - Added pre-quit validation to ensure autoInstallOnAppQuit is enabled
+  - Added runtime concurrency guard to prevent race conditions during restart
+  - Added 5 regression tests to verify restart behavior and configuration
+  - Bug report: bug-reports/autoupdater-restart-download-loop.md
