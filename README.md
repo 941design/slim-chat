@@ -2,6 +2,10 @@
 
 Desktop app bootstrap with secure auto-updates built with Electron, React, and TypeScript.
 
+## TODO
+
++ FIX :: release does not require e2e tests.
+
 ## Features
 
 - Secure auto-update system with cryptographic verification

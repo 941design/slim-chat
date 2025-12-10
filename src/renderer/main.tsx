@@ -118,13 +118,14 @@ function Header() {
   return (
     <Box
       as="header"
+      className="app-header"
       px="4"
       py="3"
       borderBottomWidth="1px"
       borderColor="whiteAlpha.100"
       bg="blackAlpha.300"
     >
-      <Text fontSize="lg" fontWeight="semibold" color="brand.400">
+      <Text className="brand" fontSize="lg" fontWeight="semibold" color="brand.400">
         SlimChat Bootstrap
       </Text>
     </Box>
@@ -156,6 +157,7 @@ function Footer({ version, updateState, onRefresh, onDownload, onRestart }: Foot
   return (
     <Flex
       as="footer"
+      className="app-footer"
       px="4"
       py="2"
       borderTopWidth="1px"
@@ -165,26 +167,28 @@ function Footer({ version, updateState, onRefresh, onDownload, onRestart }: Foot
       fontSize="sm"
     >
       <HStack gap="2">
-        <Text color="gray.500" fontFamily="mono" fontSize="xs">
+        <Text className="footer-version" color="gray.500" fontFamily="mono" fontSize="xs">
           {version ? `v${version}` : 'Loading...'}
         </Text>
         <Text color="gray.600">•</Text>
-        <Text color="gray.400">{statusText}</Text>
+        <Text className="footer-status" color="gray.400">{statusText}</Text>
       </HStack>
       <Spacer />
       <HStack gap="2">
         {showDownloadButton && (
-          <Button size="sm" colorPalette="blue" onClick={onDownload}>
+          <Button className="footer-button" size="sm" colorPalette="blue" onClick={onDownload}>
             Download Update
           </Button>
         )}
         {showRestartButton && (
-          <Button size="sm" colorPalette="green" onClick={onRestart}>
+          <Button className="footer-button" size="sm" colorPalette="green" onClick={onRestart}>
             Restart to Update
           </Button>
         )}
         <IconButton
+          className="footer-icon-button"
           aria-label="Check for updates"
+          title="Check for updates"
           size="sm"
           variant="ghost"
           onClick={onRefresh}
@@ -203,6 +207,7 @@ function Sidebar() {
   return (
     <Box
       as="aside"
+      className="sidebar"
       w="220px"
       borderRightWidth="1px"
       borderColor="whiteAlpha.100"
@@ -227,7 +232,7 @@ function App() {
   const { status, updateState, refresh, restart, download } = useStatus();
 
   return (
-    <Flex direction="column" h="100vh" bg="#0f172a">
+    <Flex className="app-shell" direction="column" h="100vh" bg="#0f172a">
       <Header />
       <Flex flex="1" overflow="hidden">
         <Sidebar />
