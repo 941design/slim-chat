@@ -1,6 +1,6 @@
 {
   "name": "slim-chat",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "description": "Desktop app bootstrap with secure auto-updates",
   "main": "dist/main/index.js",
   "author": "markus.rother@mustwork.de",
