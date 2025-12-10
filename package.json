@@ -34,9 +34,13 @@
     "sign:manifest": "tsc ./scripts/generate-manifest.ts --outDir ./dist --module commonjs --target ES2020 --moduleResolution node --esModuleInterop && node ./dist/scripts/generate-manifest.js"
   },
   "dependencies": {
+    "@chakra-ui/react": "^3.30.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "@types/semver": "^7.7.1",
     "electron-log": "^5.1.4",
     "electron-updater": "^6.3.9",
+    "framer-motion": "^12.23.26",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "semver": "^7.7.3"
