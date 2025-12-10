@@ -1,7 +1,7 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'path';
 import { autoUpdater } from 'electron-updater';
-import { AppConfig, AppStatus, UpdateState, DownloadProgress } from '../shared/types';
+import { AppConfig, AppStatus, UpdateState, UpdatePhase, DownloadProgress } from '../shared/types';
 import { getRecentLogs, log, setLogLevel } from './logging';
 import { loadConfig, saveConfig } from './config';
 import { verifyDownloadedUpdate, constructManifestUrl, sanitizeError } from './integration';
@@ -160,6 +160,13 @@ async function checkForUpdates(manual = false): Promise<void> {
 
   if (checkInProgress) {
     log('warn', 'Update check already in progress, skipping concurrent request');
+    return;
+  }
+
+  // Suppress update checks when an update is already being processed
+  const activePhases: UpdatePhase[] = ['downloading', 'downloaded', 'verifying', 'ready'];
+  if (activePhases.includes(updateState.phase)) {
+    log('info', `Update check suppressed: update already in progress (phase: ${updateState.phase})`);
     return;
   }
 
