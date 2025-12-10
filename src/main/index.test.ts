@@ -54,6 +54,12 @@ jest.mock('./integration', () => ({
     const message = error instanceof Error ? error.message : String(error);
     return new Error(message);
   }),
+  fetchManifest: jest.fn(() => Promise.resolve({
+    version: '1.0.0',
+    artifacts: [],
+    createdAt: new Date().toISOString(),
+    signature: 'mock-signature',
+  })),
 }));
 
 jest.mock('./ipc/handlers', () => ({
@@ -64,6 +70,8 @@ jest.mock('./ipc/handlers', () => ({
 jest.mock('./update/controller', () => ({
   setupUpdater: jest.fn(),
   downloadUpdate: jest.fn(),
+  GITHUB_OWNER: '941design',
+  GITHUB_REPO: 'slim-chat',
 }));
 
 jest.mock('./dev-env', () => ({
@@ -73,6 +81,17 @@ jest.mock('./dev-env', () => ({
     devUpdateSource: undefined,
     allowPrerelease: false,
   })),
+}));
+
+jest.mock('./update/dmg-installer', () => ({
+  cleanupStaleMounts: jest.fn(() => Promise.resolve()),
+  findDmgArtifact: jest.fn(),
+  downloadDmg: jest.fn(() => Promise.resolve()),
+  verifyDmgHash: jest.fn(() => Promise.resolve(true)),
+  mountDmg: jest.fn(() => Promise.resolve('/Volumes/SlimChat')),
+  openFinderAtMountPoint: jest.fn(() => Promise.resolve()),
+  constructDmgUrl: jest.fn(() => 'https://example.com/test.dmg'),
+  getUpdaterCacheDir: jest.fn(() => '/tmp/slim-chat-updater'),
 }));
 
 const mockAutoUpdater = new EventEmitter();

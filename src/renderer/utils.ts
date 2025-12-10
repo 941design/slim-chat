@@ -32,6 +32,14 @@ export function getStatusText(updateState: UpdateState): string {
       return 'Verifying update...';
     case 'ready':
       return newVersion && newVersion.trim() ? `Update ready: v${newVersion}` : 'Update ready';
+    case 'mounting':
+      if (progress) {
+        const percent = Math.round(progress.percent);
+        return `Preparing update... ${percent}%`;
+      }
+      return 'Preparing update...';
+    case 'mounted':
+      return 'Drag SlimChat to Applications folder';
     case 'failed':
       return detail && detail.trim() ? `Update failed: ${detail}` : 'Update failed';
     default:

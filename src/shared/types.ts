@@ -38,6 +38,8 @@ export type UpdatePhase =
   | 'downloaded'
   | 'verifying'
   | 'ready'
+  | 'mounting'  // macOS: DMG being downloaded/mounted
+  | 'mounted'   // macOS: Finder open, waiting for user drag-and-drop
   | 'failed';
 
 export interface DownloadProgress {

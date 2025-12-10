@@ -4,9 +4,19 @@ import { autoUpdater } from 'electron-updater';
 import { AppConfig, AppStatus, UpdateState, UpdatePhase, DownloadProgress } from '../shared/types';
 import { getRecentLogs, log, setLogLevel } from './logging';
 import { loadConfig, saveConfig } from './config';
-import { verifyDownloadedUpdate, constructManifestUrl, sanitizeError } from './integration';
+import { verifyDownloadedUpdate, constructManifestUrl, sanitizeError, fetchManifest } from './integration';
 import { registerHandlers, broadcastUpdateState } from './ipc/handlers';
-import { downloadUpdate, setupUpdater } from './update/controller';
+import { downloadUpdate, setupUpdater, GITHUB_OWNER, GITHUB_REPO } from './update/controller';
+import {
+  cleanupStaleMounts,
+  findDmgArtifact,
+  downloadDmg,
+  verifyDmgHash,
+  mountDmg,
+  openFinderAtMountPoint,
+  constructDmgUrl,
+  getUpdaterCacheDir,
+} from './update/dmg-installer';
 import { getDevUpdateConfig, isDevMode } from './dev-env';
 
 let mainWindow: BrowserWindow | null = null;
@@ -205,8 +215,30 @@ async function restartToUpdate(): Promise<void> {
 
   restartInProgress = true;
 
+  // BUG FIX: Use app.quit() instead of autoUpdater.quitAndInstall()
+  // Root cause: quitAndInstall() incompatible with autoInstallOnAppQuit=true
+  // Bug reports: bug-reports/autoupdater-restart-download-loop.md
+  //              bug-reports/macos-gatekeeper-warning-unsigned-app.md
+  // Fixed: 2025-12-10
+  // When autoInstallOnAppQuit=true, quitAndInstall() causes redundant install attempts.
+
+  // macOS: Use manual DMG installation flow (bypasses Squirrel.Mac)
+  // Squirrel.Mac fails for unsigned/ad-hoc signed apps (identity=null)
+  if (process.platform === 'darwin') {
+    try {
+      await performMacOsDmgInstall();
+    } catch (error) {
+      const sanitized = sanitizeError(error, isDevMode());
+      log('error', `DMG installation failed: ${sanitized.message}`);
+      updateState = { phase: 'failed', detail: sanitized.message };
+      broadcastUpdateStateToMain();
+      restartInProgress = false;
+    }
+    return;
+  }
+
+  // Non-macOS: Use existing electron-updater flow
   // CODE QUALITY: Runtime validation that autoInstallOnAppQuit is actually enabled
-  // This validates the fix for bug 0016 is properly applied
   const autoInstallEnabled = (autoUpdater as any).autoInstallOnAppQuit;
   if (!autoInstallEnabled) {
     log('error', 'BUG: autoInstallOnAppQuit=false, installation will fail. Check controller.ts line 127');
@@ -216,17 +248,96 @@ async function restartToUpdate(): Promise<void> {
     return;
   }
 
-  // BUG FIX: Use app.quit() instead of autoUpdater.quitAndInstall()
-  // Root cause: quitAndInstall() incompatible with autoInstallOnAppQuit=true
-  // Bug reports: bug-reports/autoupdater-restart-download-loop.md
-  //              bug-reports/macos-gatekeeper-warning-unsigned-app.md
-  // Fixed: 2025-12-10
-  // When autoInstallOnAppQuit=true, quitAndInstall() causes redundant install attempts.
   // app.quit() allows autoUpdater to handle installation automatically on quit.
   log('info', `Initiating app restart to install update: ${app.getVersion()} -> ${updateState.version} (autoInstallOnAppQuit=true)`);
+  app.quit();
+}
 
-  // Note: Cannot add error handlers after app.quit() - process terminates.
-  // Installation errors from Squirrel will be detected on next startup if app version unchanged.
+/**
+ * Perform manual DMG installation for macOS
+ *
+ * This bypasses Squirrel.Mac entirely, providing a user-friendly
+ * drag-to-Applications installation experience.
+ *
+ * Flow:
+ *   1. Fetch manifest to get DMG artifact
+ *   2. Download DMG with progress tracking
+ *   3. Verify DMG hash against manifest
+ *   4. Mount DMG using hdiutil
+ *   5. Open Finder at mount point (drag-to-Applications UI)
+ *   6. Quit app so user can complete installation
+ */
+async function performMacOsDmgInstall(): Promise<void> {
+  const version = updateState.version;
+  if (!version) {
+    throw new Error('Update version not available');
+  }
+
+  log('info', `Starting macOS DMG installation for version ${version}`);
+
+  // 1. Update state and fetch manifest
+  updateState = { phase: 'mounting', version };
+  broadcastUpdateStateToMain();
+
+  const devConfig = getDevUpdateConfig();
+  const manifestUrl = constructManifestUrl(
+    { owner: GITHUB_OWNER, repo: GITHUB_REPO },
+    devConfig.devUpdateSource
+  );
+
+  const manifest = await fetchManifest(
+    manifestUrl,
+    30000,
+    Boolean(devConfig.devUpdateSource)
+  );
+
+  // 2. Find DMG artifact
+  const dmgArtifact = findDmgArtifact(manifest);
+  if (!dmgArtifact) {
+    throw new Error('No DMG artifact found in manifest for macOS');
+  }
+
+  // 3. Construct download URL and destination
+  const dmgUrl = constructDmgUrl(dmgArtifact, version, GITHUB_OWNER, GITHUB_REPO);
+  const cacheDir = getUpdaterCacheDir();
+  const dmgPath = path.join(cacheDir, dmgArtifact.url);
+
+  // 4. Download DMG with progress tracking
+  log('info', `Downloading DMG from ${dmgUrl}`);
+  await downloadDmg(dmgUrl, dmgPath, (percent) => {
+    updateState = {
+      phase: 'mounting',
+      version,
+      progress: { percent, bytesPerSecond: 0, transferred: 0, total: 0 },
+    };
+    broadcastUpdateStateToMain();
+  });
+
+  // 5. Verify DMG hash
+  log('info', `Verifying DMG hash: ${dmgArtifact.sha256.substring(0, 16)}...`);
+  const hashValid = await verifyDmgHash(dmgPath, dmgArtifact.sha256);
+  if (!hashValid) {
+    throw new Error('DMG hash verification failed');
+  }
+  log('info', 'DMG hash verified successfully');
+
+  // 6. Mount DMG
+  log('info', `Mounting DMG: ${dmgPath}`);
+  const mountPoint = await mountDmg(dmgPath);
+  log('info', `DMG mounted at: ${mountPoint}`);
+
+  // 7. Open Finder at mount point
+  updateState = { phase: 'mounted', version };
+  broadcastUpdateStateToMain();
+
+  await openFinderAtMountPoint(mountPoint);
+  log('info', 'Finder opened at mount point - user can now drag to Applications');
+
+  // 8. Brief delay for user to see the Finder window
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // 9. Quit the app so user can complete drag-and-drop
+  log('info', 'Quitting app for user to complete installation');
   app.quit();
 }
 
@@ -305,7 +416,14 @@ function restartAutoCheckTimer(): void {
   startAutoCheckTimer();
 }
 
-app.on('ready', () => {
+app.on('ready', async () => {
+  // macOS: Clean up any stale DMG mounts from previous update attempts
+  if (process.platform === 'darwin') {
+    await cleanupStaleMounts().catch((err) => {
+      log('warn', `Failed to cleanup stale mounts: ${err.message}`);
+    });
+  }
+
   // Register IPC handlers with domain-based organization
   registerHandlers({
     getStatus,
