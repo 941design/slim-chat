@@ -65,3 +65,4 @@ Electron app with three processes:
 **docs/** — Detailed guides
 - Step-by-step procedures (e.g., RSA key setup, dev mode testing)
 - Implementation-level documentation when depth is needed
+- Technical architecture details (`docs/architecture.md`)
