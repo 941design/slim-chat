@@ -112,6 +112,21 @@ describe('NostlingService', () => {
     expect((log as jest.Mock).mock.calls.some((call) => `${call[1]}`.includes('unknown sender'))).toBe(true);
   });
 
+  it('logs and discards decryption failures without surfacing them', async () => {
+    const identity = await service.createIdentity({ label: 'Receiver', nsec: 'secret', npub: 'npub1' });
+
+    const result = await service.ingestIncomingMessage({
+      identityId: identity.id,
+      senderNpub: 'npub2',
+      recipientNpub: 'npub1',
+      ciphertext: 'garbage',
+      decryptionFailed: true,
+    });
+
+    expect(result).toBeNull();
+    expect((log as jest.Mock).mock.calls.some((call) => `${call[1]}`.includes('decryption failure'))).toBe(true);
+  });
+
   it('exposes the outgoing queue with status helpers', async () => {
     const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub1' });
     const contact = await service.addContact({ identityId: identity.id, npub: 'npub2' });
@@ -129,6 +144,25 @@ describe('NostlingService', () => {
 
     queue = await service.getOutgoingQueue(identity.id);
     expect(queue).toHaveLength(0);
+  });
+
+  it('marks messages as error and logs when relay publish fails', async () => {
+    const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub1' });
+    const contact = await service.addContact({ identityId: identity.id, npub: 'npub2' });
+
+    // Force offline to keep message queued
+    const queued = await service.sendMessage({ identityId: identity.id, contactId: contact.id, plaintext: 'hello' });
+
+    // Simulate relay failure during flush
+    (service as any).markMessageSent = jest.fn(() => {
+      throw new Error('relay down');
+    });
+
+    await service.setOnline(true);
+
+    const messages = await service.listMessages(identity.id, contact.id);
+    expect(messages.find((message) => message.id === queued.id)?.status).toBe('error');
+    expect((log as jest.Mock).mock.calls.some((call) => `${call[1]}`.includes('Relay publish failed'))).toBe(true);
   });
 
   it('builds kind-4 relay filters from the contact whitelist', async () => {

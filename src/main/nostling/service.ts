@@ -97,34 +97,36 @@ export class NostlingService {
   }
 
   async createIdentity(request: CreateIdentityRequest): Promise<NostlingIdentity> {
-    if (!request?.label || !request.label.trim()) {
-      throw new Error('Identity label is required');
-    }
+    return this.withErrorLogging('create identity', async () => {
+      if (!request?.label || !request.label.trim()) {
+        throw new Error('Identity label is required');
+      }
 
-    const npub = request.npub?.trim();
-    if (!npub) {
-      throw new Error('npub is required to create an identity');
-    }
+      const npub = request.npub?.trim();
+      if (!npub) {
+        throw new Error('npub is required to create an identity');
+      }
 
-    const secretRef = await this.resolveSecretRef(request);
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    const relaysJson = request.relays && request.relays.length > 0 ? JSON.stringify(request.relays) : null;
+      const secretRef = await this.resolveSecretRef(request);
+      const id = randomUUID();
+      const now = new Date().toISOString();
+      const relaysJson = request.relays && request.relays.length > 0 ? JSON.stringify(request.relays) : null;
 
-    this.database.run(
-      'INSERT INTO nostr_identities (id, npub, secret_ref, label, relays, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, npub, secretRef, request.label, relaysJson, now]
-    );
+      this.database.run(
+        'INSERT INTO nostr_identities (id, npub, secret_ref, label, relays, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, npub, secretRef, request.label, relaysJson, now]
+      );
 
-    log('info', `Created nostling identity ${id}`);
-    return {
-      id,
-      npub,
-      secretRef,
-      label: request.label,
-      relays: request.relays,
-      createdAt: now,
-    };
+      log('info', `Created nostling identity ${id}`);
+      return {
+        id,
+        npub,
+        secretRef,
+        label: request.label,
+        relays: request.relays,
+        createdAt: now,
+      };
+    });
   }
 
   async removeIdentity(id: string): Promise<void> {
@@ -150,36 +152,38 @@ export class NostlingService {
   }
 
   async addContact(request: AddContactRequest): Promise<NostlingContact> {
-    this.assertIdentityExists(request.identityId);
+    return this.withErrorLogging('add contact', async () => {
+      this.assertIdentityExists(request.identityId);
 
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    const alias = request.alias?.trim() || request.npub;
+      const id = randomUUID();
+      const now = new Date().toISOString();
+      const alias = request.alias?.trim() || request.npub;
 
-    this.database.run(
-      'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, request.identityId, request.npub, alias, 'pending', now]
-    );
+      this.database.run(
+        'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, request.identityId, request.npub, alias, 'pending', now]
+      );
 
-    log('info', `Added nostling contact ${id} for identity ${request.identityId}`);
+      log('info', `Added nostling contact ${id} for identity ${request.identityId}`);
 
-    // Kick off handshake by sending welcome message
-    await this.enqueueOutgoingMessage({
-      identityId: request.identityId,
-      contactId: id,
-      senderNpub: this.getIdentityNpub(request.identityId),
-      recipientNpub: request.npub,
-      plaintext: this.welcomeMessage,
+      // Kick off handshake by sending welcome message
+      await this.enqueueOutgoingMessage({
+        identityId: request.identityId,
+        contactId: id,
+        senderNpub: this.getIdentityNpub(request.identityId),
+        recipientNpub: request.npub,
+        plaintext: this.welcomeMessage,
+      });
+
+      return {
+        id,
+        identityId: request.identityId,
+        npub: request.npub,
+        alias,
+        state: 'pending',
+        createdAt: now,
+      };
     });
-
-    return {
-      id,
-      identityId: request.identityId,
-      npub: request.npub,
-      alias,
-      state: 'pending',
-      createdAt: now,
-    };
   }
 
   async removeContact(contactId: string): Promise<void> {
@@ -215,21 +219,23 @@ export class NostlingService {
   }
 
   async sendMessage(request: { identityId: string; contactId: string; plaintext: string }): Promise<NostlingMessage> {
-    if (!request.plaintext || !request.plaintext.trim()) {
-      throw new Error('Message body is required');
-    }
+    return this.withErrorLogging('send message', async () => {
+      if (!request.plaintext || !request.plaintext.trim()) {
+        throw new Error('Message body is required');
+      }
 
-    const contact = this.getContact(request.contactId);
-    if (contact.identityId !== request.identityId) {
-      throw new Error('Contact does not belong to the specified identity');
-    }
+      const contact = this.getContact(request.contactId);
+      if (contact.identityId !== request.identityId) {
+        throw new Error('Contact does not belong to the specified identity');
+      }
 
-    return this.enqueueOutgoingMessage({
-      identityId: request.identityId,
-      contactId: request.contactId,
-      senderNpub: this.getIdentityNpub(request.identityId),
-      recipientNpub: contact.npub,
-      plaintext: request.plaintext,
+      return this.enqueueOutgoingMessage({
+        identityId: request.identityId,
+        contactId: request.contactId,
+        senderNpub: this.getIdentityNpub(request.identityId),
+        recipientNpub: contact.npub,
+        plaintext: request.plaintext,
+      });
     });
   }
 
@@ -240,51 +246,60 @@ export class NostlingService {
     ciphertext: string;
     eventId?: string;
     timestamp?: string;
+    decryptionFailed?: boolean;
+    errorDetail?: string;
   }): Promise<NostlingMessage | null> {
-    const contact = this.findContactByNpub(options.identityId, options.senderNpub);
-    if (!contact) {
-      log('warn', `Discarding nostling message from unknown sender ${options.senderNpub}`);
-      return null;
-    }
+    return this.withErrorLogging('ingest incoming message', async () => {
+      if (options.decryptionFailed) {
+        log('warn', `Discarding nostling message due to decryption failure from ${options.senderNpub}`);
+        return null;
+      }
 
-    const now = options.timestamp || new Date().toISOString();
-    const id = randomUUID();
+      const contact = this.findContactByNpub(options.identityId, options.senderNpub);
+      if (!contact) {
+        log('warn', `Discarding nostling message from unknown sender ${options.senderNpub}`);
+        return null;
+      }
 
-    this.database.run(
-      'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [
+      const now = options.timestamp || new Date().toISOString();
+      const id = randomUUID();
+
+      this.database.run(
+        'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          id,
+          options.identityId,
+          contact.id,
+          options.senderNpub,
+          options.recipientNpub,
+          options.ciphertext,
+          options.eventId || null,
+          now,
+          'sent',
+          'incoming',
+        ]
+      );
+
+      if (contact.state === 'pending') {
+        await this.markContactConnected(contact.id);
+      }
+
+      this.bumpContactLastMessage(contact.id, now);
+      log('info', `Stored incoming nostling message ${id}`);
+
+      return {
         id,
-        options.identityId,
-        contact.id,
-        options.senderNpub,
-        options.recipientNpub,
-        options.ciphertext,
-        options.eventId || null,
-        now,
-        'sent',
-        'incoming',
-      ]
-    );
-
-    if (contact.state === 'pending') {
-      await this.markContactConnected(contact.id);
-    }
-
-    this.bumpContactLastMessage(contact.id, now);
-    log('info', `Stored incoming nostling message ${id}`);
-
-    return {
-      id,
-      identityId: options.identityId,
-      contactId: contact.id,
-      senderNpub: options.senderNpub,
-      recipientNpub: options.recipientNpub,
-      ciphertext: options.ciphertext,
-      eventId: options.eventId,
-      timestamp: now,
-      status: 'sent',
-      direction: 'incoming',
-    };
+        identityId: options.identityId,
+        contactId: contact.id,
+        senderNpub: options.senderNpub,
+        recipientNpub: options.recipientNpub,
+        ciphertext: options.ciphertext,
+        eventId: options.eventId,
+        timestamp: now,
+        status: 'sent',
+        direction: 'incoming',
+      };
+    });
   }
 
   async discardUnknown(eventId: string): Promise<void> {
@@ -383,33 +398,38 @@ export class NostlingService {
   }
 
   async setRelayConfig(config: NostlingRelayConfig): Promise<NostlingRelayConfig> {
-    this.database.run('DELETE FROM nostr_relays');
+    return this.withErrorLogging('set relay configuration', async () => {
+      this.database.run('DELETE FROM nostr_relays');
 
-    const now = new Date().toISOString();
-    for (const endpoint of config.defaults) {
-      this.database.run('INSERT INTO nostr_relays (id, identity_id, url, read, write, created_at) VALUES (?, ?, ?, ?, ?, ?)', [
-        randomUUID(),
-        null,
-        endpoint.url,
-        endpoint.read ? 1 : 0,
-        endpoint.write ? 1 : 0,
-        endpoint.createdAt || now,
-      ]);
-    }
+      const now = new Date().toISOString();
+      for (const endpoint of config.defaults) {
+        this.database.run(
+          'INSERT INTO nostr_relays (id, identity_id, url, read, write, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+          [
+            randomUUID(),
+            null,
+            endpoint.url,
+            endpoint.read ? 1 : 0,
+            endpoint.write ? 1 : 0,
+            endpoint.createdAt || now,
+          ]
+        );
+      }
 
-    if (config.perIdentity) {
-      for (const [identityId, endpoints] of Object.entries(config.perIdentity)) {
-        for (const endpoint of endpoints) {
-          this.database.run(
-            'INSERT INTO nostr_relays (id, identity_id, url, read, write, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-            [randomUUID(), identityId, endpoint.url, endpoint.read ? 1 : 0, endpoint.write ? 1 : 0, endpoint.createdAt || now]
-          );
+      if (config.perIdentity) {
+        for (const [identityId, endpoints] of Object.entries(config.perIdentity)) {
+          for (const endpoint of endpoints) {
+            this.database.run(
+              'INSERT INTO nostr_relays (id, identity_id, url, read, write, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+              [randomUUID(), identityId, endpoint.url, endpoint.read ? 1 : 0, endpoint.write ? 1 : 0, endpoint.createdAt || now]
+            );
+          }
         }
       }
-    }
 
-    log('info', 'Updated nostling relay configuration');
-    return this.getRelayConfig();
+      log('info', 'Updated nostling relay configuration');
+      return this.getRelayConfig();
+    });
   }
 
   async setOnline(online: boolean): Promise<void> {
@@ -468,10 +488,21 @@ export class NostlingService {
   private async flushOutgoingQueue(): Promise<void> {
     const queued = await this.getOutgoingQueue();
     for (const message of queued) {
-      const sending = await this.markMessageSending(message.id);
-      const sent = await this.markMessageSent(sending.id, randomUUID());
-      log('info', `Nostling message ${sent.id} marked as sent (simulated relay publish)`);
+      try {
+        const sending = await this.markMessageSending(message.id);
+        const sent = await this.markMessageSent(sending.id, randomUUID());
+        log('info', `Nostling message ${sent.id} marked as sent (simulated relay publish)`);
+      } catch (error) {
+        await this.handleRelayError(message.id, error);
+      }
     }
+  }
+
+  private async handleRelayError(messageId: string, error: unknown): Promise<void> {
+    log('error', `Relay publish failed for nostling message ${messageId}: ${this.toErrorMessage(error)}`);
+    await this.markMessageError(messageId).catch(() => {
+      // Best-effort; failure already logged
+    });
   }
 
   private resolveSecretRef(request: CreateIdentityRequest): Promise<string> {
@@ -600,6 +631,29 @@ export class NostlingService {
       return new Date(value).toISOString();
     } catch {
       return value;
+    }
+  }
+
+  private async withErrorLogging<T>(context: string, operation: () => Promise<T> | T): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      log('error', `Nostling ${context} failed: ${this.toErrorMessage(error)}`);
+      throw error;
+    }
+  }
+
+  private toErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+    if (typeof error === 'string') {
+      return error;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Unknown error';
     }
   }
 }

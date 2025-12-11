@@ -67,7 +67,7 @@ This document lists the exact tasks required to start implementing the Nostr cli
 11. **Error handling and logging pass**
     - Ensure nostling flows log via the existing main-process logger and surface non-blocking footer messages in the renderer.
     - Verify unknown sender handling, relay errors, and decryption failures follow spec (silent discard + log).
-    - **Status:** Not Started
+    - **Status:** Done
 
 12. **Testing and validation**
     - Add unit tests for new services (secret store, nostr service, database migrations) and renderer components where feasible.
