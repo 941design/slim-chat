@@ -15,10 +15,12 @@ import {
   HStack,
   Spacer,
   Table,
+  Badge,
 } from '@chakra-ui/react';
 import { AppStatus, UpdateState } from '../shared/types';
 import './types.d.ts';
 import { getStatusText, isRefreshEnabled } from './utils';
+import { useNostlingState } from './nostling/state';
 
 // Simple refresh icon component
 const RefreshIcon = () => (
@@ -212,9 +214,11 @@ interface FooterProps {
   onRefresh: () => void;
   onDownload: () => void;
   onRestart: () => void;
+  nostlingStatus?: string;
+  nostlingError?: string | null;
 }
 
-function Footer({ version, updateState, onRefresh, onDownload, onRestart }: FooterProps) {
+function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostlingStatus, nostlingError }: FooterProps) {
   const statusText = useMemo(() => getStatusText(updateState), [updateState]);
   const refreshEnabled = useMemo(() => isRefreshEnabled(updateState.phase), [updateState.phase]);
 
@@ -239,6 +243,22 @@ function Footer({ version, updateState, onRefresh, onDownload, onRestart }: Foot
         </Text>
         <Text color="gray.600">•</Text>
         <Text className="footer-status" color="gray.400">{statusText}</Text>
+        {nostlingStatus && (
+          <>
+            <Text color="gray.600">•</Text>
+            <Text className="nostling-status" color="purple.200">
+              {nostlingStatus}
+            </Text>
+          </>
+        )}
+        {nostlingError && (
+          <>
+            <Text color="gray.600">•</Text>
+            <Text className="nostling-error" color="red.300">
+              {nostlingError}
+            </Text>
+          </>
+        )}
       </HStack>
       <Spacer />
       <HStack gap="2">
@@ -265,6 +285,58 @@ function Footer({ version, updateState, onRefresh, onDownload, onRestart }: Foot
         </IconButton>
       </HStack>
     </Flex>
+  );
+}
+
+function formatTimestamp(timestamp?: string): string {
+  if (!timestamp) return '—';
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? timestamp : date.toLocaleString();
+}
+
+interface NostlingStatusCardProps {
+  statusText: string;
+  queueSummary: { queued: number; sending: number; errors: number; lastActivity?: string };
+  lastSync: string | null;
+  lastError: string | null;
+}
+
+function NostlingStatusCard({ statusText, queueSummary, lastSync, lastError }: NostlingStatusCardProps) {
+  const hasQueue = queueSummary.queued > 0 || queueSummary.sending > 0 || queueSummary.errors > 0;
+
+  return (
+    <Box
+      borderWidth="1px"
+      borderColor="whiteAlpha.100"
+      borderRadius="md"
+      bg="whiteAlpha.50"
+      p="4"
+      mb="4"
+      className="nostling-status-card"
+    >
+      <Heading size="sm" color="gray.300" mb="3">
+        Nostling State
+      </Heading>
+      <VStack align="start" gap="2">
+        <HStack>
+          <Text color="gray.400">Status:</Text>
+          <Badge colorPalette={queueSummary.errors > 0 ? 'red' : hasQueue ? 'orange' : 'green'}>{statusText}</Badge>
+        </HStack>
+        <HStack>
+          <Text color="gray.400">Queue:</Text>
+          <Text color="gray.300">
+            {queueSummary.queued} queued • {queueSummary.sending} sending • {queueSummary.errors} errors
+          </Text>
+        </HStack>
+        <Text color="gray.400">Last activity: {formatTimestamp(queueSummary.lastActivity)}</Text>
+        <Text color="gray.400">Last sync: {formatTimestamp(lastSync || undefined)}</Text>
+        {lastError && (
+          <Text color="red.300" fontSize="sm">
+            {lastError}
+          </Text>
+        )}
+      </VStack>
+    </Box>
   );
 }
 
@@ -297,6 +369,7 @@ function Sidebar() {
 
 function App() {
   const { status, updateState, refresh, restart, download } = useStatus();
+  const nostling = useNostlingState();
 
   return (
     <Flex className="app-shell" direction="column" h="100vh" bg="#0f172a">
@@ -304,6 +377,12 @@ function App() {
       <Flex flex="1" overflow="hidden">
         <Sidebar />
         <Box as="main" flex="1" p="4" overflowY="auto">
+          <NostlingStatusCard
+            statusText={nostling.nostlingStatusText}
+            queueSummary={nostling.queueSummary}
+            lastSync={nostling.lastSync}
+            lastError={nostling.lastError}
+          />
           <StateTable />
         </Box>
       </Flex>
@@ -313,6 +392,8 @@ function App() {
         onRefresh={refresh}
         onDownload={download}
         onRestart={restart}
+        nostlingStatus={nostling.nostlingStatusText}
+        nostlingError={nostling.lastError}
       />
     </Flex>
   );

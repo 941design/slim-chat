@@ -48,7 +48,7 @@ This document lists the exact tasks required to start implementing the Nostr cli
 7. **Renderer state and data-fetching layer**
    - Add client-side state hooks/services to load and mutate nostling data via the preload APIs.
    - Ensure offline/queue status is visible and error surfaces go through the existing footer/logging patterns.
-   - **Status:** Not Started
+   - **Status:** Done
 
 8. **Renderer UI: sidebar and identity/contact workflows**
    - Replace placeholder sidebar with identity list and contact list (pending/connected indicators) as described in the spec.
