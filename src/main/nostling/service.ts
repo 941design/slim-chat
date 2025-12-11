@@ -56,6 +56,12 @@ interface MessageRow {
   direction: NostlingMessageDirection;
 }
 
+interface NostrKind4Filter {
+  kinds: [4];
+  authors?: string[];
+  '#p'?: string[];
+}
+
 export interface NostlingServiceOptions {
   /**
    * When true, queued messages will be marked as sent immediately.
@@ -285,6 +291,68 @@ export class NostlingService {
     log('warn', `Discarded nostling event from unknown sender: ${eventId}`);
   }
 
+  async getOutgoingQueue(identityId?: string): Promise<NostlingMessage[]> {
+    const stmt = identityId
+      ? this.database.prepare(
+          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') AND identity_id = ? ORDER BY timestamp ASC"
+        )
+      : this.database.prepare(
+          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') ORDER BY timestamp ASC"
+        );
+
+    if (identityId) {
+      stmt.bind([identityId]);
+    }
+
+    const messages: NostlingMessage[] = [];
+    while (stmt.step()) {
+      messages.push(this.mapMessageRow(stmt.getAsObject() as unknown as MessageRow));
+    }
+    stmt.free();
+    return messages;
+  }
+
+  async markMessageSending(messageId: string): Promise<NostlingMessage> {
+    const row = this.getOutgoingMessageRow(messageId);
+    this.database.run("UPDATE nostr_messages SET status = 'sending' WHERE id = ?", [messageId]);
+    return this.mapMessageRow({ ...row, status: 'sending' });
+  }
+
+  async markMessageSent(messageId: string, eventId: string): Promise<NostlingMessage> {
+    const row = this.getOutgoingMessageRow(messageId);
+    this.database.run("UPDATE nostr_messages SET status = 'sent', event_id = ? WHERE id = ?", [eventId, messageId]);
+    return this.mapMessageRow({ ...row, status: 'sent', event_id: eventId });
+  }
+
+  async markMessageError(messageId: string): Promise<NostlingMessage> {
+    const row = this.getOutgoingMessageRow(messageId);
+    this.database.run("UPDATE nostr_messages SET status = 'error' WHERE id = ?", [messageId]);
+    return this.mapMessageRow({ ...row, status: 'error' });
+  }
+
+  async getKind4Filters(identityId: string): Promise<NostrKind4Filter[]> {
+    const identityNpub = this.getIdentityNpub(identityId);
+    const contacts = await this.listContacts(identityId);
+
+    if (contacts.length === 0) {
+      return [];
+    }
+
+    const contactNpubs = contacts.map((contact) => contact.npub);
+    return [
+      {
+        kinds: [4],
+        authors: contactNpubs,
+        '#p': [identityNpub],
+      },
+      {
+        kinds: [4],
+        authors: [identityNpub],
+        '#p': contactNpubs,
+      },
+    ];
+  }
+
   async getRelayConfig(): Promise<NostlingRelayConfig> {
     const stmt = this.database.prepare(
       'SELECT id, identity_id, url, read, write, created_at FROM nostr_relays ORDER BY created_at ASC'
@@ -344,10 +412,10 @@ export class NostlingService {
     return this.getRelayConfig();
   }
 
-  setOnline(online: boolean): void {
+  async setOnline(online: boolean): Promise<void> {
     this.online = online;
     if (online) {
-      this.flushOutgoingQueue();
+      await this.flushOutgoingQueue();
     }
   }
 
@@ -397,21 +465,12 @@ export class NostlingService {
     };
   }
 
-  private flushOutgoingQueue(): void {
-    const stmt = this.database.prepare(
-      "SELECT id FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') ORDER BY timestamp ASC"
-    );
-
-    const queuedIds: string[] = [];
-    while (stmt.step()) {
-      const row = stmt.getAsObject();
-      queuedIds.push(row.id as string);
-    }
-    stmt.free();
-
-    for (const id of queuedIds) {
-      this.database.run("UPDATE nostr_messages SET status = 'sent', event_id = ? WHERE id = ?", [randomUUID(), id]);
-      log('info', `Nostling message ${id} marked as sent (simulated relay publish)`);
+  private async flushOutgoingQueue(): Promise<void> {
+    const queued = await this.getOutgoingQueue();
+    for (const message of queued) {
+      const sending = await this.markMessageSending(message.id);
+      const sent = await this.markMessageSent(sending.id, randomUUID());
+      log('info', `Nostling message ${sent.id} marked as sent (simulated relay publish)`);
     }
   }
 
@@ -514,6 +573,22 @@ export class NostlingService {
     stmt.free();
 
     return result ? this.mapContactRow(result) : null;
+  }
+
+  private getOutgoingMessageRow(messageId: string): MessageRow {
+    const stmt = this.database.prepare(
+      "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction FROM nostr_messages WHERE id = ? AND direction = 'outgoing' LIMIT 1"
+    );
+    stmt.bind([messageId]);
+    const hasRow = stmt.step();
+    const result = hasRow ? (stmt.getAsObject() as unknown as MessageRow) : null;
+    stmt.free();
+
+    if (!result) {
+      throw new Error(`Outgoing message not found: ${messageId}`);
+    }
+
+    return result;
   }
 
   private bumpContactLastMessage(contactId: string, timestamp: string): void {

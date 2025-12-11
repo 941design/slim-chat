@@ -81,7 +81,7 @@ describe('NostlingService', () => {
     expect(messages[0].status).toBe('queued');
     expect(messages[0].direction).toBe('outgoing');
 
-    service.setOnline(true);
+    await service.setOnline(true);
     messages = await service.listMessages(identity.id, contact.id);
     expect(messages[0].status).toBe('sent');
   });
@@ -110,5 +110,36 @@ describe('NostlingService', () => {
     });
     expect(discarded).toBeNull();
     expect((log as jest.Mock).mock.calls.some((call) => `${call[1]}`.includes('unknown sender'))).toBe(true);
+  });
+
+  it('exposes the outgoing queue with status helpers', async () => {
+    const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub1' });
+    const contact = await service.addContact({ identityId: identity.id, npub: 'npub2' });
+
+    let queue = await service.getOutgoingQueue(identity.id);
+    expect(queue).toHaveLength(1);
+    expect(queue[0].status).toBe('queued');
+
+    const sending = await service.markMessageSending(queue[0].id);
+    expect(sending.status).toBe('sending');
+
+    const sent = await service.markMessageSent(queue[0].id, 'evt-1');
+    expect(sent.status).toBe('sent');
+    expect(sent.eventId).toBe('evt-1');
+
+    queue = await service.getOutgoingQueue(identity.id);
+    expect(queue).toHaveLength(0);
+  });
+
+  it('builds kind-4 relay filters from the contact whitelist', async () => {
+    const identity = await service.createIdentity({ label: 'FilterOwner', nsec: 'secret', npub: 'npub1' });
+    await service.addContact({ identityId: identity.id, npub: 'npub2' });
+    await service.addContact({ identityId: identity.id, npub: 'npub3', alias: 'Friend' });
+
+    const filters = await service.getKind4Filters(identity.id);
+    expect(filters).toEqual([
+      { kinds: [4], authors: ['npub2', 'npub3'], '#p': ['npub1'] },
+      { kinds: [4], authors: ['npub1'], '#p': ['npub2', 'npub3'] },
+    ]);
   });
 });
