@@ -161,9 +161,6 @@ export interface NostlingMessage {
 
 export interface NostlingRelayEndpoint {
   url: string;
-  read: boolean;
-  write: boolean;
-  createdAt: string;
 }
 
 export interface NostlingRelayConfig {

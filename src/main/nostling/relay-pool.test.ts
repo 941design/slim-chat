@@ -15,6 +15,7 @@ describe('RelayPool', () => {
   let mockPool: jest.Mocked<SimplePool>;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     mockPool = {
       ensureRelay: jest.fn(),
       close: jest.fn(),
@@ -31,6 +32,7 @@ describe('RelayPool', () => {
     pool.disconnect();
     jest.clearAllMocks();
     jest.clearAllTimers();
+    jest.useRealTimers();
   });
 
   describe('Constructor', () => {
@@ -38,6 +40,7 @@ describe('RelayPool', () => {
       const newPool = new RelayPool();
       const status = newPool.getStatus();
       expect(status.size).toBe(0);
+      newPool.disconnect(); // Clean up to prevent leaked timers
     });
   });
 
@@ -46,7 +49,7 @@ describe('RelayPool', () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay.example.com', read: true, write: true }
+        { url: 'wss://relay.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -61,9 +64,9 @@ describe('RelayPool', () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay1.example.com', read: true, write: true },
-        { url: 'wss://relay2.example.com', read: true, write: false },
-        { url: 'wss://relay3.example.com', read: false, write: true }
+        { url: 'wss://relay1.example.com' },
+        { url: 'wss://relay2.example.com' },
+        { url: 'wss://relay3.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -87,7 +90,7 @@ describe('RelayPool', () => {
       mockPool.ensureRelay.mockRejectedValue(new Error('Connection failed'));
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay.example.com', read: true, write: true }
+        { url: 'wss://relay.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -100,7 +103,7 @@ describe('RelayPool', () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay.example.com', read: true, write: true }
+        { url: 'wss://relay.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -115,8 +118,8 @@ describe('RelayPool', () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay1.example.com', read: true, write: true },
-        { url: 'wss://relay2.example.com', read: true, write: false }
+        { url: 'wss://relay1.example.com' },
+        { url: 'wss://relay2.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -139,7 +142,7 @@ describe('RelayPool', () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay.example.com', read: true, write: true }
+        { url: 'wss://relay.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -161,13 +164,13 @@ describe('RelayPool', () => {
       sig: 'signature-hex'
     });
 
-    it('publishes to write-enabled relays', async () => {
+    it('publishes to all connected relays', async () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
-      mockPool.publish.mockReturnValue([Promise.resolve('OK')]);
+      mockPool.publish.mockReturnValue([Promise.resolve('OK'), Promise.resolve('OK')]);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay1.example.com', read: true, write: true },
-        { url: 'wss://relay2.example.com', read: true, write: false }
+        { url: 'wss://relay1.example.com' },
+        { url: 'wss://relay2.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -175,12 +178,12 @@ describe('RelayPool', () => {
       const event = createMockEvent();
       const results = await pool.publish(event);
 
-      expect(results).toHaveLength(1);
-      expect(results[0].relay).toBe('wss://relay1.example.com');
+      expect(results).toHaveLength(2);
       expect(results[0].success).toBe(true);
+      expect(results[1].success).toBe(true);
     });
 
-    it('returns empty array when no write relays connected', async () => {
+    it('returns empty array when no relays connected', async () => {
       const event = createMockEvent();
       const results = await pool.publish(event);
 
@@ -194,18 +197,23 @@ describe('RelayPool', () => {
       ]);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay.example.com', read: true, write: true }
+        { url: 'wss://relay.example.com' }
       ];
 
       await pool.connect(endpoints);
 
       const event = createMockEvent();
-      const results = await pool.publish(event);
+      const publishPromise = pool.publish(event);
+
+      // Advance timers to trigger the 5-second timeout
+      await jest.advanceTimersByTimeAsync(5100);
+
+      const results = await publishPromise;
 
       expect(results).toHaveLength(1);
       expect(results[0].success).toBe(false);
       expect(results[0].message).toContain('Timeout');
-    }, 10000);
+    });
 
     it('handles partial publish failures', async () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
@@ -215,8 +223,8 @@ describe('RelayPool', () => {
       ]);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay1.example.com', read: true, write: true },
-        { url: 'wss://relay2.example.com', read: true, write: true }
+        { url: 'wss://relay1.example.com' },
+        { url: 'wss://relay2.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -234,14 +242,14 @@ describe('RelayPool', () => {
   });
 
   describe('subscribe', () => {
-    it('subscribes to read-enabled relays', async () => {
+    it('subscribes to all connected relays', async () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
       const mockSub = { close: jest.fn() };
       mockPool.subscribeMany.mockReturnValue(mockSub as any);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay1.example.com', read: true, write: true },
-        { url: 'wss://relay2.example.com', read: false, write: true }
+        { url: 'wss://relay1.example.com' },
+        { url: 'wss://relay2.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -252,7 +260,7 @@ describe('RelayPool', () => {
       const subscription = pool.subscribe(filters, onEvent);
 
       expect(mockPool.subscribeMany).toHaveBeenCalledWith(
-        ['wss://relay1.example.com'],
+        ['wss://relay1.example.com', 'wss://relay2.example.com'],
         { kinds: [4] },
         expect.objectContaining({
           onevent: expect.any(Function)
@@ -273,7 +281,7 @@ describe('RelayPool', () => {
       });
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay.example.com', read: true, write: true }
+        { url: 'wss://relay.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -300,7 +308,7 @@ describe('RelayPool', () => {
       expect(onEvent).toHaveBeenCalledTimes(1);
     });
 
-    it('returns no-op subscription when no read relays connected', () => {
+    it('returns no-op subscription when no relays connected', () => {
       const filters: Filter[] = [{ kinds: [4] }];
       const onEvent = jest.fn();
 
@@ -316,7 +324,7 @@ describe('RelayPool', () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay.example.com', read: true, write: true }
+        { url: 'wss://relay.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -330,7 +338,7 @@ describe('RelayPool', () => {
       mockPool.ensureRelay.mockResolvedValue({} as any);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay.example.com', read: true, write: true }
+        { url: 'wss://relay.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -351,7 +359,7 @@ describe('RelayPool', () => {
       pool.onStatusChange(callback);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay.example.com', read: true, write: true }
+        { url: 'wss://relay.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -371,7 +379,7 @@ describe('RelayPool', () => {
       pool.onStatusChange(callback2);
 
       const endpoints: RelayEndpoint[] = [
-        { url: 'wss://relay.example.com', read: true, write: true }
+        { url: 'wss://relay.example.com' }
       ];
 
       await pool.connect(endpoints);
@@ -387,9 +395,7 @@ describe('RelayPool', () => {
         fc.asyncProperty(
           fc.array(
             fc.record({
-              url: fc.webUrl({ validSchemes: ['wss', 'ws'] }),
-              read: fc.boolean(),
-              write: fc.boolean()
+              url: fc.webUrl({ validSchemes: ['wss', 'ws'] })
             }),
             { minLength: 1, maxLength: 5 }
           ),
@@ -397,10 +403,7 @@ describe('RelayPool', () => {
             mockPool.ensureRelay.mockResolvedValue({} as any);
 
             const uniqueUrls = new Set(endpoints.map(e => e.url));
-            const uniqueEndpoints = Array.from(uniqueUrls).map(url => {
-              const ep = endpoints.find(e => e.url === url)!;
-              return { url, read: ep.read, write: ep.write };
-            });
+            const uniqueEndpoints = Array.from(uniqueUrls).map(url => ({ url }));
 
             await pool.connect(uniqueEndpoints);
 
@@ -416,21 +419,19 @@ describe('RelayPool', () => {
       );
     });
 
-    it('publish only sends to write-enabled relays', async () => {
+    it('publish sends to all connected relays', async () => {
       await fc.assert(
         fc.asyncProperty(
           fc.array(
             fc.record({
-              url: fc.webUrl({ validSchemes: ['wss'] }),
-              read: fc.boolean(),
-              write: fc.boolean()
+              url: fc.webUrl({ validSchemes: ['wss'] })
             }),
             { minLength: 1, maxLength: 5 }
           ),
           async (endpoints) => {
             mockPool.ensureRelay.mockResolvedValue({} as any);
             mockPool.publish.mockReturnValue(
-              endpoints.filter(e => e.write).map(() => Promise.resolve('OK'))
+              endpoints.map(() => Promise.resolve('OK'))
             );
 
             await pool.connect(endpoints);
@@ -447,8 +448,7 @@ describe('RelayPool', () => {
 
             const results = await pool.publish(event);
 
-            const writeRelayCount = endpoints.filter(e => e.write).length;
-            expect(results.length).toBe(writeRelayCount);
+            expect(results.length).toBe(endpoints.length);
           }
         ),
         { numRuns: 20 }
@@ -463,7 +463,7 @@ describe('RelayPool', () => {
             mockPool.ensureRelay.mockResolvedValue({} as any);
 
             const endpoints: RelayEndpoint[] = [
-              { url: 'wss://relay.example.com', read: true, write: true }
+              { url: 'wss://relay.example.com' }
             ];
 
             await pool.connect(endpoints);
@@ -495,7 +495,7 @@ describe('RelayPool', () => {
             });
 
             const endpoints: RelayEndpoint[] = [
-              { url: 'wss://relay.example.com', read: true, write: true }
+              { url: 'wss://relay.example.com' }
             ];
 
             await pool.connect(endpoints);
@@ -536,7 +536,7 @@ describe('RelayPool', () => {
             callbacks.forEach(cb => pool.onStatusChange(cb));
 
             const endpoints: RelayEndpoint[] = [
-              { url: 'wss://relay.example.com', read: true, write: true }
+              { url: 'wss://relay.example.com' }
             ];
 
             await pool.connect(endpoints);

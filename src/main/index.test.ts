@@ -165,6 +165,8 @@ describe('Auto-updater state machine event handlers', () => {
   beforeEach(async () => {
     jest.resetModules();
     jest.clearAllMocks();
+    // Use fake timers but allow nextTick and setImmediate for test async flows
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate'] });
     mockAutoUpdater.removeAllListeners();
 
     const { app } = await import('electron');
@@ -190,6 +192,8 @@ describe('Auto-updater state machine event handlers', () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
     mockAutoUpdater.removeAllListeners();
   });
 
@@ -289,7 +293,7 @@ describe('Auto-updater state machine event handlers', () => {
               if (originalImpl) originalImpl(...args);
               callCount++;
               if (callCount === 3) {
-                setTimeout(() => {
+                process.nextTick(() => {
                   try {
                     const finalState = getLastBroadcastedState();
                     expect(finalState?.phase).toBe('ready');
@@ -298,7 +302,7 @@ describe('Auto-updater state machine event handlers', () => {
                   } catch (error) {
                     reject(error);
                   }
-                }, 10);
+                });
               }
             });
           });
@@ -338,7 +342,7 @@ describe('Auto-updater state machine event handlers', () => {
                 if (originalImpl) originalImpl(...args);
                 callCount++;
                 if (callCount === 3) {
-                  setTimeout(() => {
+                  process.nextTick(() => {
                     try {
                       const finalState = getLastBroadcastedState();
                       expect(finalState?.phase).toBe('failed');
@@ -347,7 +351,7 @@ describe('Auto-updater state machine event handlers', () => {
                     } catch (error) {
                       reject(error);
                     }
-                  }, 10);
+                  });
                 }
               });
             });
@@ -461,7 +465,7 @@ describe('Auto-updater state machine event handlers', () => {
           callCount++;
           if (callCount === 3) {
             // After downloaded, verifying, ready
-            setTimeout(resolve, 10);
+            process.nextTick(resolve);
           }
         });
       });
@@ -496,7 +500,7 @@ describe('Auto-updater state machine event handlers', () => {
           callCount++;
           if (callCount === 3) {
             // After downloaded, verifying, failed
-            setTimeout(resolve, 10);
+            process.nextTick(resolve);
           }
         });
       });

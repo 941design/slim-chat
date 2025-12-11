@@ -512,12 +512,7 @@ describe('registerHandlers', () => {
 
     const relayConfig: NostlingRelayConfig = {
       defaults: [
-        {
-          url: 'wss://relay.example.com',
-          read: true,
-          write: true,
-          createdAt: new Date().toISOString(),
-        },
+        { url: 'wss://relay.example.com' },
       ],
     };
 

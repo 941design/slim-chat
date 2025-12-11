@@ -45,9 +45,6 @@ export async function up(knex: Knex): Promise<void> {
     table.string('id').primary();
     table.string('identity_id'); // null for default relay entries
     table.text('url').notNullable();
-    table.integer('read').notNullable().defaultTo(1);
-    table.integer('write').notNullable().defaultTo(1);
-    table.timestamp('created_at').defaultTo(knex.fn.now());
   });
 
   await knex.schema.raw(

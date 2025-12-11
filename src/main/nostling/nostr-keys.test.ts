@@ -1,4 +1,4 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest, beforeEach, afterEach } from '@jest/globals';
 import * as fc from 'fast-check';
 import {
   deriveKeypair,
@@ -251,6 +251,17 @@ describe('Nostr Cryptography', () => {
   });
 
   describe('encryptMessage and decryptMessage', () => {
+    // Suppress expected console.warn messages from decryption failure tests
+    let consoleWarnSpy: ReturnType<typeof jest.spyOn>;
+
+    beforeEach(() => {
+      consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      consoleWarnSpy.mockRestore();
+    });
+
     it('round-trip encryption preserves message', async () => {
       await fc.assert(
         fc.asyncProperty(

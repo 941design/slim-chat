@@ -24,7 +24,6 @@ import {
   Separator,
   Icon,
   Textarea,
-  Checkbox,
   Menu,
   Portal,
 } from '@chakra-ui/react';
@@ -456,7 +455,7 @@ function RelayEndpointRow({
   onRemove: () => void;
 }) {
   return (
-    <Stack direction={{ base: 'column', md: 'row' }} gap="3" align="start" borderWidth="1px" p="3" borderRadius="md">
+    <Stack direction={{ base: 'column', md: 'row' }} gap="3" align="center" borderWidth="1px" p="3" borderRadius="md">
       <Field.Root flex="1" minW="0">
         <Field.Label color="gray.400" fontSize="sm">
           Relay URL
@@ -464,44 +463,9 @@ function RelayEndpointRow({
         <Input
           value={endpoint.url}
           placeholder="wss://relay.example.com"
-          onChange={(event: React.ChangeEvent<HTMLInputElement>) => onChange({ ...endpoint, url: event.target.value })}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => onChange({ url: event.target.value })}
         />
       </Field.Root>
-      <VStack align="start" gap="1" minW="160px">
-        <Text color="gray.400" fontSize="sm">
-          Permissions
-        </Text>
-        <HStack>
-          <Checkbox.Root
-            checked={endpoint.read}
-            onCheckedChange={(details) =>
-              onChange({ ...endpoint, read: Boolean(details.checked) })
-            }
-          >
-            <Checkbox.HiddenInput />
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            <Checkbox.Label>Read</Checkbox.Label>
-          </Checkbox.Root>
-          <Checkbox.Root
-            checked={endpoint.write}
-            onCheckedChange={(details) =>
-              onChange({ ...endpoint, write: Boolean(details.checked) })
-            }
-          >
-            <Checkbox.HiddenInput />
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            <Checkbox.Label>Write</Checkbox.Label>
-          </Checkbox.Root>
-        </HStack>
-        <Text color="gray.500" fontSize="xs">
-          Added {formatTimestamp(endpoint.createdAt)}
-        </Text>
-      </VStack>
-      <Spacer />
       <IconButton size="sm" aria-label="Remove relay" variant="ghost" onClick={onRemove}>
         Remove
       </IconButton>
@@ -559,14 +523,12 @@ function RelayConfigCard({ config, identities, loading, hasBridge, onRefresh, on
   };
 
   const addDefaultRelay = () => {
-    const now = new Date().toISOString();
-    updateDefaults([...(draft.defaults || []), { url: '', read: true, write: true, createdAt: now }]);
+    updateDefaults([...(draft.defaults || []), { url: '' }]);
   };
 
   const addIdentityRelay = (identityId: string) => {
-    const now = new Date().toISOString();
     const existing = draft.perIdentity?.[identityId] ?? [];
-    updatePerIdentity(identityId, [...existing, { url: '', read: true, write: true, createdAt: now }]);
+    updatePerIdentity(identityId, [...existing, { url: '' }]);
   };
 
   const ensureOverride = (identityId: string) => {
@@ -659,7 +621,7 @@ function RelayConfigCard({ config, identities, loading, hasBridge, onRefresh, on
           <VStack align="stretch" gap="2">
             {draft.defaults.map((relay, index) => (
               <RelayEndpointRow
-                key={`${relay.url}-${relay.createdAt}-${index}`}
+                key={`${relay.url}-${index}`}
                 endpoint={relay}
                 onChange={(next) => updateDefaults(draft.defaults.map((item, i) => (i === index ? next : item)))}
                 onRemove={() => updateDefaults(draft.defaults.filter((_, i) => i !== index))}
@@ -724,7 +686,7 @@ function RelayConfigCard({ config, identities, loading, hasBridge, onRefresh, on
                       )}
                       {relays!.map((relay, index) => (
                         <RelayEndpointRow
-                          key={`${identityId}-${relay.url}-${relay.createdAt}-${index}`}
+                          key={`${identityId}-${relay.url}-${index}`}
                           endpoint={relay}
                           onChange={(next) => {
                             const current = draft.perIdentity?.[identityId] ?? [];

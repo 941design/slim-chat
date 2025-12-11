@@ -83,13 +83,13 @@ describe('NostlingService - Relay Configuration', () => {
     it('should update relay URL and persist changes', async () => {
       // Setup: Add initial relay
       const initialConfig: NostlingRelayConfig = {
-        defaults: [{ url: 'wss://old.relay.com', read: true, write: true, createdAt: '2024-01-01T00:00:00Z' }],
+        defaults: [{ url: 'wss://old.relay.com' }],
       };
       await service.setRelayConfig(initialConfig);
 
       // Act: Update relay URL
       const updatedConfig: NostlingRelayConfig = {
-        defaults: [{ url: 'wss://new.relay.com', read: true, write: true, createdAt: '2024-01-01T00:00:00Z' }],
+        defaults: [{ url: 'wss://new.relay.com' }],
       };
       const result = await service.setRelayConfig(updatedConfig);
 
@@ -99,42 +99,6 @@ describe('NostlingService - Relay Configuration', () => {
       // Verify persistence
       const loaded = await service.getRelayConfig();
       expect(loaded.defaults[0].url).toBe('wss://new.relay.com');
-    });
-
-    it('should toggle read permission and persist', async () => {
-      const initialConfig: NostlingRelayConfig = {
-        defaults: [{ url: 'wss://relay.com', read: true, write: true, createdAt: '2024-01-01T00:00:00Z' }],
-      };
-      await service.setRelayConfig(initialConfig);
-
-      const updatedConfig: NostlingRelayConfig = {
-        defaults: [{ url: 'wss://relay.com', read: false, write: true, createdAt: '2024-01-01T00:00:00Z' }],
-      };
-      const result = await service.setRelayConfig(updatedConfig);
-
-      expect(result.defaults[0].read).toBe(false);
-      expect(result.defaults[0].write).toBe(true);
-
-      const loaded = await service.getRelayConfig();
-      expect(loaded.defaults[0].read).toBe(false);
-    });
-
-    it('should toggle write permission and persist', async () => {
-      const initialConfig: NostlingRelayConfig = {
-        defaults: [{ url: 'wss://relay.com', read: true, write: true, createdAt: '2024-01-01T00:00:00Z' }],
-      };
-      await service.setRelayConfig(initialConfig);
-
-      const updatedConfig: NostlingRelayConfig = {
-        defaults: [{ url: 'wss://relay.com', read: true, write: false, createdAt: '2024-01-01T00:00:00Z' }],
-      };
-      const result = await service.setRelayConfig(updatedConfig);
-
-      expect(result.defaults[0].write).toBe(false);
-      expect(result.defaults[0].read).toBe(true);
-
-      const loaded = await service.getRelayConfig();
-      expect(loaded.defaults[0].write).toBe(false);
     });
   });
 
@@ -149,12 +113,7 @@ describe('NostlingService - Relay Configuration', () => {
       expect(emptyConfig.defaults).toHaveLength(0);
 
       // Add relay
-      const newRelay: NostlingRelayEndpoint = {
-        url: 'wss://new.relay.com',
-        read: true,
-        write: true,
-        createdAt: '2024-01-01T00:00:00Z',
-      };
+      const newRelay: NostlingRelayEndpoint = { url: 'wss://new.relay.com' };
       const result = await service.setRelayConfig({ defaults: [newRelay] });
 
       expect(result.defaults).toHaveLength(1);
@@ -166,20 +125,10 @@ describe('NostlingService - Relay Configuration', () => {
     });
 
     it('should add a new relay to existing defaults', async () => {
-      const existingRelay: NostlingRelayEndpoint = {
-        url: 'wss://existing.relay.com',
-        read: true,
-        write: true,
-        createdAt: '2024-01-01T00:00:00Z',
-      };
+      const existingRelay: NostlingRelayEndpoint = { url: 'wss://existing.relay.com' };
       await service.setRelayConfig({ defaults: [existingRelay] });
 
-      const newRelay: NostlingRelayEndpoint = {
-        url: 'wss://new.relay.com',
-        read: true,
-        write: true,
-        createdAt: '2024-01-02T00:00:00Z',
-      };
+      const newRelay: NostlingRelayEndpoint = { url: 'wss://new.relay.com' };
       const result = await service.setRelayConfig({ defaults: [existingRelay, newRelay] });
 
       expect(result.defaults).toHaveLength(2);
@@ -189,18 +138,8 @@ describe('NostlingService - Relay Configuration', () => {
 
     it('should add per-identity relay override', async () => {
       const identityId = 'identity-123';
-      const defaultRelay: NostlingRelayEndpoint = {
-        url: 'wss://default.relay.com',
-        read: true,
-        write: true,
-        createdAt: '2024-01-01T00:00:00Z',
-      };
-      const identityRelay: NostlingRelayEndpoint = {
-        url: 'wss://identity-specific.relay.com',
-        read: true,
-        write: false,
-        createdAt: '2024-01-02T00:00:00Z',
-      };
+      const defaultRelay: NostlingRelayEndpoint = { url: 'wss://default.relay.com' };
+      const identityRelay: NostlingRelayEndpoint = { url: 'wss://identity-specific.relay.com' };
 
       const result = await service.setRelayConfig({
         defaults: [defaultRelay],
@@ -210,7 +149,6 @@ describe('NostlingService - Relay Configuration', () => {
       expect(result.defaults).toHaveLength(1);
       expect(result.perIdentity?.[identityId]).toHaveLength(1);
       expect(result.perIdentity?.[identityId][0].url).toBe('wss://identity-specific.relay.com');
-      expect(result.perIdentity?.[identityId][0].write).toBe(false);
 
       // Verify persistence
       const loaded = await service.getRelayConfig();
@@ -224,18 +162,8 @@ describe('NostlingService - Relay Configuration', () => {
 
   describe('Removing Relays', () => {
     it('should remove relay from defaults', async () => {
-      const relay1: NostlingRelayEndpoint = {
-        url: 'wss://relay1.com',
-        read: true,
-        write: true,
-        createdAt: '2024-01-01T00:00:00Z',
-      };
-      const relay2: NostlingRelayEndpoint = {
-        url: 'wss://relay2.com',
-        read: true,
-        write: true,
-        createdAt: '2024-01-02T00:00:00Z',
-      };
+      const relay1: NostlingRelayEndpoint = { url: 'wss://relay1.com' };
+      const relay2: NostlingRelayEndpoint = { url: 'wss://relay2.com' };
       await service.setRelayConfig({ defaults: [relay1, relay2] });
 
       // Remove first relay
@@ -250,12 +178,7 @@ describe('NostlingService - Relay Configuration', () => {
     });
 
     it('should remove all relays leaving empty defaults', async () => {
-      const relay: NostlingRelayEndpoint = {
-        url: 'wss://only.relay.com',
-        read: true,
-        write: true,
-        createdAt: '2024-01-01T00:00:00Z',
-      };
+      const relay: NostlingRelayEndpoint = { url: 'wss://only.relay.com' };
       await service.setRelayConfig({ defaults: [relay] });
 
       const result = await service.setRelayConfig({ defaults: [] });
@@ -268,18 +191,8 @@ describe('NostlingService - Relay Configuration', () => {
 
     it('should remove per-identity override', async () => {
       const identityId = 'identity-123';
-      const defaultRelay: NostlingRelayEndpoint = {
-        url: 'wss://default.relay.com',
-        read: true,
-        write: true,
-        createdAt: '2024-01-01T00:00:00Z',
-      };
-      const identityRelay: NostlingRelayEndpoint = {
-        url: 'wss://identity.relay.com',
-        read: true,
-        write: true,
-        createdAt: '2024-01-02T00:00:00Z',
-      };
+      const defaultRelay: NostlingRelayEndpoint = { url: 'wss://default.relay.com' };
+      const identityRelay: NostlingRelayEndpoint = { url: 'wss://identity.relay.com' };
 
       await service.setRelayConfig({
         defaults: [defaultRelay],
@@ -309,27 +222,15 @@ describe('NostlingService - Relay Configuration', () => {
     });
 
     it('should return all configured relays', async () => {
-      const relay1: NostlingRelayEndpoint = {
-        url: 'wss://relay1.com',
-        read: true,
-        write: false,
-        createdAt: '2024-01-01T00:00:00Z',
-      };
-      const relay2: NostlingRelayEndpoint = {
-        url: 'wss://relay2.com',
-        read: false,
-        write: true,
-        createdAt: '2024-01-02T00:00:00Z',
-      };
+      const relay1: NostlingRelayEndpoint = { url: 'wss://relay1.com' };
+      const relay2: NostlingRelayEndpoint = { url: 'wss://relay2.com' };
 
       await service.setRelayConfig({ defaults: [relay1, relay2] });
       const config = await service.getRelayConfig();
 
       expect(config.defaults).toHaveLength(2);
-      expect(config.defaults[0].read).toBe(true);
-      expect(config.defaults[0].write).toBe(false);
-      expect(config.defaults[1].read).toBe(false);
-      expect(config.defaults[1].write).toBe(true);
+      expect(config.defaults.map(r => r.url)).toContain('wss://relay1.com');
+      expect(config.defaults.map(r => r.url)).toContain('wss://relay2.com');
     });
   });
 
@@ -339,24 +240,9 @@ describe('NostlingService - Relay Configuration', () => {
 
   describe('Multiple Identity Overrides', () => {
     it('should support multiple identities with different relay configs', async () => {
-      const defaultRelay: NostlingRelayEndpoint = {
-        url: 'wss://default.relay.com',
-        read: true,
-        write: true,
-        createdAt: '2024-01-01T00:00:00Z',
-      };
-      const identity1Relay: NostlingRelayEndpoint = {
-        url: 'wss://identity1.relay.com',
-        read: true,
-        write: false,
-        createdAt: '2024-01-02T00:00:00Z',
-      };
-      const identity2Relay: NostlingRelayEndpoint = {
-        url: 'wss://identity2.relay.com',
-        read: false,
-        write: true,
-        createdAt: '2024-01-03T00:00:00Z',
-      };
+      const defaultRelay: NostlingRelayEndpoint = { url: 'wss://default.relay.com' };
+      const identity1Relay: NostlingRelayEndpoint = { url: 'wss://identity1.relay.com' };
+      const identity2Relay: NostlingRelayEndpoint = { url: 'wss://identity2.relay.com' };
 
       const result = await service.setRelayConfig({
         defaults: [defaultRelay],
@@ -369,8 +255,8 @@ describe('NostlingService - Relay Configuration', () => {
       expect(result.defaults).toHaveLength(1);
       expect(result.perIdentity?.['identity-1']).toHaveLength(1);
       expect(result.perIdentity?.['identity-2']).toHaveLength(1);
-      expect(result.perIdentity?.['identity-1'][0].write).toBe(false);
-      expect(result.perIdentity?.['identity-2'][0].read).toBe(false);
+      expect(result.perIdentity?.['identity-1'][0].url).toBe('wss://identity1.relay.com');
+      expect(result.perIdentity?.['identity-2'][0].url).toBe('wss://identity2.relay.com');
 
       // Verify persistence
       const loaded = await service.getRelayConfig();

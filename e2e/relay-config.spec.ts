@@ -111,30 +111,6 @@ test.describe('Relay Configuration View', () => {
     expect(newCount).toBe(relayCount - 1);
   });
 
-  test('should toggle read permission', async ({ page }) => {
-    await waitForAppReady(page);
-
-    // Navigate to relay config
-    await navigateToRelayConfig(page);
-
-    // Add relay if needed
-    const inputs = page.locator('input[placeholder*="wss://"]');
-    if ((await inputs.count()) === 0) {
-      await page.locator('button:has-text("Add relay")').first().click();
-    }
-
-    // Find and click the Read checkbox
-    const readCheckbox = page.locator('input[type="checkbox"]').first();
-    const wasChecked = await readCheckbox.isChecked();
-    await readCheckbox.click();
-
-    // Verify state changed
-    expect(await readCheckbox.isChecked()).toBe(!wasChecked);
-
-    // Verify dirty state
-    await expect(page.locator('button:has-text("Save Changes")')).toBeEnabled();
-  });
-
   test('should persist relay changes after save', async ({ page }) => {
     await waitForAppReady(page);
 
@@ -149,8 +125,9 @@ test.describe('Relay Configuration View', () => {
     // Save changes
     await page.locator('button:has-text("Save Changes")').click();
 
-    // Wait for save to complete (button should become disabled)
-    await expect(page.locator('button:has-text("Save Changes")')).toBeDisabled();
+    // Wait for save to complete (button should become disabled when dirty=false)
+    // Use a longer timeout since IPC calls may take time
+    await expect(page.locator('button:has-text("Save Changes")')).toBeDisabled({ timeout: 10000 });
 
     // Return to chat and back
     await page.locator('.relay-config-done-button').click();

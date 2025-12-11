@@ -64,8 +64,6 @@ export interface Subscription {
  */
 export interface RelayEndpoint {
   url: string;
-  read: boolean;   // Whether to subscribe on this relay
-  write: boolean;  // Whether to publish to this relay
 }
 
 // ============================================================================
@@ -146,22 +144,21 @@ export class RelayPool {
   }
 
   async publish(event: NostrEvent): Promise<PublishResult[]> {
-    const writeRelays = Array.from(this.endpoints.entries())
-      .filter(([url, ep]) => ep.write && this.statusMap.get(url) === 'connected')
-      .map(([url]) => url);
+    const connectedRelays = Array.from(this.endpoints.keys())
+      .filter(url => this.statusMap.get(url) === 'connected');
 
-    if (writeRelays.length === 0) {
+    if (connectedRelays.length === 0) {
       return [];
     }
 
     const eventForPublish = event as unknown as Event;
     const results: PublishResult[] = [];
 
-    const publishPromises = this.pool.publish(writeRelays, eventForPublish);
+    const publishPromises = this.pool.publish(connectedRelays, eventForPublish);
 
     await Promise.allSettled(
       publishPromises.map(async (promise, index) => {
-        const relay = writeRelays[index];
+        const relay = connectedRelays[index];
         try {
           const message = await Promise.race([
             promise,
@@ -184,11 +181,10 @@ export class RelayPool {
   }
 
   subscribe(filters: Filter[], onEvent: (event: NostrEvent) => void): Subscription {
-    const readRelays = Array.from(this.endpoints.entries())
-      .filter(([url, ep]) => ep.read && this.statusMap.get(url) === 'connected')
-      .map(([url]) => url);
+    const connectedRelays = Array.from(this.endpoints.keys())
+      .filter(url => this.statusMap.get(url) === 'connected');
 
-    if (readRelays.length === 0) {
+    if (connectedRelays.length === 0) {
       return { close: () => {} };
     }
 
@@ -198,7 +194,7 @@ export class RelayPool {
     const filterToUse = filters.length > 0 ? filters[0] : {};
 
     const sub = this.pool.subscribeMany(
-      readRelays,
+      connectedRelays,
       filterToUse,
       {
         onevent: (event: Event) => {

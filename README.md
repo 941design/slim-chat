@@ -4,6 +4,11 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 
 ## TODO
 
++ status is stuck at checking for updates
++ themes
++ larger initial screen size.
++ save screen size in config
++ add config dir command line param
 + disallow pushing tags on branches other than master
 + identity
   + create
@@ -18,7 +23,22 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
   + send
 + group chat
   + add member (adding a member creates new id (deterministically?), and starts new chat)
-  +
++ remove header
++ vertically shrink footer
++ compress schemas
++ move all status info to status menu item
++ instead of help create about menu item
++ rename identities to something more intuitive
++ create menu item for managing identities
++ create nostling like status states: picking, flocking, ...
++ compress migrations into one initial migration
++ I see - the e2e tests don't clean the database. The Electron app uses the default userData path, which persists between test runs.
+  There's an old database with the read and write columns that was created before the migration removed them.
+
+  The issue is a schema mismatch. The fix needs to be one of:
+  1. Clean the database before e2e tests
+  2. The migration should drop and recreate the table if the schema doesn't match
+  3. Update tests to handle this scenario
 
 ## Features
 

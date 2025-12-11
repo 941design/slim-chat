@@ -33,20 +33,17 @@ interface RelayRow {
   id: string;
   identity_id: string | null;
   url: string;
-  read: number;
-  write: number;
-  created_at: string;
 }
 
 /**
  * Default relay endpoints seeded on first run.
  * These are well-known, reliable Nostr relays.
  */
-const DEFAULT_RELAYS: Array<{ url: string; read: boolean; write: boolean }> = [
-  { url: 'wss://relay.damus.io', read: true, write: true },
-  { url: 'wss://relay.primal.net', read: true, write: true },
-  { url: 'wss://nos.lol', read: true, write: true },
-  { url: 'wss://relay.nostr.band', read: true, write: true },
+const DEFAULT_RELAYS: string[] = [
+  'wss://relay.damus.io',
+  'wss://relay.primal.net',
+  'wss://nos.lol',
+  'wss://relay.nostr.band',
 ];
 
 interface IdentityRow {
@@ -466,7 +463,7 @@ export class NostlingService {
 
   async getRelayConfig(): Promise<NostlingRelayConfig> {
     const stmt = this.database.prepare(
-      'SELECT id, identity_id, url, read, write, created_at FROM nostr_relays ORDER BY created_at ASC'
+      'SELECT id, identity_id, url FROM nostr_relays'
     );
 
     const defaults: NostlingRelayEndpoint[] = [];
@@ -474,12 +471,7 @@ export class NostlingService {
 
     while (stmt.step()) {
       const row = stmt.getAsObject() as unknown as RelayRow;
-      const endpoint: NostlingRelayEndpoint = {
-        url: row.url,
-        read: Boolean(row.read),
-        write: Boolean(row.write),
-        createdAt: this.toIso(row.created_at),
-      };
+      const endpoint: NostlingRelayEndpoint = { url: row.url };
 
       if (row.identity_id) {
         perIdentity[row.identity_id] = perIdentity[row.identity_id] || [];
@@ -497,18 +489,10 @@ export class NostlingService {
     return this.withErrorLogging('set relay configuration', async () => {
       this.database.run('DELETE FROM nostr_relays');
 
-      const now = new Date().toISOString();
       for (const endpoint of config.defaults) {
         this.database.run(
-          'INSERT INTO nostr_relays (id, identity_id, url, read, write, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-          [
-            randomUUID(),
-            null,
-            endpoint.url,
-            endpoint.read ? 1 : 0,
-            endpoint.write ? 1 : 0,
-            endpoint.createdAt || now,
-          ]
+          'INSERT INTO nostr_relays (id, identity_id, url) VALUES (?, ?, ?)',
+          [randomUUID(), null, endpoint.url]
         );
       }
 
@@ -516,8 +500,8 @@ export class NostlingService {
         for (const [identityId, endpoints] of Object.entries(config.perIdentity)) {
           for (const endpoint of endpoints) {
             this.database.run(
-              'INSERT INTO nostr_relays (id, identity_id, url, read, write, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-              [randomUUID(), identityId, endpoint.url, endpoint.read ? 1 : 0, endpoint.write ? 1 : 0, endpoint.createdAt || now]
+              'INSERT INTO nostr_relays (id, identity_id, url) VALUES (?, ?, ?)',
+              [randomUUID(), identityId, endpoint.url]
             );
           }
         }
@@ -542,22 +526,12 @@ export class NostlingService {
     let relayConfig = await this.getRelayConfig();
     if (relayConfig.defaults.length === 0) {
       log('info', 'No relays configured, seeding default relay list');
-      const now = new Date().toISOString();
       relayConfig = await this.setRelayConfig({
-        defaults: DEFAULT_RELAYS.map(r => ({
-          url: r.url,
-          read: r.read,
-          write: r.write,
-          createdAt: now,
-        })),
+        defaults: DEFAULT_RELAYS.map(url => ({ url })),
       });
     }
 
-    const endpoints: RelayEndpoint[] = relayConfig.defaults.map(e => ({
-      url: e.url,
-      read: e.read,
-      write: e.write
-    }));
+    const endpoints: RelayEndpoint[] = relayConfig.defaults.map(e => ({ url: e.url }));
 
     if (endpoints.length === 0) {
       log('warn', 'No relay endpoints configured, nostling service will be offline');

@@ -4,14 +4,14 @@ import { waitForAppReady, getAppVersion, getUpdatePhase } from './helpers';
 test.describe('Nostling Application', () => {
   test('should launch application successfully', async ({ page }) => {
     await waitForAppReady(page);
-    await expect(page.locator('.brand')).toHaveText('Nostling Bootstrap');
+    await expect(page.locator('.brand')).toHaveText('Nostling');
   });
 
   test('should display application header and footer', async ({ page }) => {
     await waitForAppReady(page);
 
     await expect(page.locator('.app-header')).toBeVisible();
-    await expect(page.locator('.brand')).toHaveText('Nostling Bootstrap');
+    await expect(page.locator('.brand')).toHaveText('Nostling');
 
     await expect(page.locator('.app-footer')).toBeVisible();
   });
