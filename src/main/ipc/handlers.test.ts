@@ -13,7 +13,15 @@
 
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import * as fc from 'fast-check';
-import { UpdateState, AppStatus, AppConfig } from '../../shared/types';
+import {
+  UpdateState,
+  AppStatus,
+  AppConfig,
+  NostlingIdentity,
+  NostlingContact,
+  NostlingMessage,
+  NostlingRelayConfig,
+} from '../../shared/types';
 
 // Mock electron before importing handlers
 jest.mock('electron', () => ({
@@ -472,6 +480,66 @@ describe('registerHandlers', () => {
     };
   }
 
+  function createNostlingDependencies(): any {
+    const exampleIdentity: NostlingIdentity = {
+      id: 'id-1',
+      npub: 'npub1',
+      secretRef: 'ref1',
+      label: 'Primary',
+      createdAt: new Date().toISOString(),
+    };
+
+    const exampleContact: NostlingContact = {
+      id: 'contact-1',
+      identityId: 'id-1',
+      npub: 'npub-contact',
+      alias: 'Alice',
+      state: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+
+    const exampleMessage: NostlingMessage = {
+      id: 'msg-1',
+      identityId: 'id-1',
+      contactId: 'contact-1',
+      senderNpub: 'npub1',
+      recipientNpub: 'npub-contact',
+      ciphertext: 'hi',
+      timestamp: new Date().toISOString(),
+      status: 'queued',
+      direction: 'outgoing',
+    };
+
+    const relayConfig: NostlingRelayConfig = {
+      defaults: [
+        {
+          url: 'wss://relay.example.com',
+          read: true,
+          write: true,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    };
+
+    return {
+      listIdentities: jest.fn<() => Promise<NostlingIdentity[]>>().mockResolvedValue([exampleIdentity]),
+      createIdentity: jest.fn<() => Promise<NostlingIdentity>>().mockResolvedValue(exampleIdentity),
+      removeIdentity: jest.fn<() => Promise<void>>().mockResolvedValue(),
+      listContacts: jest.fn<() => Promise<NostlingContact[]>>().mockResolvedValue([exampleContact]),
+      addContact: jest.fn<() => Promise<NostlingContact>>().mockResolvedValue(exampleContact),
+      removeContact: jest.fn<() => Promise<void>>().mockResolvedValue(),
+      markContactConnected: jest
+        .fn<() => Promise<NostlingContact>>()
+        .mockResolvedValue({ ...exampleContact, state: 'connected' as const }),
+      listMessages: jest.fn<() => Promise<NostlingMessage[]>>().mockResolvedValue([exampleMessage]),
+      sendMessage: jest.fn<() => Promise<NostlingMessage>>().mockResolvedValue(exampleMessage),
+      discardUnknown: jest.fn<() => Promise<void>>().mockResolvedValue(),
+      getRelayConfig: jest.fn<() => Promise<NostlingRelayConfig>>().mockResolvedValue(relayConfig),
+      setRelayConfig: jest.fn<(config: NostlingRelayConfig) => Promise<NostlingRelayConfig>>()
+        .mockResolvedValue(relayConfig),
+    };
+  }
+
   describe('Property: Completeness - all handlers registered', () => {
     it('should register 13 IPC handlers (10 new + 3 legacy)', () => {
       const deps = createMockDependencies();
@@ -525,8 +593,9 @@ describe('registerHandlers', () => {
 
       const allChannels = Array.from(handlers.keys());
       allChannels.forEach((channel) => {
-        // Updated regex to include state: domain and legacy handlers (status:, update:)
-        expect(channel).toMatch(/^(system|updates|config|state|status|update):[a-z-]+$/);
+        expect(channel).toMatch(
+          /^(system|updates|config|state|status|update):[a-z-]+$|^nostling:(identities|contacts|messages|relays):[a-z-]+$/
+        );
       });
     });
   });
@@ -772,6 +841,36 @@ describe('registerHandlers', () => {
       const setHandler = handlers.get('config:set');
       const result2 = await setHandler!(null, { autoUpdate: true, logLevel: 'debug' });
       expect(result2).toEqual(updatedConfig);
+    });
+
+    it('Example: Nostling handlers register when provided', async () => {
+      const deps = createMockDependencies();
+      const nostlingDeps = createNostlingDependencies();
+      registerHandlers({ ...deps, nostling: nostlingDeps });
+
+      // Base handlers plus 12 nostling channels
+      expect(handlers.size).toBe(25);
+      expect(handlers.has('nostling:identities:list')).toBe(true);
+      expect(handlers.has('nostling:contacts:add')).toBe(true);
+      expect(handlers.has('nostling:messages:send')).toBe(true);
+      expect(handlers.has('nostling:relays:set')).toBe(true);
+
+      await handlers.get('nostling:identities:list')!();
+      expect(nostlingDeps.listIdentities).toHaveBeenCalled();
+
+      await handlers.get('nostling:contacts:add')!(null, { identityId: 'id-1', npub: 'npub', alias: 'bob' });
+      expect(nostlingDeps.addContact).toHaveBeenCalled();
+
+      await handlers.get('nostling:messages:send')!(null, {
+        identityId: 'id-1',
+        contactId: 'contact-1',
+        plaintext: 'hi',
+      });
+      expect(nostlingDeps.sendMessage).toHaveBeenCalled();
+
+      const relayConfig = await nostlingDeps.getRelayConfig();
+      await handlers.get('nostling:relays:set')!(null, relayConfig);
+      expect(nostlingDeps.setRelayConfig).toHaveBeenCalledWith(relayConfig);
     });
   });
 });

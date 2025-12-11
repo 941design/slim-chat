@@ -26,6 +26,9 @@ import {
   deleteStateValue,
   getAllStateValues,
 } from './database';
+import { getDatabase } from './database/connection';
+import { NostlingSecretStore } from './nostling/secret-store';
+import { NostlingService } from './nostling/service';
 
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
@@ -33,6 +36,7 @@ setLogLevel(config.logLevel);
 
 let updateState: UpdateState = { phase: 'idle' };
 let lastUpdateCheck: string | undefined;
+let nostlingService: NostlingService | null = null;
 
 // Public key for manifest verification (injected at build time from keys/slimchat-release.pub)
 const PUBLIC_KEY = process.env.RSA_PUBLIC_KEY || process.env.EMBEDDED_RSA_PUBLIC_KEY || '';
@@ -70,6 +74,13 @@ function broadcastUpdateStateToMain() {
 // Bug report: bug-reports/footer-timestamp-not-updating-report.md
 function recordUpdateCheckTimestamp() {
   lastUpdateCheck = new Date().toISOString();
+}
+
+function getNostlingService(): NostlingService {
+  if (!nostlingService) {
+    throw new Error('Nostling service not initialized');
+  }
+  return nostlingService;
 }
 
 function setupAutoUpdater() {
@@ -428,6 +439,13 @@ app.on('ready', async () => {
   // Initialize database and run migrations before window creation
   await initializeDatabaseWithMigrations();
 
+  const database = getDatabase();
+  if (!database) {
+    throw new Error('Database not initialized after migrations');
+  }
+  const secretStore = new NostlingSecretStore();
+  nostlingService = new NostlingService(database, secretStore);
+
   // macOS: Clean up any stale DMG mounts from previous update attempts
   if (process.platform === 'darwin') {
     await cleanupStaleMounts().catch((err) => {
@@ -448,6 +466,20 @@ app.on('ready', async () => {
     setState: setStateValue,
     deleteState: deleteStateValue,
     getAllState: getAllStateValues,
+    nostling: {
+      listIdentities: () => getNostlingService().listIdentities(),
+      createIdentity: (request) => getNostlingService().createIdentity(request),
+      removeIdentity: (identityId) => getNostlingService().removeIdentity(identityId),
+      listContacts: (identityId) => getNostlingService().listContacts(identityId),
+      addContact: (request) => getNostlingService().addContact(request),
+      removeContact: (contactId) => getNostlingService().removeContact(contactId),
+      markContactConnected: (contactId) => getNostlingService().markContactConnected(contactId),
+      listMessages: (identityId, contactId) => getNostlingService().listMessages(identityId, contactId),
+      sendMessage: (request) => getNostlingService().sendMessage(request),
+      discardUnknown: (eventId) => getNostlingService().discardUnknown(eventId),
+      getRelayConfig: () => getNostlingService().getRelayConfig(),
+      setRelayConfig: (config) => getNostlingService().setRelayConfig(config),
+    },
   });
   log('info', `Starting SlimChat ${app.getVersion()}`);
   config = loadConfig();

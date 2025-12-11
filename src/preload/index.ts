@@ -1,5 +1,15 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { AppConfig, AppStatus, RendererApi, UpdateState } from '../shared/types';
+import {
+  AddContactRequest,
+  AppConfig,
+  AppStatus,
+  CreateIdentityRequest,
+  NostlingApi,
+  NostlingRelayConfig,
+  RendererApi,
+  SendNostrMessageRequest,
+  UpdateState,
+} from '../shared/types';
 
 // LEGACY: Flat API structure (will migrate to nested in GAP-007)
 const legacyApi = {
@@ -66,6 +76,56 @@ const api: RendererApi = {
     },
     async getAll() {
       return ipcRenderer.invoke('state:get-all') as Promise<Record<string, string>>;
+    },
+  },
+  nostling: {
+    identities: {
+      async list() {
+        return ipcRenderer.invoke('nostling:identities:list') as Promise<Awaited<NostlingApi['identities']['list']>>;
+      },
+      async create(request: CreateIdentityRequest) {
+        return ipcRenderer.invoke('nostling:identities:create', request) as Promise<Awaited<NostlingApi['identities']['create']>>;
+      },
+      async remove(identityId: string) {
+        return ipcRenderer.invoke('nostling:identities:remove', identityId) as Promise<void>;
+      },
+    },
+    contacts: {
+      async list(identityId: string) {
+        return ipcRenderer.invoke('nostling:contacts:list', identityId) as Promise<Awaited<NostlingApi['contacts']['list']>>;
+      },
+      async add(request: AddContactRequest) {
+        return ipcRenderer.invoke('nostling:contacts:add', request) as Promise<Awaited<NostlingApi['contacts']['add']>>;
+      },
+      async remove(contactId: string) {
+        return ipcRenderer.invoke('nostling:contacts:remove', contactId) as Promise<void>;
+      },
+      async markConnected(contactId: string) {
+        return ipcRenderer.invoke('nostling:contacts:mark-connected', contactId) as Promise<
+          Awaited<NostlingApi['contacts']['markConnected']>
+        >;
+      },
+    },
+    messages: {
+      async list(identityId: string, contactId: string) {
+        return ipcRenderer.invoke('nostling:messages:list', identityId, contactId) as Promise<
+          Awaited<NostlingApi['messages']['list']>
+        >;
+      },
+      async send(request: SendNostrMessageRequest) {
+        return ipcRenderer.invoke('nostling:messages:send', request) as Promise<Awaited<NostlingApi['messages']['send']>>;
+      },
+      async discardUnknown(eventId: string) {
+        return ipcRenderer.invoke('nostling:messages:discard-unknown', eventId) as Promise<void>;
+      },
+    },
+    relays: {
+      async get() {
+        return ipcRenderer.invoke('nostling:relays:get') as Promise<NostlingRelayConfig>;
+      },
+      async set(config: NostlingRelayConfig) {
+        return ipcRenderer.invoke('nostling:relays:set', config) as Promise<NostlingRelayConfig>;
+      },
     },
   },
 };

@@ -43,7 +43,7 @@ This document lists the exact tasks required to start implementing the Nostr cli
 6. **IPC and preload contracts for nostling**
    - Define IPC channels for nostling operations (identities, contacts, messages, relay config) following the existing domain-prefixed handler style.
    - Expose strongly typed APIs through the preload bridge without altering existing update/config APIs.
-   - **Status:** Not Started
+   - **Status:** Done
 
 7. **Renderer state and data-fetching layer**
    - Add client-side state hooks/services to load and mutate nostling data via the preload APIs.

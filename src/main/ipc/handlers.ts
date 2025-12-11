@@ -6,7 +6,30 @@
  */
 
 import { ipcMain, BrowserWindow } from 'electron';
-import { AppConfig, AppStatus, UpdateState } from '../../shared/types';
+import {
+  AddContactRequest,
+  AppConfig,
+  AppStatus,
+  CreateIdentityRequest,
+  NostlingRelayConfig,
+  SendNostrMessageRequest,
+  UpdateState,
+} from '../../shared/types';
+
+interface NostlingIpcDependencies {
+  listIdentities: () => Promise<any>;
+  createIdentity: (request: CreateIdentityRequest) => Promise<any>;
+  removeIdentity: (identityId: string) => Promise<void>;
+  listContacts: (identityId: string) => Promise<any>;
+  addContact: (request: AddContactRequest) => Promise<any>;
+  removeContact: (contactId: string) => Promise<void>;
+  markContactConnected: (contactId: string) => Promise<any>;
+  listMessages: (identityId: string, contactId: string) => Promise<any>;
+  sendMessage: (request: SendNostrMessageRequest) => Promise<any>;
+  discardUnknown: (eventId: string) => Promise<void>;
+  getRelayConfig: () => Promise<NostlingRelayConfig>;
+  setRelayConfig: (config: NostlingRelayConfig) => Promise<NostlingRelayConfig>;
+}
 
 /**
  * Register all IPC handlers with domain prefixes
@@ -69,6 +92,7 @@ export function registerHandlers(dependencies: {
   setState: (key: string, value: string) => Promise<void>;
   deleteState: (key: string) => Promise<void>;
   getAllState: () => Promise<Record<string, string>>;
+  nostling?: NostlingIpcDependencies;
 }): void {
   // System domain: status queries
   ipcMain.handle('system:get-status', async () => {
@@ -113,6 +137,49 @@ export function registerHandlers(dependencies: {
   ipcMain.handle('state:get-all', async () => {
     return dependencies.getAllState();
   });
+
+  // Nostling domain: identities, contacts, messages, relay config
+  if (dependencies.nostling) {
+    // Identities
+    ipcMain.handle('nostling:identities:list', async () => dependencies.nostling!.listIdentities());
+    ipcMain.handle('nostling:identities:create', async (_, request: CreateIdentityRequest) =>
+      dependencies.nostling!.createIdentity(request)
+    );
+    ipcMain.handle('nostling:identities:remove', async (_, identityId: string) =>
+      dependencies.nostling!.removeIdentity(identityId)
+    );
+
+    // Contacts
+    ipcMain.handle('nostling:contacts:list', async (_, identityId: string) =>
+      dependencies.nostling!.listContacts(identityId)
+    );
+    ipcMain.handle('nostling:contacts:add', async (_, request: AddContactRequest) =>
+      dependencies.nostling!.addContact(request)
+    );
+    ipcMain.handle('nostling:contacts:remove', async (_, contactId: string) =>
+      dependencies.nostling!.removeContact(contactId)
+    );
+    ipcMain.handle('nostling:contacts:mark-connected', async (_, contactId: string) =>
+      dependencies.nostling!.markContactConnected(contactId)
+    );
+
+    // Messages
+    ipcMain.handle('nostling:messages:list', async (_, identityId: string, contactId: string) =>
+      dependencies.nostling!.listMessages(identityId, contactId)
+    );
+    ipcMain.handle('nostling:messages:send', async (_, request: SendNostrMessageRequest) =>
+      dependencies.nostling!.sendMessage(request)
+    );
+    ipcMain.handle('nostling:messages:discard-unknown', async (_, eventId: string) =>
+      dependencies.nostling!.discardUnknown(eventId)
+    );
+
+    // Relay configuration
+    ipcMain.handle('nostling:relays:get', async () => dependencies.nostling!.getRelayConfig());
+    ipcMain.handle('nostling:relays:set', async (_, config: NostlingRelayConfig) =>
+      dependencies.nostling!.setRelayConfig(config)
+    );
+  }
 
   // BUG FIX: Legacy IPC handlers for backward compatibility
   // Root cause: E2E tests using old API channel names (status:get, update:check, update:restart)
