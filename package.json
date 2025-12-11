@@ -1,12 +1,12 @@
 {
-  "name": "slim-chat",
+  "name": "nostling",
   "version": "0.0.24",
   "description": "Desktop app bootstrap with secure auto-updates",
   "main": "dist/main/index.js",
   "author": "markus.rother@mustwork.de",
   "repository": {
     "type": "git",
-    "url": "https://github.com/941design/slim-chat.git"
+    "url": "https://github.com/941design/nostling.git"
   },
   "license": "MIT",
   "scripts": {
@@ -88,8 +88,8 @@
     "node": "20.x"
   },
   "build": {
-    "appId": "com.example.slimchat",
-    "productName": "SlimChat",
+    "appId": "com.example.nostling",
+    "productName": "Nostling",
     "files": [
       "dist/main/**/*",
       "dist/preload/**/*",

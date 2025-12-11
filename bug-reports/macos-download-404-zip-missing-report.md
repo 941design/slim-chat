@@ -10,7 +10,7 @@ The update download should:
 3. Complete the download successfully
 
 ## Reproduction Steps
-1. Run SlimChat version 0.0.8 on macOS
+1. Run Nostling version 0.0.8 on macOS
 2. Check for updates (shows 0.0.9 available)
 3. Click "Download"
 4. Observe error: "Failed to fetch manifest from server"
@@ -27,24 +27,24 @@ Error logs show:
 ```yaml
 version: 0.0.9
 files:
-  - url: SlimChat-0.0.9-mac.zip    # <-- PRIMARY ARTIFACT
+  - url: Nostling-0.0.9-mac.zip    # <-- PRIMARY ARTIFACT
     sha512: qAVCUDPfbhRNNpKN1T9BPt/...
     size: 98835410
-  - url: SlimChat-0.0.9.dmg
+  - url: Nostling-0.0.9.dmg
     sha512: JAfyck7iIrNuy9Fu4+8MH+n...
     size: 102083313
-path: SlimChat-0.0.9-mac.zip        # <-- ELECTRON-UPDATER DOWNLOADS THIS
+path: Nostling-0.0.9-mac.zip        # <-- ELECTRON-UPDATER DOWNLOADS THIS
 ```
 
 **Release assets (0.0.9):**
-- SlimChat-0.0.9.dmg (exists)
-- SlimChat-0.0.9-x86_64.AppImage (exists)
+- Nostling-0.0.9.dmg (exists)
+- Nostling-0.0.9-x86_64.AppImage (exists)
 - latest-mac.yml (exists)
 - latest-linux.yml (exists)
 - manifest.json (exists)
-- **SlimChat-0.0.9-mac.zip (MISSING - 404)**
+- **Nostling-0.0.9-mac.zip (MISSING - 404)**
 
-When electron-updater tries to download `SlimChat-0.0.9-mac.zip`, it gets HTTP 404, which `sanitizeError()` converts to "Failed to fetch manifest from server".
+When electron-updater tries to download `Nostling-0.0.9-mac.zip`, it gets HTTP 404, which `sanitizeError()` converts to "Failed to fetch manifest from server".
 
 ## Root Cause
 1. `package.json` configures mac build with `target: ["dmg", "zip"]`
@@ -57,7 +57,7 @@ When electron-updater tries to download `SlimChat-0.0.9-mac.zip`, it gets HTTP 4
      release-artifacts/**/*.AppImage    # uploaded
      # *.zip NOT uploaded!
    ```
-5. electron-updater reads `latest-mac.yml`, sees `path: SlimChat-x.y.z-mac.zip`, requests it, gets 404
+5. electron-updater reads `latest-mac.yml`, sees `path: Nostling-x.y.z-mac.zip`, requests it, gets 404
 
 ## Fix
 Update `.github/workflows/release.yml` to:
@@ -76,9 +76,9 @@ Update `.github/workflows/release.yml` to:
 
 ## Verification
 After deploying the fix, a new release should include:
-- SlimChat-x.y.z.dmg
-- SlimChat-x.y.z-mac.zip
-- SlimChat-x.y.z-x86_64.AppImage
+- Nostling-x.y.z.dmg
+- Nostling-x.y.z-mac.zip
+- Nostling-x.y.z-x86_64.AppImage
 - latest-mac.yml
 - latest-linux.yml
 - manifest.json (with entries for all artifacts including .zip)

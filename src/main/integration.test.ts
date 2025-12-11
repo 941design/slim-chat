@@ -17,7 +17,7 @@ import { UpdateDownloadedEvent } from 'electron-updater';
 describe('constructManifestUrl', () => {
   describe('Property: Dev mode takes precedence when devUpdateSource provided', () => {
     it('should return devUpdateSource with /manifest.json appended when provided', () => {
-      const devUpdateSource = 'https://github.com/941design/slim-chat/releases/download/1.0.0';
+      const devUpdateSource = 'https://github.com/941design/nostling/releases/download/1.0.0';
       const publishConfig = { owner: 'user', repo: 'app' };
 
       const result = constructManifestUrl(publishConfig, devUpdateSource);
@@ -26,7 +26,7 @@ describe('constructManifestUrl', () => {
     });
 
     it('should handle devUpdateSource ending with /', () => {
-      const devUpdateSource = 'https://github.com/941design/slim-chat/releases/download/1.0.0/';
+      const devUpdateSource = 'https://github.com/941design/nostling/releases/download/1.0.0/';
       const publishConfig = { owner: 'user', repo: 'app' };
 
       const result = constructManifestUrl(publishConfig, devUpdateSource);
@@ -155,17 +155,17 @@ describe('constructManifestUrl', () => {
   });
 
   describe('Examples from specification', () => {
-    it('should match production example: 941design/slim-chat', () => {
-      const result = constructManifestUrl({ owner: '941design', repo: 'slim-chat' }, undefined);
-      expect(result).toBe('https://github.com/941design/slim-chat/releases/latest/download/manifest.json');
+    it('should match production example: 941design/nostling', () => {
+      const result = constructManifestUrl({ owner: '941design', repo: 'nostling' }, undefined);
+      expect(result).toBe('https://github.com/941design/nostling/releases/latest/download/manifest.json');
     });
 
     it('should match dev example with GitHub release URL', () => {
       const result = constructManifestUrl(
         {},
-        'https://github.com/941design/slim-chat/releases/download/1.0.0'
+        'https://github.com/941design/nostling/releases/download/1.0.0'
       );
-      expect(result).toBe('https://github.com/941design/slim-chat/releases/download/1.0.0/manifest.json');
+      expect(result).toBe('https://github.com/941design/nostling/releases/download/1.0.0/manifest.json');
     });
 
     it('should match dev example with local file URL', () => {
@@ -1198,7 +1198,7 @@ describe('TR5: File Protocol Dev Mode Test (FR2)', () => {
     });
 
     it('E003: Dev mode still accepts HTTPS URLs', async () => {
-      const httpsUrl = 'https://github.com/941design/slim-chat/releases/latest/download/manifest.json';
+      const httpsUrl = 'https://github.com/941design/nostling/releases/latest/download/manifest.json';
       const manifest = {
         version: '2.0.0',
         artifacts: [],
@@ -1551,7 +1551,7 @@ describe('sanitizeError', () => {
     it('P024: Complex Squirrel.Mac error with multiple patterns', () => {
       // Real-world Squirrel.Mac error message
       const error = new Error(
-        'Error Domain=SQRLCodeSignatureErrorDomain Code=-1 "Code signature at URL file:///private/var/folders/.../SlimChat.app did not pass validation: code failed to satisfy specified code requirement(s)"'
+        'Error Domain=SQRLCodeSignatureErrorDomain Code=-1 "Code signature at URL file:///private/var/folders/.../Nostling.app did not pass validation: code failed to satisfy specified code requirement(s)"'
       );
       const result = sanitizeError(error, false);
       expect(result.message).toBe('macOS code signature verification failed (Squirrel.Mac)');

@@ -11,7 +11,7 @@ The `manifest.json` file should contain artifacts for all platforms (both Linux 
 4. Download and verify the update
 
 ## Reproduction Steps
-1. Run SlimChat version 0.0.6 on macOS
+1. Run Nostling version 0.0.6 on macOS
 2. Check for updates (update detection shows 0.0.7 available)
 3. Attempt to download update
 4. Observe error: "Failed to fetch manifest from server"
@@ -23,13 +23,13 @@ Error logs show:
 {"level":"error","message":"Updater error: Failed to fetch manifest from server","timestamp":"2025-12-07T19:37:31.679Z"}
 ```
 
-Inspecting the manifest at `https://github.com/941design/slim-chat/releases/download/0.0.7/manifest.json` reveals:
+Inspecting the manifest at `https://github.com/941design/nostling/releases/download/0.0.7/manifest.json` reveals:
 ```json
 {
   "version": "0.0.7",
   "artifacts": [
     {
-      "url": "SlimChat-0.0.7-x86_64.AppImage",
+      "url": "Nostling-0.0.7-x86_64.AppImage",
       "sha256": "b26d99fede7a4919d3973285c1617e435c0c6cc76b7c3be9370b4231ace6bad2",
       "platform": "linux",
       "type": "AppImage"
@@ -41,7 +41,7 @@ Inspecting the manifest at `https://github.com/941design/slim-chat/releases/down
 ```
 
 The macOS artifact is missing, but the file exists in the release:
-- `SlimChat-0.0.7.dmg` (102,082,984 bytes) - exists in release assets
+- `Nostling-0.0.7.dmg` (102,082,984 bytes) - exists in release assets
 - Entry for this .dmg is missing from manifest.json
 
 ## Impact
@@ -68,8 +68,8 @@ The manifest generation step in the GitHub Actions release workflow only runs on
 **Problem:**
 1. The build matrix creates artifacts on two separate runners (ubuntu-latest and macos-13)
 2. Each runner has its own isolated `dist/` directory
-3. ubuntu-latest dist/ contains: SlimChat-*.AppImage
-4. macos-13 dist/ contains: SlimChat-*.dmg
+3. ubuntu-latest dist/ contains: Nostling-*.AppImage
+4. macos-13 dist/ contains: Nostling-*.dmg
 5. Manifest generation runs **only on ubuntu-latest**
 6. The manifest script (`scripts/generate-manifest.ts`) reads from `dist/` directory
 7. Since only Linux artifacts are present in ubuntu's dist/, only Linux artifacts are included in manifest.json

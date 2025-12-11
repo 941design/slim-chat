@@ -132,7 +132,7 @@ class MockAutoUpdater extends EventEmitter {
     this.emit('update-downloaded', {
       version: updateInfo.version,
       releaseDate: updateInfo.releaseDate,
-      downloadedFile: '/tmp/slim-chat-0.0.1.dmg',
+      downloadedFile: '/tmp/nostling-0.0.1.dmg',
     } as UpdateDownloadedEvent);
   }
 
@@ -166,7 +166,7 @@ jest.mock('../integration', () => ({
       return (devUpdateSource as string).endsWith('/') ? devUpdateSource + 'manifest.json' : devUpdateSource + '/manifest.json';
     }
     const owner = (publishConfig as any)?.owner || '941design';
-    const repo = (publishConfig as any)?.repo || 'slim-chat';
+    const repo = (publishConfig as any)?.repo || 'nostling';
     return `https://github.com/${owner}/${repo}/releases/latest/download/manifest.json`;
   }),
   fetchManifest: jest.fn(),
@@ -180,9 +180,9 @@ function createUpdateInfo(version: string): UpdateInfo {
   return {
     version,
     releaseDate: new Date().toISOString(),
-    url: `https://github.com/941design/slim-chat/releases/download/v${version}/`,
+    url: `https://github.com/941design/nostling/releases/download/v${version}/`,
     files: [],
-    path: `/path/to/slim-chat-${version}`,
+    path: `/path/to/nostling-${version}`,
     sha512: 'test-sha512',
   } as UpdateInfo;
 }
@@ -194,9 +194,9 @@ function createDownloadEvent(version: string): UpdateDownloadedEvent {
   return {
     version,
     releaseDate: new Date().toISOString(),
-    downloadedFile: `/tmp/slim-chat-${version}.dmg`,
+    downloadedFile: `/tmp/nostling-${version}.dmg`,
     files: [],
-    path: `/path/to/slim-chat-${version}`,
+    path: `/path/to/nostling-${version}`,
     sha512: 'test-sha512',
   } as UpdateDownloadedEvent;
 }
@@ -342,23 +342,23 @@ describe('Version Transition E2E', () => {
       const { constructManifestUrl } = await import('../integration');
 
       const url = constructManifestUrl(
-        { owner: '941design', repo: 'slim-chat' },
+        { owner: '941design', repo: 'nostling' },
         undefined
       );
 
       expect(url).toContain('/latest/download/');
-      expect(url).toBe('https://github.com/941design/slim-chat/releases/latest/download/manifest.json');
+      expect(url).toBe('https://github.com/941design/nostling/releases/latest/download/manifest.json');
     });
 
     test('should construct manifest URL that works for any version', async () => {
       const { constructManifestUrl } = await import('../integration');
 
       // This URL should be the same regardless of current app version
-      const urlV1 = constructManifestUrl({ owner: '941design', repo: 'slim-chat' }, undefined);
+      const urlV1 = constructManifestUrl({ owner: '941design', repo: 'nostling' }, undefined);
       (global as any).mockAppVersion = '0.0.1';
-      const urlV2 = constructManifestUrl({ owner: '941design', repo: 'slim-chat' }, undefined);
+      const urlV2 = constructManifestUrl({ owner: '941design', repo: 'nostling' }, undefined);
       (global as any).mockAppVersion = '0.0.2';
-      const urlV3 = constructManifestUrl({ owner: '941design', repo: 'slim-chat' }, undefined);
+      const urlV3 = constructManifestUrl({ owner: '941design', repo: 'nostling' }, undefined);
 
       expect(urlV1).toBe(urlV2);
       expect(urlV2).toBe(urlV3);
@@ -376,7 +376,7 @@ describe('Version Transition E2E', () => {
     test('should handle dev mode with GitHub release URL', async () => {
       const { constructManifestUrl } = await import('../integration');
 
-      const devUrl = 'https://github.com/941design/slim-chat/releases/download/0.0.1';
+      const devUrl = 'https://github.com/941design/nostling/releases/download/0.0.1';
       const result = constructManifestUrl({}, devUrl);
 
       expect(result).toBe(devUrl + '/manifest.json');
@@ -396,7 +396,7 @@ describe('Version Transition E2E', () => {
         '0.0.0',
         'darwin',
         'test-public-key',
-        'https://github.com/941design/slim-chat/releases/latest/download/manifest.json'
+        'https://github.com/941design/nostling/releases/latest/download/manifest.json'
       );
 
       expect(result).toEqual({ verified: true });
@@ -444,7 +444,7 @@ describe('Version Transition E2E', () => {
       expect(mockAutoUpdater.setFeedURL).toHaveBeenCalledWith({
         provider: 'github',
         owner: '941design',
-        repo: 'slim-chat',
+        repo: 'nostling',
       });
     });
 
@@ -455,7 +455,7 @@ describe('Version Transition E2E', () => {
         version: '0.0.1',
         artifacts: [
           {
-            url: 'https://github.com/941design/slim-chat/releases/download/0.0.1/slim-chat-0.0.1.dmg',
+            url: 'https://github.com/941design/nostling/releases/download/0.0.1/nostling-0.0.1.dmg',
             sha256: 'a'.repeat(64),
             platform: 'darwin' as const,
             type: 'dmg' as const,
@@ -467,7 +467,7 @@ describe('Version Transition E2E', () => {
 
       (fetchManifestModule as jest.Mock<any>).mockResolvedValue(validManifest);
 
-      const result = await fetchManifestModule('https://github.com/941design/slim-chat/releases/latest/download/manifest.json');
+      const result = await fetchManifestModule('https://github.com/941design/nostling/releases/latest/download/manifest.json');
 
       expect(result).toEqual(validManifest);
       expect(result.version).toBeDefined();
@@ -536,7 +536,7 @@ describe('Version Transition E2E', () => {
       const updateInfo: UpdateInfo = {
         version: '0.0.1',
         releaseDate: new Date().toISOString(),
-        path: '/tmp/slim-chat-0.0.1.dmg',
+        path: '/tmp/nostling-0.0.1.dmg',
         sha512: 'mock-sha512',
         files: [],
       };
@@ -607,7 +607,7 @@ describe('Version Transition E2E', () => {
       const updateInfo: UpdateInfo = {
         version: '0.0.1',
         releaseDate: new Date().toISOString(),
-        path: '/tmp/slim-chat-0.0.1.dmg',
+        path: '/tmp/nostling-0.0.1.dmg',
         sha512: 'mock-sha512',
         files: [],
       };
@@ -636,7 +636,7 @@ describe('Version Transition E2E', () => {
       const updateInfo: UpdateInfo = {
         version: '0.0.1',
         releaseDate: new Date().toISOString(),
-        path: '/tmp/slim-chat-0.0.1.dmg',
+        path: '/tmp/nostling-0.0.1.dmg',
         sha512: 'mock-sha512',
         files: [],
       };

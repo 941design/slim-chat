@@ -70,11 +70,11 @@ describe('Bug: Manifest missing artifacts', () => {
     console.log(`Step ${manifestIndex + 1}: Generate manifest with all platform artifacts`);
     console.log('Order correct: Download → Consolidate → Generate Manifest');
 
-    // VERIFY FIX PART 4: SLIM_CHAT_RSA_PRIVATE_KEY available in create-release job
+    // VERIFY FIX PART 4: NOSTLING_RSA_PRIVATE_KEY available in create-release job
     expect(createReleaseJob.env).toBeDefined();
-    expect(createReleaseJob.env.SLIM_CHAT_RSA_PRIVATE_KEY).toBeDefined();
+    expect(createReleaseJob.env.NOSTLING_RSA_PRIVATE_KEY).toBeDefined();
     console.log('\n=== ENVIRONMENT VERIFICATION ===');
-    console.log('SLIM_CHAT_RSA_PRIVATE_KEY configured:', createReleaseJob.env.SLIM_CHAT_RSA_PRIVATE_KEY ? 'YES' : 'NO');
+    console.log('NOSTLING_RSA_PRIVATE_KEY configured:', createReleaseJob.env.NOSTLING_RSA_PRIVATE_KEY ? 'YES' : 'NO');
 
     console.log('\n=== FIX SUMMARY ===');
     console.log('✓ Manifest generation moved from build job to create-release job');
@@ -159,14 +159,14 @@ describe('Bug: Manifest missing artifacts', () => {
     console.log('\n=== COMPLETE EXECUTION FLOW ===');
     console.log('\n1. BUILD JOB (matrix: ubuntu-latest, macos-13):');
     console.log('   ubuntu-latest:');
-    console.log('     - Build → Creates SlimChat-x.y.z-x86_64.AppImage in dist/');
-    console.log('     - Upload artifacts from dist/ to slimchat-ubuntu-latest/');
+    console.log('     - Build → Creates Nostling-x.y.z-x86_64.AppImage in dist/');
+    console.log('     - Upload artifacts from dist/ to nostling-ubuntu-latest/');
     console.log('   macos-13:');
-    console.log('     - Build → Creates SlimChat-x.y.z.dmg in dist/');
-    console.log('     - Upload artifacts from dist/ to slimchat-macos-13/');
+    console.log('     - Build → Creates Nostling-x.y.z.dmg in dist/');
+    console.log('     - Upload artifacts from dist/ to nostling-macos-13/');
     console.log('\n2. CREATE-RELEASE JOB (runs on ubuntu-latest):');
-    console.log('   - Download artifacts → release-artifacts/slimchat-ubuntu-latest/dist/');
-    console.log('                        → release-artifacts/slimchat-macos-13/dist/');
+    console.log('   - Download artifacts → release-artifacts/nostling-ubuntu-latest/dist/');
+    console.log('                        → release-artifacts/nostling-macos-13/dist/');
     console.log('   - Consolidate artifacts:');
     console.log('     cp release-artifacts/**/*.dmg dist/');
     console.log('     cp release-artifacts/**/*.AppImage dist/');
@@ -193,12 +193,12 @@ describe('Bug: Manifest missing artifacts', () => {
     console.log('\nProblem: Manifest generated in build job on ubuntu-latest only');
     console.log('\nExecution flow:');
     console.log('1. ubuntu-latest build:');
-    console.log('   - Creates SlimChat-x.y.z-x86_64.AppImage in dist/');
+    console.log('   - Creates Nostling-x.y.z-x86_64.AppImage in dist/');
     console.log('   - Generates manifest (ONLY sees .AppImage in dist/)');
     console.log('   - Manifest contains only Linux artifact');
     console.log('   - Uploads dist/ including incomplete manifest');
     console.log('\n2. macos-13 build (parallel):');
-    console.log('   - Creates SlimChat-x.y.z.dmg in dist/');
+    console.log('   - Creates Nostling-x.y.z.dmg in dist/');
     console.log('   - NO manifest generation (skipped by if: matrix.os == ubuntu-latest)');
     console.log('   - Uploads dist/ without manifest');
     console.log('\n3. create-release job:');

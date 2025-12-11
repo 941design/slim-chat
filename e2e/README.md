@@ -1,6 +1,6 @@
 # End-to-End Tests
 
-This directory contains Playwright E2E tests for SlimChat.
+This directory contains Playwright E2E tests for Nostling.
 
 ## Test Structure
 

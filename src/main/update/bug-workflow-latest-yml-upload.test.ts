@@ -65,12 +65,12 @@ describe('Bug: GitHub workflow missing latest-*.yml upload', () => {
     // Expected files for version X.Y.Z:
     const expectedFiles = [
       // macOS artifacts
-      'SlimChat-X.Y.Z.dmg',                    // macOS installer
-      'SlimChat-X.Y.Z-mac.zip',                // macOS zip (alternate format)
+      'Nostling-X.Y.Z.dmg',                    // macOS installer
+      'Nostling-X.Y.Z-mac.zip',                // macOS zip (alternate format)
       'latest-mac.yml',                        // electron-updater metadata for macOS
 
       // Linux artifacts
-      'SlimChat-X.Y.Z-x86_64.AppImage',        // Linux AppImage
+      'Nostling-X.Y.Z-x86_64.AppImage',        // Linux AppImage
       'latest-linux.yml',                      // electron-updater metadata for Linux
 
       // Custom manifest (RSA-signed)

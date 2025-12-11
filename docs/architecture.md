@@ -1,10 +1,10 @@
 # Architecture
 
-This document describes the technical architecture of SlimChat.
+This document describes the technical architecture of Nostling.
 
 ## Electron Process Model
 
-SlimChat follows Electron's three-process architecture:
+Nostling follows Electron's three-process architecture:
 
 ### Main Process
 
@@ -164,9 +164,9 @@ dist/
 └── renderer/       # React app (HTML, JS, CSS)
 
 release/            # After packaging
-├── SlimChat-x.y.z.dmg      # macOS installer
-├── SlimChat-x.y.z.zip      # macOS zip
-├── SlimChat-x.y.z.AppImage # Linux portable
+├── Nostling-x.y.z.dmg      # macOS installer
+├── Nostling-x.y.z.zip      # macOS zip
+├── Nostling-x.y.z.AppImage # Linux portable
 └── manifest.json           # Signed manifest
 ```
 
@@ -190,7 +190,7 @@ release/            # After packaging
 ### Key Management
 
 - **Private key**: CI secret only, never in repo
-- **Public key**: Embedded at build time from `keys/slimchat-release.pub`
+- **Public key**: Embedded at build time from `keys/nostling-release.pub`
 - Override via `RSA_PUBLIC_KEY` environment variable for testing
 
 ## Platform-Specific Handling

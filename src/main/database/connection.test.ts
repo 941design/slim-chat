@@ -177,7 +177,7 @@ describe('Database Connection Manager', () => {
 
             const dbPath = getDatabasePath();
             expect(dbPath).not.toBeNull();
-            expect(dbPath).toContain('slim-chat.db');
+            expect(dbPath).toContain('nostling.db');
             expect(path.isAbsolute(dbPath!)).toBe(true);
 
             const pathBefore = dbPath;
@@ -208,7 +208,7 @@ describe('Database Connection Manager', () => {
 
           try {
             app.setMockUserDataPath(tempTestDir);
-            const expectedPath = path.join(tempTestDir, 'slim-chat.db');
+            const expectedPath = path.join(tempTestDir, 'nostling.db');
             expect(fs.existsSync(expectedPath)).toBe(false);
 
             await initDatabase();
@@ -324,7 +324,7 @@ describe('Database Connection Manager', () => {
         fc.asyncProperty(
           fc.array(fc.string({ minLength: 10, maxLength: 100 }), { minLength: 1, maxLength: 5 }),
           async (dataStrings) => {
-            const expectedPath = path.join(tempDir, 'slim-chat.db');
+            const expectedPath = path.join(tempDir, 'nostling.db');
             const sizes: number[] = [];
 
             for (const data of dataStrings) {

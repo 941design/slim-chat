@@ -27,8 +27,19 @@ jest.mock('electron', () => ({
   app: {
     getVersion: jest.fn(() => '1.0.0'),
     on: jest.fn(),
+    getPath: jest.fn(() => '/tmp/test-userdata'),
   },
   BrowserWindow: jest.fn(() => mockWindow),
+  Menu: {
+    setApplicationMenu: jest.fn(),
+    buildFromTemplate: jest.fn(() => ({})),
+  },
+  shell: {
+    openExternal: jest.fn(),
+  },
+  dialog: {
+    showErrorBox: jest.fn(),
+  },
 }));
 
 jest.mock('./logging', () => ({
@@ -48,7 +59,7 @@ jest.mock('./config', () => ({
 
 jest.mock('./integration', () => ({
   verifyDownloadedUpdate: jest.fn(),
-  constructManifestUrl: jest.fn(() => 'https://github.com/941design/slim-chat/releases/latest/download/manifest.json'),
+  constructManifestUrl: jest.fn(() => 'https://github.com/941design/nostling/releases/latest/download/manifest.json'),
   sanitizeError: jest.fn((error: unknown, _isDev: boolean) => {
     // Pass through the error for tests
     const message = error instanceof Error ? error.message : String(error);
@@ -71,7 +82,7 @@ jest.mock('./update/controller', () => ({
   setupUpdater: jest.fn(),
   downloadUpdate: jest.fn(),
   GITHUB_OWNER: '941design',
-  GITHUB_REPO: 'slim-chat',
+  GITHUB_REPO: 'nostling',
 }));
 
 jest.mock('./dev-env', () => ({
@@ -129,10 +140,10 @@ jest.mock('./update/dmg-installer', () => ({
   findDmgArtifact: jest.fn(),
   downloadDmg: jest.fn(() => Promise.resolve()),
   verifyDmgHash: jest.fn(() => Promise.resolve(true)),
-  mountDmg: jest.fn(() => Promise.resolve('/Volumes/SlimChat')),
+  mountDmg: jest.fn(() => Promise.resolve('/Volumes/Nostling')),
   openFinderAtMountPoint: jest.fn(() => Promise.resolve()),
   constructDmgUrl: jest.fn(() => 'https://example.com/test.dmg'),
-  getUpdaterCacheDir: jest.fn(() => '/tmp/slim-chat-updater'),
+  getUpdaterCacheDir: jest.fn(() => '/tmp/nostling-updater'),
 }));
 
 const mockAutoUpdater = new EventEmitter();
@@ -608,12 +619,12 @@ describe('TR3: Production Safety Regression Test', () => {
       expect(devConfig.allowPrerelease).toBe(false);
 
       // Verify manifest URL construction uses GitHub, not attacker URL
-      const publishConfig = { owner: '941design', repo: 'slim-chat' };
+      const publishConfig = { owner: '941design', repo: 'nostling' };
       const manifestUrl = constructManifestUrl(publishConfig, devConfig.devUpdateSource);
 
       // CRITICAL ASSERTION: URL must be GitHub, NOT attacker-controlled
       expect(manifestUrl).toBe(
-        'https://github.com/941design/slim-chat/releases/latest/download/manifest.json'
+        'https://github.com/941design/nostling/releases/latest/download/manifest.json'
       );
       expect(manifestUrl).not.toContain('evil.com');
       expect(manifestUrl).not.toContain('malicious');
@@ -662,12 +673,12 @@ describe('TR3: Production Safety Regression Test', () => {
     expect(devConfig.devUpdateSource).toBeUndefined();
 
     // Construct manifest URL - should use GitHub, not attacker URL
-    const publishConfig = { owner: '941design', repo: 'slim-chat' };
+    const publishConfig = { owner: '941design', repo: 'nostling' };
     const manifestUrl = constructManifestUrl(publishConfig, devConfig.devUpdateSource);
 
     // CRITICAL ASSERTIONS for IC1 regression test:
     // 1. Manifest URL uses official GitHub, not attacker site
-    expect(manifestUrl).toMatch(/github\.com\/941design\/slim-chat/);
+    expect(manifestUrl).toMatch(/github\.com\/941design\/nostling/);
     expect(manifestUrl).toMatch(/releases\/latest\/download/);
 
     // 2. Attacker URL is completely absent
@@ -676,7 +687,7 @@ describe('TR3: Production Safety Regression Test', () => {
 
     // 3. Manifest URL is exactly the GitHub official URL
     expect(manifestUrl).toBe(
-      'https://github.com/941design/slim-chat/releases/latest/download/manifest.json'
+      'https://github.com/941design/nostling/releases/latest/download/manifest.json'
     );
   });
 });

@@ -29,7 +29,7 @@ dev-renderer: ## Start renderer process development mode only
 # Dev Mode Update Testing
 dev-update-release: ## Test updates against a specific GitHub release (set DEV_UPDATE_SOURCE)
 	@if [ -z "$$DEV_UPDATE_SOURCE" ]; then \
-		echo "Usage: DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.1 make dev-update-release"; \
+		echo "Usage: DEV_UPDATE_SOURCE=https://github.com/941design/nostling/releases/download/1.0.1 make dev-update-release"; \
 		exit 1; \
 	fi
 	npm run dev
@@ -121,7 +121,7 @@ local-release: ## Package HEAD into local directory for version upgrade testing
 	@echo "Output directory: $(LOCAL_RELEASE_DIR)"
 	npm run build
 	npm run package
-	SLIM_CHAT_RSA_PRIVATE_KEY="$${SLIM_CHAT_RSA_PRIVATE_KEY:-$$(gopass show slimchat/slimchat-release.key)}" npm run sign:manifest
+	NOSTLING_RSA_PRIVATE_KEY="$${NOSTLING_RSA_PRIVATE_KEY:-$$(gopass show nostling/nostling-release.key)}" npm run sign:manifest
 	@mkdir -p $(LOCAL_RELEASE_DIR)
 	@echo "Copying artifacts to $(LOCAL_RELEASE_DIR)..."
 	@cp dist/manifest.json $(LOCAL_RELEASE_DIR)/ 2>/dev/null || true
@@ -156,7 +156,7 @@ test-version-upgrade: ## Interactive guide for testing version upgrades
 	@echo "This workflow tests upgrading from an older version to HEAD."
 	@echo ""
 	@echo "Prerequisites:"
-	@echo "  - SLIM_CHAT_RSA_PRIVATE_KEY environment variable set"
+	@echo "  - NOSTLING_RSA_PRIVATE_KEY environment variable set"
 	@echo "  - Clean working directory (commit or stash changes)"
 	@echo ""
 	@echo "Step 1: Package current HEAD as local release"

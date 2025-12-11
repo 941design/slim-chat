@@ -39,7 +39,7 @@ export function getStatusText(updateState: UpdateState): string {
       }
       return 'Preparing update...';
     case 'mounted':
-      return 'Drag SlimChat to Applications folder';
+      return 'Drag Nostling to Applications folder';
     case 'failed':
       return detail && detail.trim() ? `Update failed: ${detail}` : 'Update failed';
     default:

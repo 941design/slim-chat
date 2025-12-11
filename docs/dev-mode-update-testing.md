@@ -4,7 +4,7 @@ This guide explains how to test the auto-update system in development mode befor
 
 ## Overview
 
-The SlimChat auto-update system supports three testing modes:
+The Nostling auto-update system supports three testing modes:
 
 1. **Local Manifest Testing** (`file://`) - Test with local files, no network required
 2. **Upstream Release Testing** (`https://`) - Test against real GitHub releases
@@ -29,7 +29,7 @@ All dev mode features are automatically disabled in production builds for securi
 make dev
 
 # Test against specific GitHub release
-DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.1 make dev-update-release
+DEV_UPDATE_SOURCE=https://github.com/941design/nostling/releases/download/1.0.1 make dev-update-release
 
 # Test with local manifest files
 DEV_UPDATE_SOURCE=file:///tmp/test-updates make dev-update-local
@@ -66,13 +66,13 @@ cat > /tmp/test-updates/manifest.json << 'EOF'
   "version": "99.0.0",
   "artifacts": [
     {
-      "url": "SlimChat-99.0.0.dmg",
+      "url": "Nostling-99.0.0.dmg",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "platform": "darwin",
       "type": "dmg"
     },
     {
-      "url": "SlimChat-99.0.0.AppImage",
+      "url": "Nostling-99.0.0.AppImage",
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "platform": "linux",
       "type": "AppImage"
@@ -92,7 +92,7 @@ For signature verification to pass, sign the manifest with your private key:
 
 ```bash
 # Set your private key (using gopass, or export directly)
-export SLIM_CHAT_RSA_PRIVATE_KEY=$(gopass show slimchat/slimchat-release.key)
+export NOSTLING_RSA_PRIVATE_KEY=$(gopass show nostling/nostling-release.key)
 
 # Generate signed manifest
 node -e "
@@ -103,13 +103,13 @@ const manifest = {
   version: '99.0.0',
   artifacts: [
     {
-      url: 'SlimChat-99.0.0.dmg',
+      url: 'Nostling-99.0.0.dmg',
       sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
       platform: 'darwin',
       type: 'dmg'
     },
     {
-      url: 'SlimChat-99.0.0.AppImage',
+      url: 'Nostling-99.0.0.AppImage',
       sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
       platform: 'linux',
       type: 'AppImage'
@@ -120,7 +120,7 @@ const manifest = {
 
 const signer = crypto.createSign('SHA256');
 signer.update(JSON.stringify(manifest, null, 0));
-const signature = signer.sign(process.env.SLIM_CHAT_RSA_PRIVATE_KEY, 'base64');
+const signature = signer.sign(process.env.NOSTLING_RSA_PRIVATE_KEY, 'base64');
 
 const signed = { ...manifest, signature };
 fs.writeFileSync('/tmp/test-updates/manifest.json', JSON.stringify(signed, null, 2));
@@ -176,16 +176,16 @@ Test against real GitHub releases to verify the complete update flow.
 
 ```bash
 # Using GitHub CLI
-gh release list --repo 941design/slim-chat
+gh release list --repo 941design/nostling
 
-# Or visit: https://github.com/941design/slim-chat/releases
+# Or visit: https://github.com/941design/nostling/releases
 ```
 
 ### Test Against Specific Release
 
 ```bash
 # Format: https://github.com/{owner}/{repo}/releases/download/{tag}
-DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.1 make dev-update-release
+DEV_UPDATE_SOURCE=https://github.com/941design/nostling/releases/download/1.0.1 make dev-update-release
 ```
 
 ### Test Against Latest Release
@@ -205,17 +205,17 @@ The app constructs manifest URLs as follows:
 
 | Mode | URL Pattern |
 |------|-------------|
-| Production (default) | `https://github.com/941design/slim-chat/releases/latest/download/manifest.json` |
+| Production (default) | `https://github.com/941design/nostling/releases/latest/download/manifest.json` |
 | Specific release | `{DEV_UPDATE_SOURCE}/manifest.json` |
 | Local file | `file:///path/to/directory/manifest.json` |
 
 **Examples:**
 ```
 # Latest release
-https://github.com/941design/slim-chat/releases/latest/download/manifest.json
+https://github.com/941design/nostling/releases/latest/download/manifest.json
 
 # Specific version
-https://github.com/941design/slim-chat/releases/download/1.0.1/manifest.json
+https://github.com/941design/nostling/releases/download/1.0.1/manifest.json
 
 # Local file
 file:///tmp/test-updates/manifest.json
@@ -241,7 +241,7 @@ ALLOW_PRERELEASE=true npm run dev
 
 ```bash
 # Test a specific pre-release
-ALLOW_PRERELEASE=true DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/2.0.0-beta.1 npm run dev
+ALLOW_PRERELEASE=true DEV_UPDATE_SOURCE=https://github.com/941design/nostling/releases/download/2.0.0-beta.1 npm run dev
 ```
 
 ### Pre-release Version Formats
@@ -284,13 +284,13 @@ A valid signed manifest has this structure:
   "version": "1.0.1",
   "artifacts": [
     {
-      "url": "SlimChat-1.0.1.dmg",
+      "url": "Nostling-1.0.1.dmg",
       "sha256": "abc123def456...",
       "platform": "darwin",
       "type": "dmg"
     },
     {
-      "url": "SlimChat-1.0.1.AppImage",
+      "url": "Nostling-1.0.1.AppImage",
       "sha256": "789ghi012jkl...",
       "platform": "linux",
       "type": "AppImage"
@@ -337,7 +337,7 @@ Recommended testing sequence before releasing:
 DEV_UPDATE_SOURCE=file:///tmp/test-updates make dev-update-local
 
 # 2. Verify against known good release
-DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.0 make dev-update-release
+DEV_UPDATE_SOURCE=https://github.com/941design/nostling/releases/download/1.0.0 make dev-update-release
 
 # 3. Test latest release (production-like)
 make dev
@@ -445,7 +445,7 @@ make test-version-upgrade
 
 ```bash
 # Set your signing key
-export SLIM_CHAT_RSA_PRIVATE_KEY=$(gopass show slimchat/slimchat-release.key)
+export NOSTLING_RSA_PRIVATE_KEY=$(gopass show nostling/nostling-release.key)
 
 # Build, package, and sign current HEAD
 make local-release
@@ -453,9 +453,9 @@ make local-release
 
 This creates `./local-release/` containing:
 - `manifest.json` (signed)
-- `SlimChat-x.x.x.dmg` (macOS)
-- `SlimChat-x.x.x.AppImage` (Linux)
-- `SlimChat-x.x.x.zip` (macOS zip)
+- `Nostling-x.x.x.dmg` (macOS)
+- `Nostling-x.x.x.AppImage` (Linux)
+- `Nostling-x.x.x.zip` (macOS zip)
 
 #### Step 2: Checkout Older Version
 
@@ -522,16 +522,16 @@ DEV_UPDATE_SOURCE=file:///tmp/my-release make dev-update-local
 
 ```bash
 # Terminal session example
-$ export SLIM_CHAT_RSA_PRIVATE_KEY=$(gopass show slimchat/slimchat-release.key)
+$ export NOSTLING_RSA_PRIVATE_KEY=$(gopass show nostling/nostling-release.key)
 
 $ make local-release
 Building and packaging current HEAD...
-Output directory: /Users/me/slim-chat/local-release
+Output directory: /Users/me/nostling/local-release
 ...
-Local release created at: /Users/me/slim-chat/local-release
+Local release created at: /Users/me/nostling/local-release
 
 Contents:
--rw-r--r--  1 me  staff   156M Dec  7 16:00 SlimChat-0.0.0.dmg
+-rw-r--r--  1 me  staff   156M Dec  7 16:00 Nostling-0.0.0.dmg
 -rw-r--r--  1 me  staff   1.2K Dec  7 16:00 manifest.json
 
 Version in manifest:
@@ -541,7 +541,7 @@ To test version upgrade:
   1. git stash (if needed)
   2. git checkout <older-version-tag>
   3. npm install
-  4. DEV_UPDATE_SOURCE=file:///Users/me/slim-chat/local-release make dev-update-local
+  4. DEV_UPDATE_SOURCE=file:///Users/me/nostling/local-release make dev-update-local
   5. Click 'Check for Updates' in the app
 
 $ git stash
@@ -560,13 +560,13 @@ $ make local-release-clean
 
 ### Troubleshooting
 
-#### "SLIM_CHAT_RSA_PRIVATE_KEY is required"
+#### "NOSTLING_RSA_PRIVATE_KEY is required"
 
 Set the environment variable before running:
 ```bash
-export SLIM_CHAT_RSA_PRIVATE_KEY=$(gopass show slimchat/slimchat-release.key)
+export NOSTLING_RSA_PRIVATE_KEY=$(gopass show nostling/nostling-release.key)
 # or
-export SLIM_CHAT_RSA_PRIVATE_KEY=$(cat /path/to/private-key.pem)
+export NOSTLING_RSA_PRIVATE_KEY=$(cat /path/to/private-key.pem)
 ```
 
 #### "No artifacts found"

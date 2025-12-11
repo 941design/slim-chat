@@ -66,7 +66,7 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
     expect(mockSetFeedURL).toHaveBeenCalledWith({
       provider: 'github',
       owner: '941design',
-      repo: 'slim-chat'
+      repo: 'nostling'
     });
 
     // Verify other configuration
@@ -98,7 +98,7 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
     expect(mockSetFeedURL).toHaveBeenCalledWith({
       provider: 'github',
       owner: '941design',
-      repo: 'slim-chat'
+      repo: 'nostling'
     });
   });
 
@@ -108,7 +108,7 @@ describe('Regression: Auto-update 404 error (FIXED)', () => {
     // {
     //   provider: 'github',
     //   owner: '941design',
-    //   repo: 'slim-chat'
+    //   repo: 'nostling'
     // }
     //
     // With GitHub provider, electron-updater automatically fetches from:

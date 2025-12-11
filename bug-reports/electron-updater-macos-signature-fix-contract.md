@@ -1,7 +1,7 @@
 # Fix Contract: electron-updater macOS Signature Verification
 
 ## ROOT CAUSE
-electron-updater's MacUpdater class performs macOS-specific code signature verification during `quitAndInstall()`. This verification expects apps to be properly code-signed with an Apple Developer certificate. SlimChat is currently ad-hoc signed (linker-signed only), causing this verification to fail.
+electron-updater's MacUpdater class performs macOS-specific code signature verification during `quitAndInstall()`. This verification expects apps to be properly code-signed with an Apple Developer certificate. Nostling is currently ad-hoc signed (linker-signed only), causing this verification to fail.
 
 ## CHANGES
 
@@ -72,7 +72,7 @@ Configuration Change (package.json):
 
 ### Manual Verification (Primary)
 1. Apply fix to package.json (add `identity: null`)
-2. Build SlimChat 0.0.14 with fix
+2. Build Nostling 0.0.14 with fix
 3. Test update from 0.0.13 → 0.0.14 on macOS
 4. Verify:
    - Custom manifest verification succeeds

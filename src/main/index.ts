@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
 import { autoUpdater } from 'electron-updater';
 import { AppConfig, AppStatus, UpdateState, UpdatePhase, DownloadProgress } from '../shared/types';
@@ -38,7 +38,7 @@ let updateState: UpdateState = { phase: 'idle' };
 let lastUpdateCheck: string | undefined;
 let nostlingService: NostlingService | null = null;
 
-// Public key for manifest verification (injected at build time from keys/slimchat-release.pub)
+// Public key for manifest verification (injected at build time from keys/nostling-release.pub)
 const PUBLIC_KEY = process.env.RSA_PUBLIC_KEY || process.env.EMBEDDED_RSA_PUBLIC_KEY || '';
 
 function createWindow() {
@@ -436,6 +436,9 @@ function restartAutoCheckTimer(): void {
 }
 
 app.on('ready', async () => {
+  // Remove the default application menu entirely
+  Menu.setApplicationMenu(null);
+
   // Initialize database and run migrations before window creation
   await initializeDatabaseWithMigrations();
 
@@ -482,7 +485,7 @@ app.on('ready', async () => {
       retryFailedMessages: (identityId) => getNostlingService().retryFailedMessages(identityId),
     },
   });
-  log('info', `Starting SlimChat ${app.getVersion()}`);
+  log('info', `Starting Nostling ${app.getVersion()}`);
   config = loadConfig();
   setLogLevel(config.logLevel);
   createWindow();

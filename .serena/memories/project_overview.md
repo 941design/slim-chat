@@ -1,7 +1,7 @@
-# SlimChat - Project Overview
+# Nostling - Project Overview
 
 ## Purpose
-SlimChat is a desktop application bootstrap built with Electron, React, and TypeScript. It serves as a foundation for building secure desktop apps with a built-in auto-update system that uses cryptographic verification.
+Nostling is a desktop messaging application built on the Nostr protocol with Electron, React, and TypeScript. It provides secure, decentralized communication through end-to-end encrypted messages with a built-in auto-update system that uses cryptographic verification.
 
 The main features include:
 - Secure auto-update system with Ed25519 signature verification
@@ -29,7 +29,7 @@ The main features include:
 ## Codebase Structure
 
 ```
-slim-chat/
+nostling/
 ├── src/
 │   ├── main/           # Electron main process (Node.js backend)
 │   │   ├── index.ts    # Main entry point, window management, auto-updater setup

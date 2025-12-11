@@ -18,7 +18,7 @@ After successful download and verification:
 3. App restarts with version 0.0.15
 
 ## Reproduction Steps
-1. Run SlimChat 0.0.14 on macOS arm64 (downloaded from GitHub Releases)
+1. Run Nostling 0.0.14 on macOS arm64 (downloaded from GitHub Releases)
 2. Check for updates (manually or via auto-check)
 3. Update 0.0.15 is detected and downloaded successfully
 4. All verification steps pass (signature, version, hash, manifest)
@@ -29,7 +29,7 @@ After successful download and verification:
 
 ## Actual Behavior
 ```
-{"level":"info","message":"Downloaded file path: /Users/mrother/Library/Caches/slim-chat-updater/pending/SlimChat-0.0.15-arm64-mac.zip","timestamp":"2025-12-08T19:31:38.091Z"}
+{"level":"info","message":"Downloaded file path: /Users/mrother/Library/Caches/nostling-updater/pending/Nostling-0.0.15-arm64-mac.zip","timestamp":"2025-12-08T19:31:38.091Z"}
 {"level":"info","message":"Verifying manifest: version=0.0.15, platform=darwin, currentVersion=0.0.14","timestamp":"2025-12-08T19:31:38.091Z"}
 {"level":"info","message":"Signature verification passed","timestamp":"2025-12-08T19:31:38.092Z"}
 {"level":"info","message":"Version validation passed","timestamp":"2025-12-08T19:31:38.092Z"}
@@ -70,7 +70,7 @@ After successful download and verification:
 - Release assets present:
   - `manifest.json` (1367 bytes, RSA signature validates correctly)
   - `latest-mac.yml` (510 bytes)
-  - `SlimChat-0.0.15-arm64-mac.zip` (93MB, ad-hoc signed)
+  - `Nostling-0.0.15-arm64-mac.zip` (93MB, ad-hoc signed)
 
 ## Root Cause Hypothesis
 
@@ -158,7 +158,7 @@ Bug report `electron-updater-macos-signature-verification-report.md` documented 
 
 ## Next Steps for Investigation
 1. **Get unsanitized error**: Run 0.0.14 in dev mode or add verbose electron-updater logging to see actual error
-2. **Check electron-updater logs**: Examine cache directory `/Users/mrother/Library/Caches/slim-chat-updater/` for detailed logs
+2. **Check electron-updater logs**: Examine cache directory `/Users/mrother/Library/Caches/nostling-updater/` for detailed logs
 3. **Test with electron-updater verbose mode**: Enable `autoUpdater.logger` to capture full error details
 4. **Compare with 0.0.13→0.0.14 update**: Verify if 0.0.13 users can successfully update to 0.0.14
 5. **Check macOS Console.app**: Look for Gatekeeper or codesign errors during update attempt
@@ -176,7 +176,7 @@ Bug report `electron-updater-macos-signature-verification-report.md` documented 
 ## FIX APPLIED (2025-12-08)
 
 ### Root Cause Identified
-When `autoInstallOnAppQuit=false`, calling `autoUpdater.quitAndInstall()` triggers `MacUpdater.quitAndInstall()` which checks if `squirrelDownloadedUpdate` is true. Since `autoInstallOnAppQuit=false`, Squirrel.Mac never downloaded the update during the download phase, so `squirrelDownloadedUpdate` remains false. This causes `MacUpdater` to call `nativeUpdater.checkForUpdates()` at restart time, which triggers Squirrel.Mac to fetch and verify the update zip. Squirrel.Mac performs macOS code signature verification on the extracted app bundle, expecting a valid Apple Developer signature. SlimChat is ad-hoc signed, causing this verification to fail with "signature verification failed" error.
+When `autoInstallOnAppQuit=false`, calling `autoUpdater.quitAndInstall()` triggers `MacUpdater.quitAndInstall()` which checks if `squirrelDownloadedUpdate` is true. Since `autoInstallOnAppQuit=false`, Squirrel.Mac never downloaded the update during the download phase, so `squirrelDownloadedUpdate` remains false. This causes `MacUpdater` to call `nativeUpdater.checkForUpdates()` at restart time, which triggers Squirrel.Mac to fetch and verify the update zip. Squirrel.Mac performs macOS code signature verification on the extracted app bundle, expecting a valid Apple Developer signature. Nostling is ad-hoc signed, causing this verification to fail with "signature verification failed" error.
 
 ### Fix Implementation
 Changed `autoUpdater.autoInstallOnAppQuit` from `false` to `true` in `src/main/update/controller.ts:115`.
@@ -222,17 +222,17 @@ With `autoInstallOnAppQuit=true`, Squirrel.Mac fetches and verifies the update d
 This fix requires manual testing on macOS arm64 to confirm effectiveness:
 
 1. Build version 0.0.16 with fix applied
-2. Run SlimChat 0.0.14 on macOS arm64
+2. Run Nostling 0.0.14 on macOS arm64
 3. Trigger update check
 4. Observe outcome:
    - **Outcome A**: Update downloads, installs, app restarts with 0.0.16 → Fix successful
    - **Outcome B**: Update fails during download → Investigate Option 2 (bypass Squirrel.Mac entirely)
 
 ### Files Modified
-- `/Users/mrother/Projects/941design/slim-chat/src/main/update/controller.ts`
-- `/Users/mrother/Projects/941design/slim-chat/src/main/update/bug-restart-signature-verification.test.ts` (new)
-- `/Users/mrother/Projects/941design/slim-chat/CHANGELOG.md`
-- `/Users/mrother/Projects/941design/slim-chat/bug-reports/0015-update-signature-verification-after-restart-report.md`
+- `/Users/mrother/Projects/941design/nostling/src/main/update/controller.ts`
+- `/Users/mrother/Projects/941design/nostling/src/main/update/bug-restart-signature-verification.test.ts` (new)
+- `/Users/mrother/Projects/941design/nostling/CHANGELOG.md`
+- `/Users/mrother/Projects/941design/nostling/bug-reports/0015-update-signature-verification-after-restart-report.md`
 
 ### Test Results
 - All tests passing: 19 suites, 382 tests (1 skipped)

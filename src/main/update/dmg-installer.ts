@@ -23,26 +23,26 @@ import { log } from '../logging';
 const execAsync = promisify(exec);
 
 // Cache directory name (matches electron-updater)
-const UPDATER_CACHE_DIR = 'slim-chat-updater';
+const UPDATER_CACHE_DIR = 'nostling-updater';
 
 /**
  * Get the cache directory for update downloads
  *
  * Uses platform-specific cache locations:
- * - macOS: ~/Library/Caches/slim-chat-updater
- * - Linux: ~/.cache/slim-chat-updater (or XDG_CACHE_HOME)
- * - Windows: %LOCALAPPDATA%/slim-chat-updater
+ * - macOS: ~/Library/Caches/nostling-updater
+ * - Linux: ~/.cache/nostling-updater (or XDG_CACHE_HOME)
+ * - Windows: %LOCALAPPDATA%/nostling-updater
  */
 export function getUpdaterCacheDir(): string {
   // Electron doesn't have 'cache' in app.getPath, but we can construct it
-  // from userData which is ~/Library/Application Support/slim-chat on macOS
+  // from userData which is ~/Library/Application Support/nostling on macOS
   const userDataPath = app.getPath('userData');
 
   if (process.platform === 'darwin') {
-    // macOS: ~/Library/Caches/slim-chat-updater
+    // macOS: ~/Library/Caches/nostling-updater
     return path.join(path.dirname(path.dirname(userDataPath)), 'Caches', UPDATER_CACHE_DIR);
   } else if (process.platform === 'linux') {
-    // Linux: ~/.cache/slim-chat-updater
+    // Linux: ~/.cache/nostling-updater
     const home = process.env.HOME || '';
     return path.join(process.env.XDG_CACHE_HOME || path.join(home, '.cache'), UPDATER_CACHE_DIR);
   } else {
@@ -63,7 +63,7 @@ export function findDmgArtifact(manifest: SignedManifest): ManifestArtifact | un
 /**
  * Construct full DMG download URL from artifact
  *
- * The artifact.url is just the filename (e.g., "SlimChat-0.0.20-arm64.dmg")
+ * The artifact.url is just the filename (e.g., "Nostling-0.0.20-arm64.dmg")
  * We construct the full GitHub releases URL.
  */
 export function constructDmgUrl(
@@ -189,7 +189,7 @@ export async function verifyDmgHash(
  *     - dmgPath: absolute path to DMG file
  *
  *   Outputs:
- *     - Promise<string> resolving to mount point path (e.g., /Volumes/SlimChat)
+ *     - Promise<string> resolving to mount point path (e.g., /Volumes/Nostling)
  *     - Rejects if mounting fails
  *
  *   Algorithm:
@@ -206,12 +206,12 @@ export async function mountDmg(dmgPath: string): Promise<string> {
   );
 
   // Parse hdiutil output to find mount point
-  // Output format: /dev/disk2s1  Apple_HFS  /Volumes/SlimChat
+  // Output format: /dev/disk2s1  Apple_HFS  /Volumes/Nostling
   const lines = stdout.trim().split('\n');
   for (const line of lines) {
     const match = line.match(/\/Volumes\/(.+)$/);
     if (match) {
-      return match[0]; // Returns full path: /Volumes/SlimChat
+      return match[0]; // Returns full path: /Volumes/Nostling
     }
   }
 
@@ -259,7 +259,7 @@ export async function openFinderAtMountPoint(mountPoint: string): Promise<void> 
  *
  * CONTRACT:
  *   Algorithm:
- *     1. List /Volumes for directories matching SlimChat*
+ *     1. List /Volumes for directories matching Nostling*
  *     2. For each match, run hdiutil detach silently
  *     3. Clean up downloaded DMG files older than 24 hours
  */
@@ -269,11 +269,11 @@ export async function cleanupStaleMounts(): Promise<void> {
   }
 
   try {
-    // Check /Volumes for SlimChat mounts
+    // Check /Volumes for Nostling mounts
     const volumes = await fs.promises.readdir('/Volumes');
-    const slimChatVolumes = volumes.filter((v) => v.startsWith('SlimChat'));
+    const nostlingVolumes = volumes.filter((v) => v.startsWith('Nostling'));
 
-    for (const volume of slimChatVolumes) {
+    for (const volume of nostlingVolumes) {
       const mountPoint = path.join('/Volumes', volume);
       log('info', `Cleaning up stale mount: ${mountPoint}`);
       await unmountDmg(mountPoint);

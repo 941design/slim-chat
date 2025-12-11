@@ -38,6 +38,17 @@ interface RelayRow {
   created_at: string;
 }
 
+/**
+ * Default relay endpoints seeded on first run.
+ * These are well-known, reliable Nostr relays.
+ */
+const DEFAULT_RELAYS: Array<{ url: string; read: boolean; write: boolean }> = [
+  { url: 'wss://relay.damus.io', read: true, write: true },
+  { url: 'wss://relay.primal.net', read: true, write: true },
+  { url: 'wss://nos.lol', read: true, write: true },
+  { url: 'wss://relay.nostr.band', read: true, write: true },
+];
+
 interface IdentityRow {
   id: string;
   npub: string;
@@ -527,8 +538,21 @@ export class NostlingService {
   async initialize(): Promise<void> {
     log('info', 'Initializing nostling service');
 
-    // Get relay configuration
-    const relayConfig = await this.getRelayConfig();
+    // Get relay configuration, seeding defaults if empty
+    let relayConfig = await this.getRelayConfig();
+    if (relayConfig.defaults.length === 0) {
+      log('info', 'No relays configured, seeding default relay list');
+      const now = new Date().toISOString();
+      relayConfig = await this.setRelayConfig({
+        defaults: DEFAULT_RELAYS.map(r => ({
+          url: r.url,
+          read: r.read,
+          write: r.write,
+          createdAt: now,
+        })),
+      });
+    }
+
     const endpoints: RelayEndpoint[] = relayConfig.defaults.map(e => ({
       url: e.url,
       read: e.read,

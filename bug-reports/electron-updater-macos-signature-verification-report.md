@@ -11,7 +11,7 @@ After successful download and custom manifest verification:
 4. App restarts with new version
 
 ## Reproduction Steps
-1. Run SlimChat 0.0.12 on macOS (arm64)
+1. Run Nostling 0.0.12 on macOS (arm64)
 2. Click "Check for Updates"
 3. Update 0.0.13 is detected and downloaded
 4. Custom manifest verification succeeds (logs show "Manifest verified for version 0.0.13")
@@ -36,13 +36,13 @@ The error occurs ~1.5 seconds after successful verification, when `autoUpdater.q
 
 ## Environment/Context
 - Platform: macOS (darwin) arm64
-- SlimChat version: 0.0.12 → 0.0.13
+- Nostling version: 0.0.12 → 0.0.13
 - electron-updater: 6.6.2
 - App signing: Ad-hoc signed (not code signed with Apple Developer certificate)
 - Update provider: GitHub provider via `autoUpdater.setFeedURL()`
 - Update files:
   - `latest-mac.yml` (no signature field, only sha512 hashes)
-  - `SlimChat-0.0.13-arm64-mac.zip` (unsigned)
+  - `Nostling-0.0.13-arm64-mac.zip` (unsigned)
   - `manifest.json` (custom, RSA-signed)
 
 ## Root Cause Hypothesis

@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.e2e
-    container_name: slim-chat-e2e-test
+    container_name: nostling-e2e-test
     volumes:
       # Mount test results and reports for local inspection
       - ./test-results:/app/test-results

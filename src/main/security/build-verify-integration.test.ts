@@ -64,13 +64,13 @@ function simulateBuildScriptGeneration(
 describe('Build Script → Verification Library Integration', () => {
   const testArtifacts: ManifestArtifact[] = [
     {
-      url: 'SlimChat-1.0.0.dmg',
+      url: 'Nostling-1.0.0.dmg',
       sha256: 'a'.repeat(64),
       platform: 'darwin',
       type: 'dmg',
     },
     {
-      url: 'SlimChat-1.0.0.AppImage',
+      url: 'Nostling-1.0.0.AppImage',
       sha256: 'b'.repeat(64),
       platform: 'linux',
       type: 'AppImage',
@@ -144,7 +144,7 @@ describe('Build Script → Verification Library Integration', () => {
   test('end-to-end: build → verify with file hash validation', async () => {
     // Create temp file for testing
     const tmpDir = fs.mkdtempSync(path.join(__dirname, 'test-tmp-'));
-    const testFilePath = path.join(tmpDir, 'SlimChat-1.0.0.dmg');
+    const testFilePath = path.join(tmpDir, 'Nostling-1.0.0.dmg');
 
     try {
       // Write test file
@@ -158,7 +158,7 @@ describe('Build Script → Verification Library Integration', () => {
 
       // Create artifact with actual hash
       const artifact: ManifestArtifact = {
-        url: 'SlimChat-1.0.0.dmg',
+        url: 'Nostling-1.0.0.dmg',
         sha256: actualHash,
         platform: 'darwin',
         type: 'dmg',

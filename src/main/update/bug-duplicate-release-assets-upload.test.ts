@@ -25,19 +25,19 @@ describe('Bug: Duplicate release assets upload', () => {
     //
     // Structure:
     // release-artifacts/
-    //   slimchat-ubuntu-latest/
+    //   nostling-ubuntu-latest/
     //     dist/
     //       builder-debug.yml          <- DUPLICATE NAME
     //       latest-linux.yml
     //       app-update.yml             <- DUPLICATE NAME (from Linux build)
-    //       SlimChat-0.0.0-x86_64.AppImage
+    //       Nostling-0.0.0-x86_64.AppImage
     //       manifest.json
-    //   slimchat-macos-13/
+    //   nostling-macos-13/
     //     dist/
     //       builder-debug.yml          <- DUPLICATE NAME
     //       latest-mac.yml
-    //       mac-arm64/SlimChat.app/Contents/Resources/app-update.yml  <- DUPLICATE NAME
-    //       SlimChat-0.0.0.dmg
+    //       mac-arm64/Nostling.app/Contents/Resources/app-update.yml  <- DUPLICATE NAME
+    //       Nostling-0.0.0.dmg
 
     const workflowPath = join(__dirname, '../../../.github/workflows/release.yml');
     const workflowContent = readFileSync(workflowPath, 'utf-8');
@@ -63,8 +63,8 @@ describe('Bug: Duplicate release assets upload', () => {
 
     // FIX VERIFICATION:
     // This pattern matches ONLY platform-specific update files:
-    // - release-artifacts/slimchat-ubuntu-latest/dist/latest-linux.yml
-    // - release-artifacts/slimchat-macos-13/dist/latest-mac.yml
+    // - release-artifacts/nostling-ubuntu-latest/dist/latest-linux.yml
+    // - release-artifacts/nostling-macos-13/dist/latest-mac.yml
     //
     // It EXCLUDES duplicate files:
     // - builder-debug.yml (from both platforms) - Internal debug info, not needed
@@ -103,13 +103,13 @@ describe('Bug: Duplicate release assets upload', () => {
 
     // Simulate the file structure from both platform builds
     const simulatedFiles = [
-      'release-artifacts/slimchat-ubuntu-latest/dist/builder-debug.yml',
-      'release-artifacts/slimchat-ubuntu-latest/dist/latest-linux.yml',
-      'release-artifacts/slimchat-ubuntu-latest/dist/app-update.yml',
-      'release-artifacts/slimchat-ubuntu-latest/dist/manifest.json',
-      'release-artifacts/slimchat-macos-13/dist/builder-debug.yml',
-      'release-artifacts/slimchat-macos-13/dist/latest-mac.yml',
-      'release-artifacts/slimchat-macos-13/dist/mac-arm64/SlimChat.app/Contents/Resources/app-update.yml',
+      'release-artifacts/nostling-ubuntu-latest/dist/builder-debug.yml',
+      'release-artifacts/nostling-ubuntu-latest/dist/latest-linux.yml',
+      'release-artifacts/nostling-ubuntu-latest/dist/app-update.yml',
+      'release-artifacts/nostling-ubuntu-latest/dist/manifest.json',
+      'release-artifacts/nostling-macos-13/dist/builder-debug.yml',
+      'release-artifacts/nostling-macos-13/dist/latest-mac.yml',
+      'release-artifacts/nostling-macos-13/dist/mac-arm64/Nostling.app/Contents/Resources/app-update.yml',
     ];
 
     // Extract basenames (what GitHub release asset names would be)

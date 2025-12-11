@@ -1,6 +1,6 @@
 # Task Completion Checklist
 
-When completing a development task in SlimChat, follow this checklist:
+When completing a development task in Nostling, follow this checklist:
 
 ## 1. Code Quality Checks
 

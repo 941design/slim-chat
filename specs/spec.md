@@ -170,7 +170,7 @@ Each release includes a signed manifest with:
     {
       "platform": "darwin",
       "type": "dmg",
-      "url": "SlimChat-1.2.3.dmg",
+      "url": "Nostling-1.2.3.dmg",
       "sha256": "<hex-encoded-sha256>"
     }
   ],
@@ -272,7 +272,7 @@ Provide local data persistence for application state, preferences, and feature-s
 ### 7.2 Architecture
 
 * **Database**: SQLite via sql.js WebAssembly implementation
-* **Location**: `{userData}/slim-chat.db`
+* **Location**: `{userData}/nostling.db`
 * **Migrations**: Knex.js-compatible migration system
 * **Schema versioning**: Automatic migration execution on startup
 

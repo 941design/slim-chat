@@ -2,7 +2,7 @@
  * RSA-based manifest generation script (migration from Ed25519)
  *
  * Generates signed manifest.json during CI/CD build.
- * Reads RSA private key from environment variable SLIM_CHAT_RSA_PRIVATE_KEY.
+ * Reads RSA private key from environment variable NOSTLING_RSA_PRIVATE_KEY.
  */
 
 import fs from 'fs';
@@ -57,7 +57,7 @@ interface UnsignedManifest {
  *
  * CONTRACT:
  *   Inputs:
- *     - Environment: SLIM_CHAT_RSA_PRIVATE_KEY (RSA private key in PEM format)
+ *     - Environment: NOSTLING_RSA_PRIVATE_KEY (RSA private key in PEM format)
  *     - Filesystem: package.json (for version), dist/ directory (for artifacts)
  *
  *   Outputs:
@@ -72,7 +72,7 @@ interface UnsignedManifest {
  *     - Platform detection: .dmg→darwin, .AppImage→linux, .zip→inferred from filename or darwin
  *
  *   Error Conditions:
- *     - SLIM_CHAT_RSA_PRIVATE_KEY missing: throw error
+ *     - NOSTLING_RSA_PRIVATE_KEY missing: throw error
  *     - package.json missing/invalid: throw error
  *     - dist/ directory missing: throw error
  *     - Invalid PEM format in private key: throw error
@@ -83,10 +83,10 @@ function generateManifest(): void {
   const version = packageJson.version;
   const distDir = path.resolve('dist');
   const manifestPath = path.join(distDir, 'manifest.json');
-  const privateKey = process.env.SLIM_CHAT_RSA_PRIVATE_KEY;
+  const privateKey = process.env.NOSTLING_RSA_PRIVATE_KEY;
 
   if (!privateKey) {
-    throw new Error('SLIM_CHAT_RSA_PRIVATE_KEY environment variable is required to sign manifest');
+    throw new Error('NOSTLING_RSA_PRIVATE_KEY environment variable is required to sign manifest');
   }
 
   // List files in dist directory
@@ -116,7 +116,7 @@ function generateManifest(): void {
       platform = 'linux';
       type = 'AppImage';
     } else if (ext === '.zip') {
-      // Determine platform from filename (e.g., SlimChat-1.0.0-win.zip)
+      // Determine platform from filename (e.g., Nostling-1.0.0-win.zip)
       if (filename.includes('-mac') || filename.includes('-darwin')) {
         platform = 'darwin';
       } else if (filename.includes('-win')) {

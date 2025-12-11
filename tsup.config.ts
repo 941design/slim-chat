@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Read public key at build time - embedded into bundle
-const publicKeyPath = path.resolve(__dirname, 'keys/slimchat-release.pub');
+const publicKeyPath = path.resolve(__dirname, 'keys/nostling-release.pub');
 const publicKey = fs.existsSync(publicKeyPath)
   ? fs.readFileSync(publicKeyPath, 'utf-8').trim()
   : '';

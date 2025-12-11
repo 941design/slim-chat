@@ -26,8 +26,19 @@ jest.mock('electron', () => ({
   app: {
     getVersion: jest.fn(() => '1.0.0'),
     on: jest.fn(),
+    getPath: jest.fn(() => '/tmp/test-userdata'),
   },
   BrowserWindow: jest.fn(() => mockWindow),
+  Menu: {
+    setApplicationMenu: jest.fn(),
+    buildFromTemplate: jest.fn(() => ({})),
+  },
+  shell: {
+    openExternal: jest.fn(),
+  },
+  dialog: {
+    showErrorBox: jest.fn(),
+  },
 }));
 
 jest.mock('./logging', () => ({
@@ -48,7 +59,7 @@ jest.mock('./config', () => ({
 
 jest.mock('./integration', () => ({
   verifyDownloadedUpdate: jest.fn(),
-  constructManifestUrl: jest.fn(() => 'https://github.com/941design/slim-chat/releases/latest/download/manifest.json'),
+  constructManifestUrl: jest.fn(() => 'https://github.com/941design/nostling/releases/latest/download/manifest.json'),
   sanitizeError: jest.fn((error: unknown, _isDev: boolean) => {
     const message = error instanceof Error ? error.message : String(error);
     return new Error(message);

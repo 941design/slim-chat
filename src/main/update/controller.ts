@@ -15,7 +15,7 @@ import { validateUpdateUrl } from './url-validation';
  * FR5: GitHub repository constants (single source of truth)
  */
 export const GITHUB_OWNER = '941design';
-export const GITHUB_REPO = 'slim-chat';
+export const GITHUB_REPO = 'nostling';
 
 /**
  * Setup autoUpdater with manual download configuration and dev mode support
@@ -80,16 +80,16 @@ export const GITHUB_REPO = 'slim-chat';
  *          autoUpdater.setFeedURL({
  *            provider: 'github',
  *            owner: '941design',
- *            repo: 'slim-chat'
+ *            repo: 'nostling'
  *          })
- *          log('info', 'Update feed configured: GitHub provider (941design/slim-chat)')
+ *          log('info', 'Update feed configured: GitHub provider (941design/nostling)')
  *
  *   Examples:
  *     Production mode (devConfig all false/undefined):
  *       - Result: GitHub provider, no dev features enabled
  *
  *     Dev mode with GitHub releases:
- *       - devConfig = { forceDevUpdateConfig: true, devUpdateSource: "https://github.com/941design/slim-chat/releases/download/1.0.0", allowPrerelease: false }
+ *       - devConfig = { forceDevUpdateConfig: true, devUpdateSource: "https://github.com/941design/nostling/releases/download/1.0.0", allowPrerelease: false }
  *       - Result: Force dev updates, generic provider with specified GitHub release, no prereleases
  *
  *     Dev mode with local manifest:

@@ -1,4 +1,4 @@
-# Suggested Commands for SlimChat Development
+# Suggested Commands for Nostling Development
 
 ## Development Commands
 

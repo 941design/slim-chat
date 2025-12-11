@@ -14,7 +14,7 @@
  * When autoInstallOnAppQuit=false, quitAndInstall() triggers nativeUpdater.checkForUpdates()
  * which causes Squirrel.Mac to re-fetch and verify the update zip. Squirrel.Mac performs
  * macOS code signature verification on the downloaded zip's embedded app bundle, expecting
- * a valid Apple Developer signature. SlimChat is ad-hoc signed, causing this verification to fail.
+ * a valid Apple Developer signature. Nostling is ad-hoc signed, causing this verification to fail.
  *
  * FIX APPLIED:
  * Changed autoUpdater.autoInstallOnAppQuit from false to true. This moves Squirrel.Mac

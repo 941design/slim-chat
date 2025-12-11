@@ -76,3 +76,25 @@ export async function waitForUpdatePhase(page: Page, phase: string, timeout = 50
   const pattern = statusPatterns[phase] || phase;
   await page.waitForSelector(`.footer-status:has-text("${pattern}")`, { timeout });
 }
+
+/**
+ * Opens the hamburger menu and clicks Relay Configuration.
+ * Waits for the relay config view to be visible.
+ */
+export async function navigateToRelayConfig(page: Page): Promise<void> {
+  // Open hamburger menu
+  await page.locator('button[aria-label="Open menu"]').click();
+  // Click Relay Configuration menu item
+  await page.locator('[data-value="relay-config"]').click();
+  // Wait for relay config view to be visible
+  await page.waitForSelector('.relay-config-done-button', { timeout: 5000 });
+}
+
+/**
+ * Clicks the Done button in relay config to return to chat view.
+ */
+export async function returnToChat(page: Page): Promise<void> {
+  await page.locator('.relay-config-done-button').click();
+  // Wait for conversation pane to be visible
+  await page.waitForSelector('.conversation-pane', { timeout: 5000 });
+}

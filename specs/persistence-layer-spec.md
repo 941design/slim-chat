@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-The slim-chat application currently lacks a structured persistence layer. Application state (theme preferences, window positions, UI state) is not persisted between sessions. As the application evolves and requires updates, we need a robust database migration system to handle schema changes gracefully without losing user data.
+The nostling application currently lacks a structured persistence layer. Application state (theme preferences, window positions, UI state) is not persisted between sessions. As the application evolves and requires updates, we need a robust database migration system to handle schema changes gracefully without losing user data.
 
 **Why this feature exists:**
 - Enable stateful user experience (theme preferences, last UI state)
@@ -17,7 +17,7 @@ Implement a SQLite-based persistence layer using sql.js (WebAssembly, no native 
 
 ### FR1: Database Initialization
 - **What**: Initialize SQLite database on first application launch
-- **Location**: `{userData}/slim-chat.db` (platform-specific user data directory)
+- **Location**: `{userData}/nostling.db` (platform-specific user data directory)
 - **Acceptance Criteria**:
   - Database file created if it doesn't exist
   - Initial schema applied via migrations

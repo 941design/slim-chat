@@ -9,13 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Persistence Layer**: SQLite-based application state storage with automatic schema migrations
-  - SQLite database (`slim-chat.db`) using sql.js WebAssembly implementation
+  - SQLite database (`nostling.db`) using sql.js WebAssembly implementation
   - Knex.js-compatible migration system for schema versioning
   - Key-value state storage for application preferences and settings
   - IPC handlers: `state:get`, `state:set`, `state:delete`, `state:get-all`
   - Automatic migration execution on application startup
   - Property-based integration tests covering CRUD operations, migration sequences, and concurrency patterns
-  - Database location: `{userData}/slim-chat.db`
+  - Database location: `{userData}/nostling.db`
 - **Auto-Update Footer Integration**: Streamlined update experience with automatic checks and real-time progress
   - Automatic update checks on application startup (5-second delay) and at configurable intervals
   - Configurable check intervals: 1h, 2h, 4h, 12h, 24h, or never (default: 1 hour)
@@ -70,7 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **BREAKING**: Migrated auto-update signature verification from Ed25519 to RSA-4096
   - Update manifests now use RSA-4096 signatures (SHA-256 with RSA)
-  - Build script requires `SLIM_CHAT_RSA_PRIVATE_KEY` environment variable (PEM format)
+  - Build script requires `NOSTLING_RSA_PRIVATE_KEY` environment variable (PEM format)
   - Application requires `RSA_PUBLIC_KEY` for manifest verification (PEM format)
   - **Migration Required**: Developers and CI/CD pipelines must generate new RSA-4096 keypairs
   - See README.md "RSA Key Setup" section for key generation and configuration instructions

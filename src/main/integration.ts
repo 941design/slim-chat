@@ -238,12 +238,12 @@ export function sanitizeError(error: unknown, isDev: boolean): Error {
  *
  *   Examples:
  *     Production mode:
- *       constructManifestUrl({ owner: "941design", repo: "slim-chat" }, undefined)
- *       → "https://github.com/941design/slim-chat/releases/latest/download/manifest.json"
+ *       constructManifestUrl({ owner: "941design", repo: "nostling" }, undefined)
+ *       → "https://github.com/941design/nostling/releases/latest/download/manifest.json"
  *
  *     Dev mode with GitHub release:
- *       constructManifestUrl({}, "https://github.com/941design/slim-chat/releases/download/1.0.0")
- *       → "https://github.com/941design/slim-chat/releases/download/1.0.0/manifest.json"
+ *       constructManifestUrl({}, "https://github.com/941design/nostling/releases/download/1.0.0")
+ *       → "https://github.com/941design/nostling/releases/download/1.0.0/manifest.json"
  *
  *     Dev mode with local file:
  *       constructManifestUrl({}, "file://./test-manifests/1.0.0")

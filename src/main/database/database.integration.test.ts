@@ -42,7 +42,7 @@ jest.mock('../logging', () => ({
 }));
 
 describe('Database Persistence Layer Integration', () => {
-  const testDbPath = '/tmp/test-userdata/slim-chat.db';
+  const testDbPath = '/tmp/test-userdata/nostling.db';
 
   beforeEach(async () => {
     // Clean up any existing test database

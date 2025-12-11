@@ -47,7 +47,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: slimchat-${{ matrix.os }}
+          name: nostling-${{ matrix.os }}
           path: dist/**/*
 
   create-release:
@@ -55,7 +55,7 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     env:
-      SLIM_CHAT_RSA_PRIVATE_KEY: ${{ secrets.SLIM_CHAT_RSA_PRIVATE_KEY }}
+      NOSTLING_RSA_PRIVATE_KEY: ${{ secrets.NOSTLING_RSA_PRIVATE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -14,11 +14,11 @@ When the user clicks "Restart to Update":
 
 ## Reproduction Steps
 
-1. Run SlimChat version 0.0.17
+1. Run Nostling version 0.0.17
 2. Trigger update check (manual or automatic)
-3. Wait for download to complete (SlimChat-0.0.18-arm64-mac.zip)
+3. Wait for download to complete (Nostling-0.0.18-arm64-mac.zip)
 4. Observe logs show:
-   - "Downloaded file path: /Users/.../SlimChat-0.0.18-arm64-mac.zip"
+   - "Downloaded file path: /Users/.../Nostling-0.0.18-arm64-mac.zip"
    - "Signature verification passed"
    - "Version validation passed"
 5. Click "Restart to Update" button in UI

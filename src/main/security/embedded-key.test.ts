@@ -10,7 +10,7 @@ import fs from 'fs';
 import path from 'path';
 
 // Read the public key file directly (same source as tsup.config.ts)
-const PUBLIC_KEY_PATH = path.resolve(__dirname, '../../../keys/slimchat-release.pub');
+const PUBLIC_KEY_PATH = path.resolve(__dirname, '../../../keys/nostling-release.pub');
 const PUBLIC_KEY = fs.existsSync(PUBLIC_KEY_PATH)
   ? fs.readFileSync(PUBLIC_KEY_PATH, 'utf-8').trim()
   : '';
@@ -59,10 +59,10 @@ describe('Embedded RSA Public Key', () => {
   });
 
   // This test only runs when the private key is available (CI environment)
-  const privateKey = process.env.SLIM_CHAT_RSA_PRIVATE_KEY;
+  const privateKey = process.env.NOSTLING_RSA_PRIVATE_KEY;
   const describeIfPrivateKey = privateKey ? describe : describe.skip;
 
-  describeIfPrivateKey('Key pair matching (requires SLIM_CHAT_RSA_PRIVATE_KEY)', () => {
+  describeIfPrivateKey('Key pair matching (requires NOSTLING_RSA_PRIVATE_KEY)', () => {
     test('public key matches the signing private key', () => {
       const testPayload = JSON.stringify({
         version: '1.0.0',

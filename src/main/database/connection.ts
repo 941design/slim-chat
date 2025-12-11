@@ -35,7 +35,7 @@ export function _resetDatabaseState(): void {
  *   Invariants:
  *     - Singleton pattern: only one database instance exists
  *     - Database file created if doesn't exist
- *     - Database located at {userData}/slim-chat.db
+ *     - Database located at {userData}/nostling.db
  *     - WAL mode enabled for better concurrency
  *     - Calling multiple times returns same instance
  *
@@ -47,7 +47,7 @@ export function _resetDatabaseState(): void {
  *   Algorithm:
  *     1. If database instance already exists, return it
  *     2. Initialize sql.js WebAssembly module
- *     3. Determine database file path: {userData}/slim-chat.db
+ *     3. Determine database file path: {userData}/nostling.db
  *     4. If database file exists:
  *        a. Read file into buffer
  *        b. Create Database instance from buffer
@@ -64,7 +64,7 @@ export async function initDatabase(): Promise<Database> {
 
   const SQL = await initSqlJs();
   const userDataPath = app.getPath('userData');
-  dbPath = path.join(userDataPath, 'slim-chat.db');
+  dbPath = path.join(userDataPath, 'nostling.db');
 
   let database: Database;
   try {
@@ -112,7 +112,7 @@ export function getDatabase(): Database | null {
  *     - void (side effect: writes database to disk, closes connection)
  *
  *   Invariants:
- *     - Database file written to {userData}/slim-chat.db
+ *     - Database file written to {userData}/nostling.db
  *     - Database instance closed and set to null
  *     - Idempotent: safe to call multiple times
  *
@@ -125,7 +125,7 @@ export function getDatabase(): Database | null {
  *     1. If database instance is null, return (nothing to close)
  *     2. Export database to binary buffer via db.export()
  *     3. Ensure userData directory exists
- *     4. Write buffer to {userData}/slim-chat.db atomically
+ *     4. Write buffer to {userData}/nostling.db atomically
  *     5. Close database instance via db.close()
  *     6. Set module-level db variable to null
  */
@@ -159,7 +159,7 @@ export async function closeDatabase(): Promise<void> {
  *     - filePath: absolute path to database file, or null if not initialized
  *
  *   Invariants:
- *     - Path format: {userData}/slim-chat.db
+ *     - Path format: {userData}/nostling.db
  *     - Path is absolute, not relative
  */
 export function getDatabasePath(): string | null {

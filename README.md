@@ -1,9 +1,10 @@
-# SlimChat
+# Nostling
 
-A desktop application bootstrap with secure auto-updates, built with Electron, React, and TypeScript.
+A desktop messaging application built on the Nostr protocol with secure auto-updates, built with Electron, React, and TypeScript.
 
 ## TODO
 
++ disallow pushing tags on branches other than master
 + identity
   + create
   + remove
@@ -17,7 +18,7 @@ A desktop application bootstrap with secure auto-updates, built with Electron, R
   + send
 + group chat
   + add member (adding a member creates new id (deterministically?), and starts new chat)
-  + 
+  +
 
 ## Features
 
@@ -46,8 +47,8 @@ npm run dev
 
 This app is not notarized with Apple. On first launch, macOS will block it.
 
-1. Download the `.dmg` from the [latest release](https://github.com/941design/slim-chat/releases/latest)
-2. Open the DMG and drag `SlimChat.app` to **Applications**
+1. Download the `.dmg` from the [latest release](https://github.com/941design/nostling/releases/latest)
+2. Open the DMG and drag `Nostling.app` to **Applications**
 3. Try opening the app (it will fail with a warning)
 4. Go to **System Settings → Privacy & Security**
 5. Find the blocked app message and click **"Allow Anyway"**
@@ -55,16 +56,16 @@ This app is not notarized with Apple. On first launch, macOS will block it.
 
 **Alternative**: Right-click the app → **Open** → **Open**, or run:
 ```bash
-xattr -rd com.apple.quarantine /Applications/SlimChat.app
+xattr -rd com.apple.quarantine /Applications/Nostling.app
 ```
 
 ### Linux
 
-1. Download the `.AppImage` from the [latest release](https://github.com/941design/slim-chat/releases/latest)
+1. Download the `.AppImage` from the [latest release](https://github.com/941design/nostling/releases/latest)
 2. Make executable and run:
    ```bash
-   chmod +x SlimChat-*.AppImage
-   ./SlimChat-*.AppImage
+   chmod +x Nostling-*.AppImage
+   ./Nostling-*.AppImage
    ```
 
 ## Development
@@ -112,7 +113,7 @@ Test the auto-update system locally before releasing:
 make dev
 
 # Test against specific release
-DEV_UPDATE_SOURCE=https://github.com/941design/slim-chat/releases/download/1.0.0 make dev
+DEV_UPDATE_SOURCE=https://github.com/941design/nostling/releases/download/1.0.0 make dev
 
 # Test with local manifest
 DEV_UPDATE_SOURCE=file:///tmp/test-updates make dev
@@ -170,18 +171,18 @@ Artifacts will be in the `release/` directory.
 ## Configuration
 
 The app stores configuration and data in:
-- **macOS**: `~/Library/Application Support/SlimChat/`
-- **Linux**: `~/.config/SlimChat/`
+- **macOS**: `~/Library/Application Support/Nostling/`
+- **Linux**: `~/.config/Nostling/`
 
 Files:
 - `config.json` - Application configuration
-- `slim-chat.db` - SQLite database for application state
+- `nostling.db` - SQLite database for application state
 
 ## Log Files
 
 Logs are written to:
-- **macOS**: `~/Library/Application Support/SlimChat/logs/app.log`
-- **Linux**: `~/.config/SlimChat/logs/app.log`
+- **macOS**: `~/Library/Application Support/Nostling/logs/app.log`
+- **Linux**: `~/.config/Nostling/logs/app.log`
 
 Format: JSON Lines with `level`, `message`, and `timestamp` fields.
 
