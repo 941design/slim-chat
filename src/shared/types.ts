@@ -109,6 +109,7 @@ export interface RendererApi {
   config: ConfigApi;
   system: SystemApi;
   state: StateApi; // Added persistence layer API
+  nostling?: NostlingApi;
 }
 
 // Legacy flat API for backward compatibility (optional)
@@ -119,4 +120,96 @@ export interface LegacyRendererApi {
   onUpdateState(callback: (state: UpdateState) => void): () => void;
   getConfig(): Promise<AppConfig>;
   setConfig(config: Partial<AppConfig>): Promise<AppConfig>;
+}
+
+// Nostling MVP domain types
+export type NostlingContactState = 'pending' | 'connected';
+export type NostlingMessageStatus = 'queued' | 'sending' | 'sent' | 'error';
+export type NostlingMessageDirection = 'incoming' | 'outgoing';
+
+export interface NostlingIdentity {
+  id: string; // internal UUID
+  npub: string;
+  secretRef: string;
+  label: string;
+  relays?: string[];
+  createdAt: string;
+}
+
+export interface NostlingContact {
+  id: string; // internal UUID
+  identityId: string;
+  npub: string;
+  alias: string;
+  state: NostlingContactState;
+  createdAt: string;
+  lastMessageAt?: string;
+}
+
+export interface NostlingMessage {
+  id: string; // internal UUID
+  identityId: string;
+  contactId: string;
+  senderNpub: string;
+  recipientNpub: string;
+  ciphertext: string;
+  eventId?: string;
+  timestamp: string;
+  status: NostlingMessageStatus;
+  direction: NostlingMessageDirection;
+}
+
+export interface NostlingRelayEndpoint {
+  url: string;
+  read: boolean;
+  write: boolean;
+  createdAt: string;
+}
+
+export interface NostlingRelayConfig {
+  defaults: NostlingRelayEndpoint[];
+  perIdentity?: Record<string, NostlingRelayEndpoint[]>;
+}
+
+export interface CreateIdentityRequest {
+  label: string;
+  nsec?: string; // when importing from secret
+  npub?: string; // when creating from external store reference
+  secretRef?: string; // optional hint for existing secret storage
+  relays?: string[];
+}
+
+export interface AddContactRequest {
+  identityId: string;
+  npub: string;
+  alias?: string;
+}
+
+export interface SendNostrMessageRequest {
+  identityId: string;
+  contactId: string;
+  plaintext: string;
+}
+
+export interface NostlingApi {
+  identities: {
+    list(): Promise<NostlingIdentity[]>;
+    create(request: CreateIdentityRequest): Promise<NostlingIdentity>;
+    remove(id: string): Promise<void>;
+  };
+  contacts: {
+    list(identityId: string): Promise<NostlingContact[]>;
+    add(request: AddContactRequest): Promise<NostlingContact>;
+    remove(contactId: string): Promise<void>;
+    markConnected(contactId: string): Promise<NostlingContact>;
+  };
+  messages: {
+    list(identityId: string, contactId: string): Promise<NostlingMessage[]>;
+    send(request: SendNostrMessageRequest): Promise<NostlingMessage>;
+    discardUnknown(eventId: string): Promise<void>;
+  };
+  relays: {
+    get(): Promise<NostlingRelayConfig>;
+    set(config: NostlingRelayConfig): Promise<NostlingRelayConfig>;
+  };
 }
