@@ -53,7 +53,7 @@ This document lists the exact tasks required to start implementing the Nostr cli
 8. **Renderer UI: sidebar and identity/contact workflows**
    - Replace placeholder sidebar with identity list and contact list (pending/connected indicators) as described in the spec.
    - Implement create/import identity modal and add-contact (scan/paste npub) modal flows using Chakra UI conventions.
-   - **Status:** Not Started
+   - **Status:** Done
 
 9. **Renderer UI: messaging pane**
    - Build threaded conversation view with incoming/outgoing grouping, timestamps, and status badges (queued/sending/sent/error).

@@ -14,10 +14,25 @@ import {
   VStack,
   HStack,
   Spacer,
+  Stack,
   Table,
   Badge,
+  Input,
+  FormControl,
+  FormLabel,
+  FormErrorMessage,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalCloseButton,
+  ModalBody,
+  ModalFooter,
+  Select,
+  Divider,
+  Icon,
 } from '@chakra-ui/react';
-import { AppStatus, UpdateState } from '../shared/types';
+import { AppStatus, NostlingContact, NostlingIdentity, UpdateState } from '../shared/types';
 import './types.d.ts';
 import { getStatusText, isRefreshEnabled } from './utils';
 import { useNostlingState } from './nostling/state';
@@ -340,28 +355,376 @@ function NostlingStatusCard({ statusText, queueSummary, lastSync, lastError }: N
   );
 }
 
-function Sidebar() {
-  // Auto-update footer feature: Update controls moved to footer (FR9)
-  // Sidebar kept intact for future features
+type IdentityFormState = {
+  label: string;
+  nsec: string;
+};
+
+type ContactFormState = {
+  identityId: string;
+  npub: string;
+  alias: string;
+};
+
+function IdentityStatusBadge({ secretRef }: { secretRef: string }) {
+  return (
+    <HStack gap="1">
+      <Icon viewBox="0 0 24 24" color="brand.400">
+        <path d="M12 2L3 7v7c0 5 4 7 9 7s9-2 9-7V7l-9-5zM5 9l7-4 7 4v5c0 3-3 5-7 5s-7-2-7-5V9z" />
+      </Icon>
+      <Text color="gray.500" fontSize="xs">
+        {secretRef}
+      </Text>
+    </HStack>
+  );
+}
+
+function IdentityList({
+  identities,
+  selectedId,
+  onSelect,
+  onOpenCreate,
+}: {
+  identities: NostlingIdentity[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onOpenCreate: () => void;
+}) {
+  return (
+    <Box>
+      <HStack justify="space-between" mb="2">
+        <Heading size="sm" color="gray.300">
+          Identities
+        </Heading>
+        <IconButton
+          size="sm"
+          aria-label="Create identity"
+          title="Create or import identity"
+          onClick={onOpenCreate}
+          colorPalette="blue"
+          variant="subtle"
+        >
+          +
+        </IconButton>
+      </HStack>
+      <VStack align="stretch" gap="2">
+        {identities.length === 0 && (
+          <Text fontSize="sm" color="gray.500">
+            No identities yet. Create or import one to get started.
+          </Text>
+        )}
+        {identities.map((identity) => (
+          <Box
+            key={identity.id}
+            borderWidth="1px"
+            borderColor={selectedId === identity.id ? 'brand.400' : 'whiteAlpha.100'}
+            borderRadius="md"
+            p="2"
+            bg={selectedId === identity.id ? 'whiteAlpha.100' : 'transparent'}
+            _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
+            onClick={() => onSelect(identity.id)}
+          >
+            <Text color="gray.200" fontWeight="semibold">
+              {identity.label || identity.npub}
+            </Text>
+            <Text color="gray.500" fontSize="xs" noOfLines={1}>
+              {identity.npub}
+            </Text>
+            <IdentityStatusBadge secretRef={identity.secretRef} />
+          </Box>
+        ))}
+      </VStack>
+    </Box>
+  );
+}
+
+function ContactStateBadge({ state }: { state: 'pending' | 'connected' }) {
+  const color = state === 'connected' ? 'green' : 'orange';
+  const label = state === 'connected' ? 'Connected' : 'Pending';
+
+  return (
+    <Badge colorPalette={color} variant="subtle" size="sm">
+      {label}
+    </Badge>
+  );
+}
+
+function ContactList({
+  contacts,
+  selectedId,
+  onSelect,
+  onOpenAdd,
+  disabled,
+}: {
+  contacts: NostlingContact[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onOpenAdd: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <Box mt="6">
+      <HStack justify="space-between" mb="2">
+        <Heading size="sm" color="gray.300">
+          Contacts
+        </Heading>
+        <IconButton
+          size="sm"
+          aria-label="Add contact"
+          title={disabled ? 'Create an identity first' : 'Add contact'}
+          onClick={onOpenAdd}
+          colorPalette="blue"
+          variant="subtle"
+          disabled={disabled}
+        >
+          +
+        </IconButton>
+      </HStack>
+      <VStack align="stretch" gap="2">
+        {(contacts?.length || 0) === 0 && (
+          <Text fontSize="sm" color="gray.500">
+            {disabled ? 'Add an identity to manage contacts.' : 'No contacts yet.'}
+          </Text>
+        )}
+        {(contacts || []).map((contact) => (
+          <Box
+            key={contact.id}
+            borderWidth="1px"
+            borderColor={selectedId === contact.id ? 'brand.400' : 'whiteAlpha.100'}
+            borderRadius="md"
+            p="2"
+            bg={selectedId === contact.id ? 'whiteAlpha.100' : 'transparent'}
+            _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
+            onClick={() => onSelect(contact.id)}
+          >
+            <HStack justify="space-between" align="start">
+              <Stack gap="0">
+                <Text color="gray.200" fontWeight="semibold">
+                  {contact.alias || contact.npub}
+                </Text>
+                <Text color="gray.500" fontSize="xs" noOfLines={1}>
+                  {contact.npub}
+                </Text>
+              </Stack>
+              <ContactStateBadge state={contact.state} />
+            </HStack>
+          </Box>
+        ))}
+      </VStack>
+    </Box>
+  );
+}
+
+function IdentityModal({
+  isOpen,
+  onClose,
+  onSubmit,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (values: IdentityFormState) => Promise<void>;
+}) {
+  const [form, setForm] = useState<IdentityFormState>({ label: '', nsec: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const labelError = form.label.trim().length === 0;
+
+  const handleSubmit = async () => {
+    if (labelError) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(form);
+      setForm({ label: '', nsec: '' });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} closeOnOverlayClick={!submitting}>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Create or Import Identity</ModalHeader>
+        <ModalCloseButton disabled={submitting} />
+        <ModalBody>
+          <VStack gap="3">
+            <FormControl isInvalid={labelError} isRequired>
+              <FormLabel>Label</FormLabel>
+              <Input
+                placeholder="Personal account"
+                value={form.label}
+                onChange={(event) => setForm((prev) => ({ ...prev, label: event.target.value }))}
+              />
+              {labelError && <FormErrorMessage>Label is required.</FormErrorMessage>}
+            </FormControl>
+            <FormControl>
+              <FormLabel>nsec (optional, for import)</FormLabel>
+              <Input
+                placeholder="nsec..."
+                value={form.nsec}
+                onChange={(event) => setForm((prev) => ({ ...prev, nsec: event.target.value }))}
+              />
+            </FormControl>
+          </VStack>
+        </ModalBody>
+        <ModalFooter>
+          <HStack gap="2">
+            <Button variant="ghost" onClick={onClose} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button colorPalette="blue" onClick={handleSubmit} loading={submitting}>
+              Save
+            </Button>
+          </HStack>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+}
+
+function ContactModal({
+  isOpen,
+  onClose,
+  onSubmit,
+  identities,
+  defaultIdentityId,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (values: ContactFormState) => Promise<void>;
+  identities: NostlingIdentity[];
+  defaultIdentityId: string | null;
+}) {
+  const [form, setForm] = useState<ContactFormState>({
+    identityId: defaultIdentityId || '',
+    npub: '',
+    alias: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const identityMissing = form.identityId.trim().length === 0;
+  const npubMissing = form.npub.trim().length === 0;
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, identityId: defaultIdentityId || prev.identityId }));
+  }, [defaultIdentityId]);
+
+  const handleSubmit = async () => {
+    if (identityMissing || npubMissing) return;
+    setSubmitting(true);
+    try {
+      await onSubmit(form);
+      setForm({ identityId: defaultIdentityId || '', npub: '', alias: '' });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} closeOnOverlayClick={!submitting}>
+      <ModalOverlay />
+      <ModalContent>
+        <ModalHeader>Add Contact</ModalHeader>
+        <ModalCloseButton disabled={submitting} />
+        <ModalBody>
+          <VStack gap="3">
+            <FormControl isInvalid={identityMissing} isRequired>
+              <FormLabel>Identity</FormLabel>
+              <Select
+                value={form.identityId}
+                onChange={(event) => setForm((prev) => ({ ...prev, identityId: event.target.value }))}
+              >
+                <option value="" disabled>
+                  Select identity
+                </option>
+                {identities.map((identity) => (
+                  <option key={identity.id} value={identity.id}>
+                    {identity.label || identity.npub}
+                  </option>
+                ))}
+              </Select>
+              {identityMissing && <FormErrorMessage>Select an identity.</FormErrorMessage>}
+            </FormControl>
+            <FormControl isInvalid={npubMissing} isRequired>
+              <FormLabel>Contact npub</FormLabel>
+              <Input
+                placeholder="npub..."
+                value={form.npub}
+                onChange={(event) => setForm((prev) => ({ ...prev, npub: event.target.value }))}
+              />
+              {npubMissing && <FormErrorMessage>npub is required.</FormErrorMessage>}
+            </FormControl>
+            <FormControl>
+              <FormLabel>Alias (optional)</FormLabel>
+              <Input
+                placeholder="Friend"
+                value={form.alias}
+                onChange={(event) => setForm((prev) => ({ ...prev, alias: event.target.value }))}
+              />
+            </FormControl>
+          </VStack>
+        </ModalBody>
+        <ModalFooter>
+          <HStack gap="2">
+            <Button variant="ghost" onClick={onClose} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button colorPalette="blue" onClick={handleSubmit} loading={submitting}>
+              Save
+            </Button>
+          </HStack>
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
+  );
+}
+
+function Sidebar({
+  identities,
+  contacts,
+  selectedIdentityId,
+  selectedContactId,
+  onSelectIdentity,
+  onSelectContact,
+  onOpenIdentityModal,
+  onOpenContactModal,
+}: {
+  identities: NostlingIdentity[];
+  contacts: Record<string, NostlingContact[]>;
+  selectedIdentityId: string | null;
+  selectedContactId: string | null;
+  onSelectIdentity: (id: string) => void;
+  onSelectContact: (id: string) => void;
+  onOpenIdentityModal: () => void;
+  onOpenContactModal: () => void;
+}) {
+  const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
+
   return (
     <Box
       as="aside"
       className="sidebar"
-      w="220px"
+      w="280px"
       borderRightWidth="1px"
       borderColor="whiteAlpha.100"
       bg="blackAlpha.200"
       p="4"
     >
       <VStack align="stretch" gap="4">
-        <Box>
-          <Heading size="sm" color="gray.300" mb="2">
-            Placeholder
-          </Heading>
-          <Text fontSize="sm" color="gray.500">
-            Future features here
-          </Text>
-        </Box>
+        <IdentityList
+          identities={identities}
+          selectedId={selectedIdentityId}
+          onSelect={onSelectIdentity}
+          onOpenCreate={onOpenIdentityModal}
+        />
+        <Divider borderColor="whiteAlpha.200" />
+        <ContactList
+          contacts={currentContacts}
+          selectedId={selectedContactId}
+          onSelect={onSelectContact}
+          onOpenAdd={onOpenContactModal}
+          disabled={identities.length === 0}
+        />
       </VStack>
     </Box>
   );
@@ -370,12 +733,72 @@ function Sidebar() {
 function App() {
   const { status, updateState, refresh, restart, download } = useStatus();
   const nostling = useNostlingState();
+  const [selectedIdentityId, setSelectedIdentityId] = useState<string | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
+  const [identityModalOpen, setIdentityModalOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (nostling.identities.length === 0) {
+      setSelectedIdentityId(null);
+      setSelectedContactId(null);
+      return;
+    }
+
+    if (!selectedIdentityId || !nostling.identities.find((identity) => identity.id === selectedIdentityId)) {
+      setSelectedIdentityId(nostling.identities[0]?.id ?? null);
+    }
+  }, [nostling.identities, selectedIdentityId]);
+
+  useEffect(() => {
+    if (!selectedIdentityId) {
+      setSelectedContactId(null);
+      return;
+    }
+
+    const currentContacts = nostling.contacts[selectedIdentityId] || [];
+    if (currentContacts.length === 0) {
+      setSelectedContactId(null);
+      return;
+    }
+
+    if (!selectedContactId || !currentContacts.find((contact) => contact.id === selectedContactId)) {
+      setSelectedContactId(currentContacts[0]?.id ?? null);
+    }
+  }, [nostling.contacts, selectedContactId, selectedIdentityId]);
+
+  const handleCreateIdentity = async (values: IdentityFormState) => {
+    const identity = await nostling.createIdentity({ label: values.label, nsec: values.nsec || undefined });
+    if (identity) {
+      setSelectedIdentityId(identity.id);
+    }
+  };
+
+  const handleAddContact = async (values: ContactFormState) => {
+    const contact = await nostling.addContact({
+      identityId: values.identityId,
+      npub: values.npub,
+      alias: values.alias || undefined,
+    });
+    if (contact && contact.identityId === selectedIdentityId) {
+      setSelectedContactId(contact.id);
+    }
+  };
 
   return (
     <Flex className="app-shell" direction="column" h="100vh" bg="#0f172a">
       <Header />
       <Flex flex="1" overflow="hidden">
-        <Sidebar />
+        <Sidebar
+          identities={nostling.identities}
+          contacts={nostling.contacts}
+          selectedIdentityId={selectedIdentityId}
+          selectedContactId={selectedContactId}
+          onSelectIdentity={setSelectedIdentityId}
+          onSelectContact={setSelectedContactId}
+          onOpenIdentityModal={() => setIdentityModalOpen(true)}
+          onOpenContactModal={() => setContactModalOpen(true)}
+        />
         <Box as="main" flex="1" p="4" overflowY="auto">
           <NostlingStatusCard
             statusText={nostling.nostlingStatusText}
@@ -386,6 +809,18 @@ function App() {
           <StateTable />
         </Box>
       </Flex>
+      <IdentityModal
+        isOpen={identityModalOpen}
+        onClose={() => setIdentityModalOpen(false)}
+        onSubmit={handleCreateIdentity}
+      />
+      <ContactModal
+        isOpen={contactModalOpen}
+        onClose={() => setContactModalOpen(false)}
+        onSubmit={handleAddContact}
+        identities={nostling.identities}
+        defaultIdentityId={selectedIdentityId}
+      />
       <Footer
         version={status?.version}
         updateState={updateState}
