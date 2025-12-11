@@ -38,7 +38,7 @@ This document lists the exact tasks required to start implementing the Nostr cli
      - Managing a message queue with offline support and relay publish/subscribe filters (kind 4 only).
      - Enforcing whitelist filtering and discarding unknown senders with logging hooks.
    - Integrate with existing logging and persistence layers.
-   - **Status:** Not Started
+   - **Status:** In Progress
 
 6. **IPC and preload contracts for nostling**
    - Define IPC channels for nostling operations (identities, contacts, messages, relay config) following the existing domain-prefixed handler style.
