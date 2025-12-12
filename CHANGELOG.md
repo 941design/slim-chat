@@ -56,6 +56,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sidebar simplified: removed update-related controls and status displays (structure preserved for future features)
 
 ### Fixed
+- Fixed relay publish failure - "All relay publishes failed" (Relay Publishing)
+  - Messages now publish successfully to configured relays
+  - Root cause: Relay read/write flags were being dropped during endpoint conversion in service.ts:498
+  - Fix: Preserve read/write properties when mapping relay endpoints
+  - Added regression test to verify relay endpoints preserve read/write flags from configuration
+  - Bug report: bug-reports/relay-publish-all-failed-report.md
+  - Fixed: 2025-12-12
 - Fixed relay re-activation not working after disabling (Relay Configuration)
   - Users can now successfully re-enable relays after unchecking the "Enabled" checkbox
   - Root cause: When re-enabling, the handler preserved the disabled state (read=false, write=false) instead of restoring active state

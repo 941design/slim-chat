@@ -102,6 +102,42 @@ export function getDatabase(): Database | null {
 }
 
 /**
+ * Flush database to disk without closing connection
+ *
+ * CONTRACT:
+ *   Inputs:
+ *     - None (uses module-level database instance)
+ *
+ *   Outputs:
+ *     - void (side effect: writes database to disk)
+ *
+ *   Invariants:
+ *     - Database file written to {userData}/nostling.db
+ *     - Database instance remains open and usable
+ *     - Safe: no-op if database not initialized
+ *
+ *   Properties:
+ *     - Persistence: all changes flushed to disk
+ *     - Non-destructive: database remains available after flush
+ *     - Atomic: uses temp file + rename for crash safety
+ */
+export async function flushDatabase(): Promise<void> {
+  if (!db || !dbPath) {
+    return;
+  }
+
+  const data = db.export();
+  const buffer = Buffer.from(data);
+
+  const userDataPath = app.getPath('userData');
+  fs.mkdirSync(userDataPath, { recursive: true });
+
+  const tempPath = `${dbPath}.tmp`;
+  fs.writeFileSync(tempPath, buffer);
+  fs.renameSync(tempPath, dbPath);
+}
+
+/**
  * Close database connection and persist to disk
  *
  * CONTRACT:
@@ -123,27 +159,16 @@ export function getDatabase(): Database | null {
  *
  *   Algorithm:
  *     1. If database instance is null, return (nothing to close)
- *     2. Export database to binary buffer via db.export()
- *     3. Ensure userData directory exists
- *     4. Write buffer to {userData}/nostling.db atomically
- *     5. Close database instance via db.close()
- *     6. Set module-level db variable to null
+ *     2. Flush database to disk
+ *     3. Close database instance via db.close()
+ *     4. Set module-level db variable to null
  */
 export async function closeDatabase(): Promise<void> {
   if (!db || !dbPath) {
     return;
   }
 
-  const data = db.export();
-  const buffer = Buffer.from(data);
-
-  const userDataPath = app.getPath('userData');
-  fs.mkdirSync(userDataPath, { recursive: true });
-
-  const tempPath = `${dbPath}.tmp`;
-  fs.writeFileSync(tempPath, buffer);
-  fs.renameSync(tempPath, dbPath);
-
+  await flushDatabase();
   db.close();
   db = null;
 }

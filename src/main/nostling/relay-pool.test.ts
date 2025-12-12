@@ -4,6 +4,11 @@ import { RelayPool, type RelayEndpoint, type Filter, type RelayStatus } from './
 import { SimplePool } from 'nostr-tools';
 import type { NostrEvent } from './crypto';
 
+// Helper to normalize URL format (match SimplePool's trailing slash)
+function normalizeUrl(url: string): string {
+  return url.endsWith('/') ? url : url + '/';
+}
+
 jest.mock('../logging', () => ({
   log: jest.fn(),
 }));
@@ -24,7 +29,7 @@ describe('RelayPool', () => {
       ensureRelay: jest.fn(),
       close: jest.fn(),
       publish: jest.fn(),
-      subscribeMany: jest.fn(),
+      subscribeMany: jest.fn(() => ({ close: jest.fn() })),
       listConnectionStatus: jest.fn(() => new Map())
     } as any;
 
@@ -59,7 +64,7 @@ describe('RelayPool', () => {
       await pool.connect(endpoints);
 
       expect(mockPool.ensureRelay).toHaveBeenCalledWith(
-        'wss://relay.example.com',
+        normalizeUrl('wss://relay.example.com'),
         { connectionTimeout: 5000 }
       );
     });
@@ -77,15 +82,15 @@ describe('RelayPool', () => {
 
       expect(mockPool.ensureRelay).toHaveBeenCalledTimes(3);
       expect(mockPool.ensureRelay).toHaveBeenCalledWith(
-        'wss://relay1.example.com',
+        normalizeUrl('wss://relay1.example.com'),
         { connectionTimeout: 5000 }
       );
       expect(mockPool.ensureRelay).toHaveBeenCalledWith(
-        'wss://relay2.example.com',
+        normalizeUrl('wss://relay2.example.com'),
         { connectionTimeout: 5000 }
       );
       expect(mockPool.ensureRelay).toHaveBeenCalledWith(
-        'wss://relay3.example.com',
+        normalizeUrl('wss://relay3.example.com'),
         { connectionTimeout: 5000 }
       );
     });
@@ -100,7 +105,7 @@ describe('RelayPool', () => {
       await pool.connect(endpoints);
 
       const status = pool.getStatus();
-      expect(status.get('wss://relay.example.com')).toBe('error');
+      expect(status.get(normalizeUrl('wss://relay.example.com'))).toBe('error');
     });
 
     it('is idempotent - calling connect multiple times is safe', async () => {
@@ -130,8 +135,8 @@ describe('RelayPool', () => {
       pool.disconnect();
 
       expect(mockPool.close).toHaveBeenCalledWith([
-        'wss://relay1.example.com',
-        'wss://relay2.example.com'
+        normalizeUrl('wss://relay1.example.com'),
+        normalizeUrl('wss://relay2.example.com')
       ]);
     });
 
@@ -264,7 +269,7 @@ describe('RelayPool', () => {
       const subscription = pool.subscribe(filters, onEvent);
 
       expect(mockPool.subscribeMany).toHaveBeenCalledWith(
-        ['wss://relay1.example.com', 'wss://relay2.example.com'],
+        [normalizeUrl('wss://relay1.example.com'), normalizeUrl('wss://relay2.example.com')],
         { kinds: [4] },
         expect.objectContaining({
           onevent: expect.any(Function)
@@ -335,7 +340,7 @@ describe('RelayPool', () => {
 
       const status = pool.getStatus();
       expect(status).toBeInstanceOf(Map);
-      expect(status.has('wss://relay.example.com')).toBe(true);
+      expect(status.has(normalizeUrl('wss://relay.example.com'))).toBe(true);
     });
 
     it('returns a copy, not reference to internal state', async () => {
@@ -370,7 +375,7 @@ describe('RelayPool', () => {
 
       expect(callback).toHaveBeenCalled();
       const calls = (callback as jest.Mock).mock.calls;
-      expect(calls.some(([url]) => url === 'wss://relay.example.com')).toBe(true);
+      expect(calls.some(([url]) => url === normalizeUrl('wss://relay.example.com'))).toBe(true);
     });
 
     it('supports multiple callbacks', async () => {
@@ -415,7 +420,7 @@ describe('RelayPool', () => {
             expect(status.size).toBe(uniqueEndpoints.length);
 
             for (const endpoint of uniqueEndpoints) {
-              expect(status.has(endpoint.url)).toBe(true);
+              expect(status.has(normalizeUrl(endpoint.url))).toBe(true);
             }
           }
         ),
@@ -583,7 +588,7 @@ describe('RelayPool', () => {
             const relaysPassedToSubscribe = subscribeCall[0] as string[];
 
             for (const relay of readableRelays) {
-              expect(relaysPassedToSubscribe).toContain(relay.url);
+              expect(relaysPassedToSubscribe).toContain(normalizeUrl(relay.url));
             }
           }
         ),
@@ -659,7 +664,7 @@ describe('RelayPool', () => {
             const relaysPassedToPublish = publishCall[0] as string[];
 
             for (const relay of writableRelays) {
-              expect(relaysPassedToPublish).toContain(relay.url);
+              expect(relaysPassedToPublish).toContain(normalizeUrl(relay.url));
             }
             expect(results).toHaveLength(writableRelays.length);
           }
@@ -840,7 +845,7 @@ describe('RelayPool', () => {
             expect(status.size).toBe(uniqueEndpoints.length);
 
             for (const endpoint of uniqueEndpoints) {
-              expect(status.has(endpoint.url)).toBe(true);
+              expect(status.has(normalizeUrl(endpoint.url))).toBe(true);
             }
           }
         ),

@@ -152,7 +152,7 @@ export interface NostlingMessage {
   contactId: string;
   senderNpub: string;
   recipientNpub: string;
-  ciphertext: string;
+  content: string;  // Plaintext message content for display (decrypted on receive, stored before encryption on send)
   eventId?: string;
   timestamp: string;
   status: NostlingMessageStatus;

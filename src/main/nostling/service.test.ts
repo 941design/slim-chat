@@ -94,7 +94,7 @@ describe('NostlingService', () => {
       identityId: identity.id,
       senderNpub: 'npub2',
       recipientNpub: 'npub1',
-      ciphertext: 'hello',
+      content: 'hello',
       eventId: 'evt-1',
     });
 
@@ -106,7 +106,7 @@ describe('NostlingService', () => {
       identityId: identity.id,
       senderNpub: 'npub-unknown',
       recipientNpub: 'npub1',
-      ciphertext: 'ignored',
+      content: 'ignored',
     });
     expect(discarded).toBeNull();
     expect((log as jest.Mock).mock.calls.some((call) => `${call[1]}`.includes('unknown sender'))).toBe(true);
@@ -119,7 +119,7 @@ describe('NostlingService', () => {
       identityId: identity.id,
       senderNpub: 'npub2',
       recipientNpub: 'npub1',
-      ciphertext: 'garbage',
+      content: 'garbage',
       decryptionFailed: true,
     });
 
@@ -198,5 +198,49 @@ describe('NostlingService', () => {
     // Verify in DB
     messages = await service.listMessages(identity.id, contact.id);
     expect(messages.find((m) => m.id === msg.id)?.status).toBe('queued');
+  });
+
+  it('preserves relay read/write flags during initialization', async () => {
+    /**
+     * Regression test: Relay endpoint read/write flags preserved during initialization
+     *
+     * Bug report: bug-reports/relay-publish-all-failed-report.md
+     * Fixed: 2025-12-12
+     * Root cause: Relay read/write flags were dropped when mapping NostlingRelayEndpoint to RelayEndpoint
+     *
+     * Protection: Prevents relay endpoints from losing read/write configuration during service initialization,
+     * which would cause message publishing to fail by filtering out all writable relays.
+     */
+    const identity = await service.createIdentity({ label: 'Test', nsec: 'secret', npub: 'npub1' });
+
+    // Set relays with specific read/write flags
+    await service.setRelaysForIdentity(identity.id, [
+      {
+        url: 'wss://test-relay.example.com',
+        read: true,
+        write: false, // Explicitly set to false
+        order: 0,
+      },
+      {
+        url: 'wss://write-relay.example.com',
+        read: false,
+        write: true, // Explicitly set to true
+        order: 1,
+      },
+    ]);
+
+    // Reload relays (simulates what happens during initialization)
+    const relays = await service.getRelaysForIdentity(identity.id);
+
+    // Verify flags are preserved
+    expect(relays).toHaveLength(2);
+
+    const testRelay = relays.find((r) => r.url === 'wss://test-relay.example.com');
+    expect(testRelay?.read).toBe(true);
+    expect(testRelay?.write).toBe(false);
+
+    const writeRelay = relays.find((r) => r.url === 'wss://write-relay.example.com');
+    expect(writeRelay?.read).toBe(false);
+    expect(writeRelay?.write).toBe(true);
   });
 });

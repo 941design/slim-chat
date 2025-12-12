@@ -694,7 +694,7 @@ function MessageBubble({
 }: {
   message: {
     id: string;
-    ciphertext: string;
+    content: string;
     timestamp: string;
     status: 'queued' | 'sending' | 'sent' | 'error';
   };
@@ -717,7 +717,7 @@ function MessageBubble({
         className="message-bubble"
       >
         <Text color="gray.100" whiteSpace="pre-wrap">
-          {message.ciphertext}
+          {message.content}
         </Text>
         <HStack justify="space-between" mt="2" gap="2">
           <Text fontSize="xs" color="gray.500">
@@ -848,7 +848,7 @@ function ConversationPane({
             key={message.id}
             message={{
               id: message.id,
-              ciphertext: message.ciphertext,
+              content: message.content,
               timestamp: message.timestamp,
               status: message.status,
             }}

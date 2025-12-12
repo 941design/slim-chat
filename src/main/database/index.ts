@@ -7,7 +7,7 @@
 
 import { app, dialog } from 'electron';
 import { log } from '../logging';
-import { initDatabase, closeDatabase, getDatabase } from './connection';
+import { initDatabase, closeDatabase, flushDatabase, getDatabase } from './connection';
 import { runMigrations } from './migrations';
 import { getState, setState, deleteState, getAllState } from './state';
 
@@ -104,6 +104,35 @@ export async function closeDatabaseConnection(): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log('error', `Failed to close database: ${message}`);
+  }
+}
+
+/**
+ * Flush database to disk without closing connection
+ *
+ * Called periodically to ensure data safety in case of crashes.
+ *
+ * CONTRACT:
+ *   Inputs:
+ *     - None
+ *
+ *   Outputs:
+ *     - void (side effect: database written to disk)
+ *
+ *   Invariants:
+ *     - Database flushed to disk
+ *     - Connection remains open
+ *
+ *   Properties:
+ *     - Safe: no-op if database not initialized
+ *     - Non-destructive: database remains usable after flush
+ */
+export async function flushDatabaseToDisk(): Promise<void> {
+  try {
+    await flushDatabase();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log('error', `Failed to flush database: ${message}`);
   }
 }
 

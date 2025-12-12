@@ -507,7 +507,7 @@ describe('registerHandlers', () => {
       contactId: 'contact-1',
       senderNpub: 'npub1',
       recipientNpub: 'npub-contact',
-      ciphertext: 'hi',
+      content: 'hi',
       timestamp: new Date().toISOString(),
       status: 'queued',
       direction: 'outgoing',

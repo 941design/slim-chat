@@ -109,9 +109,11 @@ export class RelayPool {
   constructor() {
     // Pass WebSocket implementation directly to SimplePool for Node.js/Electron environment
     // The websocketImplementation option is supported at runtime but not in TypeScript types
+    // enablePing: keeps connections alive by sending periodic pings (prevents idle disconnections)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.pool = new SimplePool({
       enableReconnect: true,
+      enablePing: true,
       websocketImplementation: WebSocket
     } as any);
     this.endpoints = new Map();
@@ -125,8 +127,13 @@ export class RelayPool {
    * Normalizes relay endpoint to ensure read/write flags are set with defaults
    */
   private normalizeEndpoint(endpoint: RelayEndpoint): RelayEndpoint {
+    // Normalize URL to match SimplePool's format (adds trailing slash)
+    let url = endpoint.url;
+    if (!url.endsWith('/')) {
+      url = url + '/';
+    }
     return {
-      url: endpoint.url,
+      url,
       read: endpoint.read !== false,  // Default to true
       write: endpoint.write !== false // Default to true
     };
@@ -157,29 +164,77 @@ export class RelayPool {
   async connect(endpoints: RelayEndpoint[]): Promise<void> {
     this.disconnect();
 
-    log('info', `Connecting to ${endpoints.length} relay(s)`);
+    log('info', `Connecting to ${endpoints.length} relay(s): ${endpoints.map(e => e.url).join(', ')}`);
     for (const endpoint of endpoints) {
       const normalized = this.normalizeEndpoint(endpoint);
       this.endpoints.set(normalized.url, normalized);
       this.updateStatus(normalized.url, 'connecting');
-      log('debug', `Relay ${endpoint.url}: connecting...`);
     }
 
     const connectionPromises = endpoints.map(async (endpoint) => {
+      // Use normalized URL consistently to match SimplePool's format
+      const normalizedUrl = this.normalizeEndpoint(endpoint).url;
+      const startTime = Date.now();
       try {
-        await this.pool.ensureRelay(endpoint.url, { connectionTimeout: 5000 });
-        this.updateStatus(endpoint.url, 'connected');
-        log('info', `Relay ${endpoint.url}: connected`);
+        log('debug', `Relay ${normalizedUrl}: attempting connection...`);
+        await this.pool.ensureRelay(normalizedUrl, { connectionTimeout: 5000 });
+        const elapsed = Date.now() - startTime;
+        this.updateStatus(normalizedUrl, 'connected');
+        log('info', `Relay ${normalizedUrl}: connected (${elapsed}ms)`);
       } catch (error) {
-        this.updateStatus(endpoint.url, 'error');
+        const elapsed = Date.now() - startTime;
+        this.updateStatus(normalizedUrl, 'error');
         const errorMessage = error instanceof Error ? error.message : String(error);
-        log('error', `Relay ${endpoint.url}: connection failed - ${errorMessage}`);
+        log('error', `Relay ${normalizedUrl}: connection failed after ${elapsed}ms - ${errorMessage}`);
       }
     });
 
     await Promise.allSettled(connectionPromises);
 
+    // Log connection summary
+    const connectedCount = Array.from(this.statusMap.values()).filter(s => s === 'connected').length;
+    const errorCount = Array.from(this.statusMap.values()).filter(s => s === 'error').length;
+    log('info', `Relay connection complete: ${connectedCount} connected, ${errorCount} failed out of ${endpoints.length}`);
+
+    // Create a keepalive subscription to prevent idle disconnections
+    // SimplePool closes connections without active subscriptions
+    this.startKeepaliveSubscription();
+
     this.startStatusMonitoring();
+  }
+
+  /**
+   * Creates a minimal subscription to keep relay connections alive.
+   * SimplePool closes idle connections without active subscriptions.
+   */
+  private startKeepaliveSubscription(): void {
+    const connectedRelays = this.getReadableRelays();
+    if (connectedRelays.length === 0) {
+      log('debug', 'No connected relays for keepalive subscription');
+      return;
+    }
+
+    // Subscribe to a filter that won't match anything but keeps connection alive
+    // Using a far-future timestamp ensures no events match
+    const keepaliveFilter = {
+      kinds: [1],
+      since: Math.floor(Date.now() / 1000) + 86400 * 365 * 100, // 100 years in future
+      limit: 1
+    };
+
+    try {
+      const sub = this.pool.subscribeMany(connectedRelays, keepaliveFilter, {
+        onevent: () => {
+          // This should never be called since filter won't match
+        }
+      });
+
+      // Store the keepalive subscription so it stays active
+      this.activeSubscriptions.set('__keepalive__', { sub, seenEvents: new Set() });
+      log('debug', `Keepalive subscription active on ${connectedRelays.length} relay(s)`);
+    } catch (error) {
+      log('warn', `Failed to create keepalive subscription: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   disconnect(): void {
@@ -203,9 +258,18 @@ export class RelayPool {
     const writableRelays = this.getWritableRelays();
 
     if (writableRelays.length === 0) {
+      // Diagnostic: explain why no writable relays are available
+      const totalEndpoints = this.endpoints.size;
+      const statusCounts = { connected: 0, connecting: 0, disconnected: 0, error: 0 };
+      this.statusMap.forEach(status => { statusCounts[status]++; });
+      const relayDetails = Array.from(this.endpoints.entries())
+        .map(([url, ep]) => `${url} (status=${this.statusMap.get(url)}, write=${ep.write})`)
+        .join(', ');
+      log('error', `No writable relays available. Configured: ${totalEndpoints}, Connected: ${statusCounts.connected}, Connecting: ${statusCounts.connecting}, Error: ${statusCounts.error}. Relays: [${relayDetails}]`);
       return [];
     }
 
+    log('debug', `Publishing event to ${writableRelays.length} writable relay(s): ${writableRelays.join(', ')}`);
     const eventForPublish = event as unknown as Event;
     const results: PublishResult[] = [];
 
@@ -222,15 +286,23 @@ export class RelayPool {
             )
           ]);
           results.push({ relay, success: true, message });
+          log('debug', `Relay ${relay}: publish succeeded`);
         } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
           results.push({
             relay,
             success: false,
-            message: error instanceof Error ? error.message : 'Unknown error'
+            message: errorMessage
           });
+          log('error', `Relay ${relay}: publish failed - ${errorMessage}`);
         }
       })
     );
+
+    // Log summary of publish results
+    const succeeded = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+    log('info', `Publish complete: ${succeeded} succeeded, ${failed} failed out of ${results.length} relays`);
 
     return results;
   }
@@ -297,6 +369,11 @@ export class RelayPool {
       clearInterval(this.statusCheckInterval);
     }
 
+    // Log initial connection status summary
+    const connectionStatus = this.pool.listConnectionStatus();
+    const connectedCount = Array.from(connectionStatus.values()).filter(v => v).length;
+    log('info', `Status monitoring started. Pool reports ${connectedCount}/${this.endpoints.size} relays connected`);
+
     this.statusCheckInterval = setInterval(() => {
       const connectionStatus = this.pool.listConnectionStatus();
 
@@ -309,7 +386,7 @@ export class RelayPool {
           log('info', `Relay ${url}: reconnected`);
         } else if (!isConnected && currentStatus === 'connected') {
           this.updateStatus(url, 'disconnected');
-          log('warn', `Relay ${url}: disconnected`);
+          log('warn', `Relay ${url}: connection dropped`);
         }
       });
     }, 2000);

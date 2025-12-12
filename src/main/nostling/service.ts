@@ -285,7 +285,7 @@ export class NostlingService {
     identityId: string;
     senderNpub: string;
     recipientNpub: string;
-    ciphertext: string;
+    content: string;  // Decrypted plaintext content
     eventId?: string;
     timestamp?: string;
     decryptionFailed?: boolean;
@@ -314,7 +314,7 @@ export class NostlingService {
           contact.id,
           options.senderNpub,
           options.recipientNpub,
-          options.ciphertext,
+          options.content,  // Store plaintext content (DB column is still named 'ciphertext')
           options.eventId || null,
           now,
           'sent',
@@ -335,7 +335,7 @@ export class NostlingService {
         contactId: contact.id,
         senderNpub: options.senderNpub,
         recipientNpub: options.recipientNpub,
-        ciphertext: options.ciphertext,
+        content: options.content,
         eventId: options.eventId,
         timestamp: now,
         status: 'sent',
@@ -495,7 +495,15 @@ export class NostlingService {
       relays = DEFAULT_RELAYS;
     }
 
-    const endpoints: RelayEndpoint[] = relays.map(e => ({ url: e.url }));
+    // BUG FIX: Include read/write properties in endpoint mapping
+    // Root cause: Relay read/write flags were being dropped during endpoint conversion
+    // Bug report: bug-reports/relay-publish-all-failed-report.md
+    // Fixed: 2025-12-12
+    const endpoints: RelayEndpoint[] = relays.map(e => ({
+      url: e.url,
+      read: e.read,
+      write: e.write
+    }));
 
     if (endpoints.length === 0) {
       log('warn', 'No relay endpoints configured, nostling service will be offline');
@@ -622,7 +630,7 @@ export class NostlingService {
         identityId,
         senderNpub,
         recipientNpub,
-        ciphertext: event.content,
+        content: event.content,  // Pass ciphertext as-is (will be discarded anyway)
         eventId: event.id,
         timestamp: new Date(event.created_at * 1000).toISOString(),
         decryptionFailed: true
@@ -630,12 +638,12 @@ export class NostlingService {
       return;
     }
 
-    // Store decrypted message
+    // Store decrypted message (plaintext for display)
     await this.ingestIncomingMessage({
       identityId,
       senderNpub,
       recipientNpub,
-      ciphertext: event.content,
+      content: plaintext,
       eventId: event.id,
       timestamp: new Date(event.created_at * 1000).toISOString()
     });
@@ -682,17 +690,8 @@ export class NostlingService {
     const id = randomUUID();
     const status: NostlingMessageStatus = this.online ? 'sending' : 'queued';
 
-    // Encrypt plaintext before storing (skip encryption for legacy test npubs)
-    let ciphertext: string;
-    if (isValidNpub(options.recipientNpub)) {
-      const senderSecretKey = await this.loadSecretKey(options.identityId);
-      const recipientPubkeyHex = npubToHex(options.recipientNpub);
-      ciphertext = await encryptMessage(options.plaintext, senderSecretKey, recipientPubkeyHex);
-    } else {
-      // Legacy test path: store plaintext as-is
-      ciphertext = options.plaintext;
-    }
-
+    // Store plaintext for display; encryption happens at publish time
+    // (The 'ciphertext' column actually stores displayable content)
     this.database.run(
       'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
@@ -701,7 +700,7 @@ export class NostlingService {
         options.contactId,
         options.senderNpub,
         options.recipientNpub,
-        ciphertext,
+        options.plaintext,  // Store plaintext for display
         null,
         now,
         status,
@@ -721,7 +720,7 @@ export class NostlingService {
       contactId: options.contactId,
       senderNpub: options.senderNpub,
       recipientNpub: options.recipientNpub,
-      ciphertext,
+      content: options.plaintext,
       timestamp: now,
       status,
       direction: 'outgoing',
@@ -748,7 +747,9 @@ export class NostlingService {
             secretKey: senderSecretKey
           };
 
-          const event = buildKind4Event(message.ciphertext, keypair, recipientPubkeyHex);
+          // Encrypt plaintext on-the-fly for relay publish
+          const ciphertext = await encryptMessage(message.content, senderSecretKey, recipientPubkeyHex);
+          const event = buildKind4Event(ciphertext, keypair, recipientPubkeyHex);
 
           // Publish to relays
           const results = await this.relayPool.publish(event);
@@ -760,7 +761,13 @@ export class NostlingService {
             await this.markMessageSent(message.id, event.id);
             log('info', `Nostling message ${message.id} sent (event ${event.id})`);
           } else {
-            await this.handleRelayError(message.id, new Error('All relay publishes failed'));
+            // Provide detailed error information
+            if (results.length === 0) {
+              await this.handleRelayError(message.id, new Error('No writable relays available (check relay connection status)'));
+            } else {
+              const failureDetails = results.map(r => `${r.relay}: ${r.message}`).join('; ');
+              await this.handleRelayError(message.id, new Error(`All ${results.length} relay publishes failed: [${failureDetails}]`));
+            }
           }
         } else {
           // Test/offline mode: simulate publish without real crypto/relay
@@ -811,7 +818,7 @@ export class NostlingService {
       contactId: row.contact_id,
       senderNpub: row.sender_npub,
       recipientNpub: row.recipient_npub,
-      ciphertext: row.ciphertext,
+      content: row.ciphertext,  // DB column is 'ciphertext' but stores plaintext content
       eventId: row.event_id || undefined,
       timestamp: this.toIso(row.timestamp),
       status: row.status,

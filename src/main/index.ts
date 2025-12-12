@@ -21,6 +21,7 @@ import { getDevUpdateConfig, isDevMode } from './dev-env';
 import {
   initializeDatabaseWithMigrations,
   closeDatabaseConnection,
+  flushDatabaseToDisk,
   getStateValue,
   setStateValue,
   deleteStateValue,
@@ -37,6 +38,10 @@ setLogLevel(config.logLevel);
 let updateState: UpdateState = { phase: 'idle' };
 let lastUpdateCheck: string | undefined;
 let nostlingService: NostlingService | null = null;
+let dbFlushTimer: ReturnType<typeof setInterval> | null = null;
+
+// Flush database to disk every 30 seconds for crash safety
+const DB_FLUSH_INTERVAL_MS = 30 * 1000;
 
 // Public key for manifest verification (injected at build time from keys/nostling-release.pub)
 const PUBLIC_KEY = process.env.RSA_PUBLIC_KEY || process.env.EMBEDDED_RSA_PUBLIC_KEY || '';
@@ -498,21 +503,45 @@ app.on('ready', async () => {
   createWindow();
   setupAutoUpdater();
   startAutoCheckTimer();
+
+  // Start periodic database flushing for crash safety
+  dbFlushTimer = setInterval(() => {
+    flushDatabaseToDisk().catch(() => {
+      // Error already logged in flushDatabaseToDisk
+    });
+  }, DB_FLUSH_INTERVAL_MS);
 });
 
-app.on('will-quit', async () => {
-  // Shutdown nostling service (disconnect relays, close subscriptions)
-  if (nostlingService) {
-    await nostlingService.destroy();
-  }
-  // Close database connection and persist to disk
-  await closeDatabaseConnection();
-});
+// Track whether we're in the process of quitting (to avoid infinite loop)
+let isQuitting = false;
 
-app.on('before-quit', () => {
+app.on('before-quit', async (event) => {
+  // Clear timers
   if (autoCheckTimer !== null) {
     clearTimeout(autoCheckTimer);
     autoCheckTimer = null;
+  }
+  if (dbFlushTimer !== null) {
+    clearInterval(dbFlushTimer);
+    dbFlushTimer = null;
+  }
+
+  // Only do async cleanup once
+  if (!isQuitting) {
+    event.preventDefault();
+    isQuitting = true;
+
+    // Shutdown nostling service (disconnect relays, close subscriptions)
+    if (nostlingService) {
+      await nostlingService.destroy();
+    }
+
+    // Close database connection and persist to disk
+    await closeDatabaseConnection();
+    log('info', 'Database persisted successfully');
+
+    // Now actually quit
+    app.quit();
   }
 });
 

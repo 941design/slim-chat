@@ -16,11 +16,8 @@ export const DEFAULT_RELAYS: NostlingRelayEndpoint[] = [
   { url: 'wss://relay.nostr.band', read: true, write: true, order: 3 },
   { url: 'wss://nostr.wine', read: true, write: true, order: 4 },
   { url: 'wss://relay.snort.social', read: true, write: true, order: 5 },
-  { url: 'wss://purplepag.es', read: true, write: true, order: 6 },
-  { url: 'wss://relay.nostr.bg', read: true, write: true, order: 7 },
-  // High-performance relays (read + write)
-  { url: 'wss://nostr.land', read: true, write: true, order: 8 },
-  { url: 'wss://nostr-pub.wellorder.net', read: true, write: true, order: 9 },
+  { url: 'wss://relay.nostr.bg', read: true, write: true, order: 6 },
+  { url: 'wss://nostr-pub.wellorder.net', read: true, write: true, order: 7 },
 ];
 
 /**
