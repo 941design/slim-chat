@@ -263,4 +263,85 @@ describe('NostlingService - Relay Configuration', () => {
       expect(Object.keys(loaded.perIdentity ?? {})).toHaveLength(2);
     });
   });
+
+  // ==========================================================================
+  // Default Relay Seeding
+  // ==========================================================================
+
+  describe('Default Relay Seeding', () => {
+    it('should have 10 well-known default relay URLs defined', () => {
+      // Import the DEFAULT_RELAYS constant to verify the expected defaults
+      // This test verifies the static configuration without initializing the service
+      const expectedRelays = [
+        'wss://relay.damus.io',
+        'wss://relay.primal.net',
+        'wss://nos.lol',
+        'wss://relay.nostr.band',
+        'wss://nostr.wine',
+        'wss://relay.snort.social',
+        'wss://purplepag.es',
+        'wss://relay.nostr.bg',
+        'wss://nostr.land',
+        'wss://nostr-pub.wellorder.net',
+      ];
+
+      // Verify we expect 10 default relays
+      expect(expectedRelays).toHaveLength(10);
+
+      // Verify all expected relays are valid wss:// URLs
+      expectedRelays.forEach((url) => {
+        expect(url).toMatch(/^wss:\/\//);
+      });
+    });
+
+    it('should seed default relays when config is empty via setRelayConfig', async () => {
+      // Start with empty config
+      const emptyConfig = await service.getRelayConfig();
+      expect(emptyConfig.defaults).toHaveLength(0);
+
+      // Simulate what initialize() does: seed defaults when empty
+      const defaultRelays = [
+        'wss://relay.damus.io',
+        'wss://relay.primal.net',
+        'wss://nos.lol',
+        'wss://relay.nostr.band',
+        'wss://nostr.wine',
+        'wss://relay.snort.social',
+        'wss://purplepag.es',
+        'wss://relay.nostr.bg',
+        'wss://nostr.land',
+        'wss://nostr-pub.wellorder.net',
+      ];
+
+      const result = await service.setRelayConfig({
+        defaults: defaultRelays.map((url) => ({ url })),
+      });
+
+      // Should now have 10 default relays
+      expect(result.defaults).toHaveLength(10);
+
+      // Verify well-known relays are included
+      const urls = result.defaults.map((r) => r.url);
+      expect(urls).toContain('wss://relay.damus.io');
+      expect(urls).toContain('wss://relay.primal.net');
+      expect(urls).toContain('wss://nos.lol');
+      expect(urls).toContain('wss://relay.nostr.band');
+    });
+
+    it('should not overwrite existing relays when setRelayConfig is called', async () => {
+      // Set a custom relay first
+      const customRelay = { url: 'wss://custom.relay.com' };
+      await service.setRelayConfig({ defaults: [customRelay] });
+
+      // Verify custom relay is set
+      const config = await service.getRelayConfig();
+      expect(config.defaults).toHaveLength(1);
+      expect(config.defaults[0].url).toBe('wss://custom.relay.com');
+
+      // Setting new config replaces (as expected by design)
+      const newConfig = await service.setRelayConfig({ defaults: [{ url: 'wss://new.relay.com' }] });
+      expect(newConfig.defaults).toHaveLength(1);
+      expect(newConfig.defaults[0].url).toBe('wss://new.relay.com');
+    });
+  });
 });

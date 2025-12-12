@@ -119,6 +119,8 @@ jest.mock('./nostling/secret-store', () => ({
 
 jest.mock('./nostling/service', () => ({
   NostlingService: jest.fn().mockImplementation(() => ({
+    initialize: jest.fn(() => Promise.resolve()),
+    destroy: jest.fn(() => Promise.resolve()),
     listIdentities: jest.fn(),
     createIdentity: jest.fn(),
     removeIdentity: jest.fn(),

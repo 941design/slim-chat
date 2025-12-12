@@ -448,6 +448,7 @@ app.on('ready', async () => {
   }
   const secretStore = createSecretStore();
   nostlingService = new NostlingService(database, secretStore);
+  await nostlingService.initialize();
 
   // macOS: Clean up any stale DMG mounts from previous update attempts
   if (process.platform === 'darwin') {
@@ -494,6 +495,10 @@ app.on('ready', async () => {
 });
 
 app.on('will-quit', async () => {
+  // Shutdown nostling service (disconnect relays, close subscriptions)
+  if (nostlingService) {
+    await nostlingService.destroy();
+  }
   // Close database connection and persist to disk
   await closeDatabaseConnection();
 });

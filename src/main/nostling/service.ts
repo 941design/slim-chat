@@ -40,11 +40,19 @@ interface RelayRow {
  * These are well-known, reliable Nostr relays.
  */
 const DEFAULT_RELAYS: string[] = [
+  // Popular general-purpose relays
   'wss://relay.damus.io',
   'wss://relay.primal.net',
   'wss://nos.lol',
   'wss://relay.nostr.band',
-];
+  'wss://nostr.wine',
+  'wss://relay.snort.social',
+  'wss://purplepag.es',
+  'wss://relay.nostr.bg',
+  // High-performance relays
+  'wss://nostr.land',
+  'wss://nostr-pub.wellorder.net',
+];;
 
 interface IdentityRow {
   id: string;
