@@ -11,9 +11,11 @@ import {
   NostlingMessageStatus,
   NostlingRelayConfig,
   NostlingRelayEndpoint,
+  RelayConfigResult,
 } from '../../shared/types';
 import { log } from '../logging';
 import { NostlingSecretStore } from './secret-store';
+import { RelayConfigManager, DEFAULT_RELAYS } from './relay-config-manager';
 import {
   deriveKeypair,
   generateKeypair,
@@ -27,32 +29,7 @@ import {
   NostrKeypair,
   NostrEvent
 } from './crypto';
-import { RelayPool, RelayEndpoint, Filter, PublishResult } from './relay-pool';
-
-interface RelayRow {
-  id: string;
-  identity_id: string | null;
-  url: string;
-}
-
-/**
- * Default relay endpoints seeded on first run.
- * These are well-known, reliable Nostr relays.
- */
-const DEFAULT_RELAYS: string[] = [
-  // Popular general-purpose relays
-  'wss://relay.damus.io',
-  'wss://relay.primal.net',
-  'wss://nos.lol',
-  'wss://relay.nostr.band',
-  'wss://nostr.wine',
-  'wss://relay.snort.social',
-  'wss://purplepag.es',
-  'wss://relay.nostr.bg',
-  // High-performance relays
-  'wss://nostr.land',
-  'wss://nostr-pub.wellorder.net',
-];;
+import { RelayPool, RelayEndpoint, Filter, PublishResult, RelayStatus } from './relay-pool';
 
 interface IdentityRow {
   id: string;
@@ -110,10 +87,12 @@ export class NostlingService {
   private relayPool: RelayPool | null = null;
   private subscriptions: Map<string, { close: () => void }> = new Map();
   private seenEventIds: Set<string> = new Set();
+  private relayConfigManager: RelayConfigManager;
 
-  constructor(private readonly database: Database, private readonly secretStore: NostlingSecretStore, options: NostlingServiceOptions = {}) {
+  constructor(private readonly database: Database, private readonly secretStore: NostlingSecretStore, configDir: string, options: NostlingServiceOptions = {}) {
     this.online = Boolean(options.online);
     this.welcomeMessage = options.welcomeMessage || 'nostling:welcome';
+    this.relayConfigManager = new RelayConfigManager(configDir);
   }
 
   async listIdentities(): Promise<NostlingIdentity[]> {
@@ -172,6 +151,13 @@ export class NostlingService {
         'INSERT INTO nostr_identities (id, npub, secret_ref, label, relays, created_at) VALUES (?, ?, ?, ?, ?, ?)',
         [id, npubToStore, secretRef, request.label, relaysJson, now]
       );
+
+      // Initialize relay config file with defaults
+      try {
+        await this.relayConfigManager.saveRelays(id, DEFAULT_RELAYS);
+      } catch (error) {
+        log('warn', `Failed to initialize relay config for identity ${id}: ${error instanceof Error ? error.message : String(error)}`);
+      }
 
       log('info', `Created nostling identity ${id}`);
       return {
@@ -469,54 +455,21 @@ export class NostlingService {
     ];
   }
 
-  async getRelayConfig(): Promise<NostlingRelayConfig> {
-    const stmt = this.database.prepare(
-      'SELECT id, identity_id, url FROM nostr_relays'
-    );
-
-    const defaults: NostlingRelayEndpoint[] = [];
-    const perIdentity: Record<string, NostlingRelayEndpoint[]> = {};
-
-    while (stmt.step()) {
-      const row = stmt.getAsObject() as unknown as RelayRow;
-      const endpoint: NostlingRelayEndpoint = { url: row.url };
-
-      if (row.identity_id) {
-        perIdentity[row.identity_id] = perIdentity[row.identity_id] || [];
-        perIdentity[row.identity_id].push(endpoint);
-      } else {
-        defaults.push(endpoint);
-      }
-    }
-
-    stmt.free();
-    return { defaults, perIdentity: Object.keys(perIdentity).length > 0 ? perIdentity : undefined };
+  async getRelaysForIdentity(identityId: string): Promise<NostlingRelayEndpoint[]> {
+    return this.withErrorLogging(`get relays for identity ${identityId}`, async () => {
+      return this.relayConfigManager.loadRelays(identityId);
+    });
   }
 
-  async setRelayConfig(config: NostlingRelayConfig): Promise<NostlingRelayConfig> {
-    return this.withErrorLogging('set relay configuration', async () => {
-      this.database.run('DELETE FROM nostr_relays');
+  async setRelaysForIdentity(identityId: string, relays: NostlingRelayEndpoint[]): Promise<RelayConfigResult> {
+    return this.withErrorLogging(`set relays for identity ${identityId}`, async () => {
+      return this.relayConfigManager.saveRelays(identityId, relays);
+    });
+  }
 
-      for (const endpoint of config.defaults) {
-        this.database.run(
-          'INSERT INTO nostr_relays (id, identity_id, url) VALUES (?, ?, ?)',
-          [randomUUID(), null, endpoint.url]
-        );
-      }
-
-      if (config.perIdentity) {
-        for (const [identityId, endpoints] of Object.entries(config.perIdentity)) {
-          for (const endpoint of endpoints) {
-            this.database.run(
-              'INSERT INTO nostr_relays (id, identity_id, url) VALUES (?, ?, ?)',
-              [randomUUID(), identityId, endpoint.url]
-            );
-          }
-        }
-      }
-
-      log('info', 'Updated nostling relay configuration');
-      return this.getRelayConfig();
+  async reloadRelaysForIdentity(identityId: string): Promise<NostlingRelayEndpoint[]> {
+    return this.withErrorLogging(`reload relays for identity ${identityId}`, async () => {
+      return this.relayConfigManager.reloadRelays(identityId);
     });
   }
 
@@ -530,16 +483,19 @@ export class NostlingService {
   async initialize(): Promise<void> {
     log('info', 'Initializing nostling service');
 
-    // Get relay configuration, seeding defaults if empty
-    let relayConfig = await this.getRelayConfig();
-    if (relayConfig.defaults.length === 0) {
-      log('info', 'No relays configured, seeding default relay list');
-      relayConfig = await this.setRelayConfig({
-        defaults: DEFAULT_RELAYS.map(url => ({ url })),
-      });
+    // Run migration to move relay config from database to filesystem
+    const identities = await this.listIdentities();
+    await this.relayConfigManager.migrateFromDatabase(this.database, identities);
+
+    // Load relays for the first identity (if exists)
+    let relays: NostlingRelayEndpoint[] = [];
+    if (identities.length > 0) {
+      relays = await this.relayConfigManager.loadRelays(identities[0].id);
+    } else {
+      relays = DEFAULT_RELAYS;
     }
 
-    const endpoints: RelayEndpoint[] = relayConfig.defaults.map(e => ({ url: e.url }));
+    const endpoints: RelayEndpoint[] = relays.map(e => ({ url: e.url }));
 
     if (endpoints.length === 0) {
       log('warn', 'No relay endpoints configured, nostling service will be offline');
@@ -551,7 +507,6 @@ export class NostlingService {
     await this.relayPool.connect(endpoints);
 
     // Start subscriptions for all identities
-    const identities = await this.listIdentities();
     for (const identity of identities) {
       await this.startSubscription(identity.id);
     }
@@ -581,6 +536,31 @@ export class NostlingService {
 
     this.online = false;
     log('info', 'Nostling service shut down');
+  }
+
+  /**
+   * Get the current status of all connected relays.
+   * Returns a record mapping relay URLs to their connection status.
+   */
+  getRelayStatus(): Record<string, RelayStatus> {
+    if (!this.relayPool) {
+      return {};
+    }
+    const statusMap = this.relayPool.getStatus();
+    const result: Record<string, RelayStatus> = {};
+    statusMap.forEach((status, url) => {
+      result[url] = status;
+    });
+    return result;
+  }
+
+  /**
+   * Register a callback to be notified when relay connection status changes.
+   */
+  onRelayStatusChange(callback: (url: string, status: RelayStatus) => void): void {
+    if (this.relayPool) {
+      this.relayPool.onStatusChange(callback);
+    }
   }
 
   private async startSubscription(identityId: string): Promise<void> {

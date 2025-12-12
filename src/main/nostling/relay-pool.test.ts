@@ -4,6 +4,10 @@ import { RelayPool, type RelayEndpoint, type Filter, type RelayStatus } from './
 import { SimplePool } from 'nostr-tools';
 import type { NostrEvent } from './crypto';
 
+jest.mock('../logging', () => ({
+  log: jest.fn(),
+}));
+
 jest.mock('nostr-tools', () => ({
   SimplePool: jest.fn()
 }));
@@ -547,6 +551,300 @@ describe('RelayPool', () => {
           }
         ),
         { numRuns: 10 }
+      );
+    });
+
+    it('subscribe respects read flag: read-only relays receive subscriptions', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.array(
+            fc.record({
+              url: fc.webUrl({ validSchemes: ['wss'] }),
+              read: fc.constant(true)
+            }),
+            { minLength: 1, maxLength: 5 }
+          ),
+          async (readableRelays) => {
+            mockPool.ensureRelay.mockClear();
+            mockPool.subscribeMany.mockClear();
+            mockPool.publish.mockClear();
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+            const mockSub = { close: jest.fn() };
+            mockPool.subscribeMany.mockReturnValue(mockSub as any);
+
+            pool = new RelayPool();
+            await pool.connect(readableRelays);
+
+            const onEvent = jest.fn();
+            pool.subscribe([{ kinds: [1] }], onEvent);
+
+            expect(mockPool.subscribeMany).toHaveBeenCalled();
+            const subscribeCall = mockPool.subscribeMany.mock.calls[0];
+            const relaysPassedToSubscribe = subscribeCall[0] as string[];
+
+            for (const relay of readableRelays) {
+              expect(relaysPassedToSubscribe).toContain(relay.url);
+            }
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('subscribe never contacts write-only relays', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.array(
+            fc.record({
+              url: fc.webUrl({ validSchemes: ['wss'] }),
+              read: fc.constant(false),
+              write: fc.constant(true)
+            }),
+            { minLength: 1, maxLength: 5 }
+          ),
+          async (writeOnlyRelays) => {
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+            const mockSub = { close: jest.fn() };
+            mockPool.subscribeMany.mockReturnValue(mockSub as any);
+
+            await pool.connect(writeOnlyRelays);
+
+            const onEvent = jest.fn();
+            const subscription = pool.subscribe([{ kinds: [1] }], onEvent);
+
+            expect(mockPool.subscribeMany).not.toHaveBeenCalled();
+            expect(() => subscription.close()).not.toThrow();
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('publish respects write flag: write-only relays receive publishes', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.array(
+            fc.record({
+              url: fc.webUrl({ validSchemes: ['wss'] }),
+              write: fc.constant(true)
+            }),
+            { minLength: 1, maxLength: 5 }
+          ),
+          async (writableRelays) => {
+            mockPool.ensureRelay.mockClear();
+            mockPool.subscribeMany.mockClear();
+            mockPool.publish.mockClear();
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+            mockPool.publish.mockReturnValue(
+              writableRelays.map(() => Promise.resolve('OK'))
+            );
+
+            pool = new RelayPool();
+            await pool.connect(writableRelays);
+
+            const event: NostrEvent = {
+              id: 'test-id',
+              pubkey: 'test-pubkey',
+              created_at: Math.floor(Date.now() / 1000),
+              kind: 4,
+              tags: [],
+              content: 'test',
+              sig: 'test-sig'
+            };
+
+            const results = await pool.publish(event);
+
+            expect(mockPool.publish).toHaveBeenCalled();
+            const publishCall = mockPool.publish.mock.calls[0];
+            const relaysPassedToPublish = publishCall[0] as string[];
+
+            for (const relay of writableRelays) {
+              expect(relaysPassedToPublish).toContain(relay.url);
+            }
+            expect(results).toHaveLength(writableRelays.length);
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('publish never contacts read-only relays', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.array(
+            fc.record({
+              url: fc.webUrl({ validSchemes: ['wss'] }),
+              read: fc.constant(true),
+              write: fc.constant(false)
+            }),
+            { minLength: 1, maxLength: 5 }
+          ),
+          async (readOnlyRelays) => {
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+            mockPool.publish.mockReturnValue([]);
+
+            await pool.connect(readOnlyRelays);
+
+            const event: NostrEvent = {
+              id: 'test-id',
+              pubkey: 'test-pubkey',
+              created_at: Math.floor(Date.now() / 1000),
+              kind: 4,
+              tags: [],
+              content: 'test',
+              sig: 'test-sig'
+            };
+
+            const results = await pool.publish(event);
+
+            expect(mockPool.publish).not.toHaveBeenCalled();
+            expect(results).toEqual([]);
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('mixed configuration: relays with both flags work for both operations', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.array(
+            fc.record({
+              url: fc.webUrl({ validSchemes: ['wss'] }),
+              read: fc.constant(true),
+              write: fc.constant(true)
+            }),
+            { minLength: 1, maxLength: 5 }
+          ),
+          async (mixedRelays) => {
+            mockPool.ensureRelay.mockClear();
+            mockPool.subscribeMany.mockClear();
+            mockPool.publish.mockClear();
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+            const mockSub = { close: jest.fn() };
+            mockPool.subscribeMany.mockReturnValue(mockSub as any);
+            mockPool.publish.mockReturnValue(
+              mixedRelays.map(() => Promise.resolve('OK'))
+            );
+
+            pool = new RelayPool();
+            await pool.connect(mixedRelays);
+
+            const onEvent = jest.fn();
+            pool.subscribe([{ kinds: [1] }], onEvent);
+
+            expect(mockPool.subscribeMany).toHaveBeenCalled();
+            const subscribeCall = mockPool.subscribeMany.mock.calls[0];
+            const relaysForSubscribe = subscribeCall[0] as string[];
+            expect(relaysForSubscribe).toHaveLength(mixedRelays.length);
+
+            const event: NostrEvent = {
+              id: 'test-id',
+              pubkey: 'test-pubkey',
+              created_at: Math.floor(Date.now() / 1000),
+              kind: 4,
+              tags: [],
+              content: 'test',
+              sig: 'test-sig'
+            };
+
+            const results = await pool.publish(event);
+
+            expect(mockPool.publish).toHaveBeenCalled();
+            const publishCall = mockPool.publish.mock.calls[0];
+            const relaysForPublish = publishCall[0] as string[];
+            expect(relaysForPublish).toHaveLength(mixedRelays.length);
+            expect(results).toHaveLength(mixedRelays.length);
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('backward compatibility: endpoints without flags default to read=true, write=true', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.array(
+            fc.record({
+              url: fc.webUrl({ validSchemes: ['wss'] })
+            }),
+            { minLength: 1, maxLength: 5 }
+          ),
+          async (legacyEndpoints) => {
+            mockPool.ensureRelay.mockClear();
+            mockPool.subscribeMany.mockClear();
+            mockPool.publish.mockClear();
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+            const mockSub = { close: jest.fn() };
+            mockPool.subscribeMany.mockReturnValue(mockSub as any);
+            mockPool.publish.mockReturnValue(
+              legacyEndpoints.map(() => Promise.resolve('OK'))
+            );
+
+            pool = new RelayPool();
+            await pool.connect(legacyEndpoints);
+
+            const onEvent = jest.fn();
+            pool.subscribe([{ kinds: [1] }], onEvent);
+
+            expect(mockPool.subscribeMany).toHaveBeenCalled();
+            const subscribeCall = mockPool.subscribeMany.mock.calls[0];
+            const relaysForSubscribe = subscribeCall[0] as string[];
+            expect(relaysForSubscribe).toHaveLength(legacyEndpoints.length);
+
+            const event: NostrEvent = {
+              id: 'test-id',
+              pubkey: 'test-pubkey',
+              created_at: Math.floor(Date.now() / 1000),
+              kind: 4,
+              tags: [],
+              content: 'test',
+              sig: 'test-sig'
+            };
+
+            const results = await pool.publish(event);
+
+            expect(mockPool.publish).toHaveBeenCalled();
+            const publishCall = mockPool.publish.mock.calls[0];
+            const relaysForPublish = publishCall[0] as string[];
+            expect(relaysForPublish).toHaveLength(legacyEndpoints.length);
+            expect(results).toHaveLength(legacyEndpoints.length);
+          }
+        ),
+        { numRuns: 20 }
+      );
+    });
+
+    it('status tracking works for all relays regardless of read/write flags', async () => {
+      await fc.assert(
+        fc.asyncProperty(
+          fc.array(
+            fc.record({
+              url: fc.webUrl({ validSchemes: ['wss'] }),
+              read: fc.boolean(),
+              write: fc.boolean()
+            }),
+            { minLength: 1, maxLength: 5 }
+          ),
+          async (mixedEndpoints) => {
+            mockPool.ensureRelay.mockResolvedValue({} as any);
+
+            const uniqueUrls = new Set(mixedEndpoints.map(e => e.url));
+            const uniqueEndpoints = Array.from(uniqueUrls).map(url =>
+              mixedEndpoints.find(e => e.url === url)!
+            );
+
+            await pool.connect(uniqueEndpoints);
+
+            const status = pool.getStatus();
+            expect(status.size).toBe(uniqueEndpoints.length);
+
+            for (const endpoint of uniqueEndpoints) {
+              expect(status.has(endpoint.url)).toBe(true);
+            }
+          }
+        ),
+        { numRuns: 20 }
       );
     });
   });

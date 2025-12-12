@@ -5,7 +5,6 @@ import {
   NostlingContact,
   NostlingIdentity,
   NostlingMessage,
-  NostlingRelayConfig,
   SendNostrMessageRequest,
 } from '../../shared/types';
 import { getNostlingStatusTextThemed } from './state.themed';
@@ -15,7 +14,6 @@ type MessageMap = Record<string, NostlingMessage[]>;
 
 type LoadingState = {
   identities: boolean;
-  relays: boolean;
   contacts: Record<string, boolean>;
   messages: Record<string, boolean>;
 };
@@ -29,7 +27,6 @@ type QueueSummary = {
 
 const initialLoadingState: LoadingState = {
   identities: false,
-  relays: false,
   contacts: {},
   messages: {},
 };
@@ -76,7 +73,6 @@ export function useNostlingState() {
   const [identities, setIdentities] = useState<NostlingIdentity[]>([]);
   const [contacts, setContacts] = useState<ContactMap>({});
   const [messages, setMessages] = useState<MessageMap>({});
-  const [relayConfig, setRelayConfig] = useState<NostlingRelayConfig | null>(null);
   const [loading, setLoading] = useState<LoadingState>(initialLoadingState);
   const [lastError, setLastError] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
@@ -116,19 +112,8 @@ export function useNostlingState() {
     }
   }, [hasBridge, recordError, setScopedLoading]);
 
-  const refreshRelayConfig = useCallback(async () => {
-    if (!hasBridge) return;
-
-    setScopedLoading('relays', null, true);
-    try {
-      const config = await window.api.nostling!.relays.get();
-      setRelayConfig(config);
-    } catch (error) {
-      recordError('Load relay config failed', error);
-    } finally {
-      setScopedLoading('relays', null, false);
-    }
-  }, [hasBridge, recordError, setScopedLoading]);
+  // REMOVED: refreshRelayConfig - relay management is now per-identity via relays.get(identityId)
+  // The global relay config concept has been replaced with per-identity relay management
 
   const refreshContacts = useCallback(
     async (identityId: string) => {
@@ -339,27 +324,13 @@ export function useNostlingState() {
     [hasBridge, recordError]
   );
 
-  const updateRelayConfig = useCallback(
-    async (config: NostlingRelayConfig) => {
-      if (!hasBridge) return null;
-
-      try {
-        const next = await window.api.nostling!.relays.set(config);
-        setRelayConfig(next);
-        return next;
-      } catch (error) {
-        recordError('Update relay config failed', error);
-        return null;
-      }
-    },
-    [hasBridge, recordError]
-  );
+  // REMOVED: updateRelayConfig - relay management is now per-identity via relays.set(identityId, relays)
+  // The global relay config concept has been replaced with per-identity relay management
 
   const hydrateAll = useCallback(async () => {
     if (!hasBridge) return;
 
     await refreshIdentities();
-    await refreshRelayConfig();
 
     const identitiesSnapshot = await window.api.nostling!.identities.list();
     for (const identity of identitiesSnapshot) {
@@ -369,7 +340,7 @@ export function useNostlingState() {
         await refreshMessages(identity.id, contact.id);
       }
     }
-  }, [hasBridge, refreshContacts, refreshIdentities, refreshMessages, refreshRelayConfig]);
+  }, [hasBridge, refreshContacts, refreshIdentities, refreshMessages]);
 
   useEffect(() => {
     hydrateAll();
@@ -395,7 +366,6 @@ export function useNostlingState() {
     identities,
     contacts,
     messages,
-    relayConfig,
     loading,
     lastError,
     lastSync,
@@ -412,7 +382,6 @@ export function useNostlingState() {
     sendMessage,
     discardUnknown,
     retryFailedMessages,
-    refreshRelayConfig,
-    updateRelayConfig,
+    // Note: relay management is now per-identity via window.api.nostling.relays.get(identityId) / set(identityId, relays)
   };
 }

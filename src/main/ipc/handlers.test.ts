@@ -21,12 +21,15 @@ import {
   NostlingContact,
   NostlingMessage,
   NostlingRelayConfig,
+  NostlingRelayEndpoint,
+  RelayConfigConflict,
 } from '../../shared/types';
 
 // Mock electron before importing handlers
 jest.mock('electron', () => ({
   ipcMain: {
     handle: jest.fn(),
+    on: jest.fn(),
   },
   app: {},
   BrowserWindow: {},
@@ -476,7 +479,7 @@ describe('registerHandlers', () => {
       getState: jest.fn<(key: string) => Promise<string | null>>().mockResolvedValue(null),
       setState: jest.fn<(key: string, value: string) => Promise<void>>().mockResolvedValue(undefined),
       deleteState: jest.fn<(key: string) => Promise<void>>().mockResolvedValue(undefined),
-      getAllState: jest.fn<() => Promise<Record<string, string>>>().mockResolvedValue({}),
+      getAllState: jest.fn<() => Promise<Record<string, string>>>().mockResolvedValue({} as any),
     };
   }
 
@@ -512,9 +515,14 @@ describe('registerHandlers', () => {
 
     const relayConfig: NostlingRelayConfig = {
       defaults: [
-        { url: 'wss://relay.example.com' },
+        { url: 'wss://relay.example.com', read: true, write: true, order: 0 },
       ],
     };
+
+    const exampleRelays: NostlingRelayEndpoint[] = [
+      { url: 'wss://relay.damus.io', read: true, write: true, order: 0 },
+      { url: 'wss://relay.primal.net', read: true, write: true, order: 1 },
+    ];
 
     return {
       listIdentities: jest.fn<() => Promise<NostlingIdentity[]>>().mockResolvedValue([exampleIdentity]),
@@ -532,6 +540,16 @@ describe('registerHandlers', () => {
       getRelayConfig: jest.fn<() => Promise<NostlingRelayConfig>>().mockResolvedValue(relayConfig),
       setRelayConfig: jest.fn<(config: NostlingRelayConfig) => Promise<NostlingRelayConfig>>()
         .mockResolvedValue(relayConfig),
+      getRelaysForIdentity: jest.fn<(identityId: string) => Promise<NostlingRelayEndpoint[]>>()
+        .mockResolvedValue(exampleRelays),
+      setRelaysForIdentity: jest.fn<(identityId: string, relays: NostlingRelayEndpoint[]) => Promise<any>>()
+        .mockResolvedValue({ config: { defaults: exampleRelays, perIdentity: {} }, conflict: undefined }),
+      reloadRelaysForIdentity: jest.fn<(identityId: string) => Promise<NostlingRelayEndpoint[]>>()
+        .mockResolvedValue(exampleRelays),
+      getRelayStatus: jest.fn<() => Promise<Record<string, string>>>()
+        .mockResolvedValue({ 'wss://relay.damus.io': 'connected', 'wss://relay.primal.net': 'connecting' }),
+      onRelayStatusChange: jest.fn<(callback: (url: string, status: string) => void) => void>()
+        .mockReturnValue(undefined),
     };
   }
 
@@ -843,8 +861,8 @@ describe('registerHandlers', () => {
       const nostlingDeps = createNostlingDependencies();
       registerHandlers({ ...deps, nostling: nostlingDeps });
 
-      // Base handlers plus 13 nostling channels (including retryFailedMessages)
-      expect(handlers.size).toBe(26);
+      // Base handlers plus 15 nostling channels (including retryFailedMessages and 4 new relay handlers)
+      expect(handlers.size).toBe(28);
       expect(handlers.has('nostling:identities:list')).toBe(true);
       expect(handlers.has('nostling:contacts:add')).toBe(true);
       expect(handlers.has('nostling:messages:send')).toBe(true);
@@ -863,9 +881,186 @@ describe('registerHandlers', () => {
       });
       expect(nostlingDeps.sendMessage).toHaveBeenCalled();
 
-      const relayConfig = await nostlingDeps.getRelayConfig();
-      await handlers.get('nostling:relays:set')!(null, relayConfig);
-      expect(nostlingDeps.setRelayConfig).toHaveBeenCalledWith(relayConfig);
+      const relays: NostlingRelayEndpoint[] = [{ url: 'wss://relay.test', read: true, write: true, order: 0 }];
+      await handlers.get('nostling:relays:set')!(null, 'test-identity', relays);
+      expect(nostlingDeps.setRelaysForIdentity).toHaveBeenCalledWith('test-identity', relays);
+    });
+  });
+
+  describe('Relay IPC Handlers - Per-Identity Relays', () => {
+    it('nostling:relays:get should pass identityId to handler', async () => {
+      const mockDeps = createMockDependencies();
+      const nostlingDeps: any = {
+        listIdentities: (jest.fn() as any).mockResolvedValue([] as any),
+        createIdentity: jest.fn(),
+        removeIdentity: jest.fn(),
+        listContacts: (jest.fn() as any).mockResolvedValue([] as any),
+        addContact: jest.fn(),
+        removeContact: jest.fn(),
+        markContactConnected: jest.fn(),
+        listMessages: (jest.fn() as any).mockResolvedValue([] as any),
+        sendMessage: jest.fn(),
+        discardUnknown: jest.fn(),
+        retryFailedMessages: (jest.fn() as any).mockResolvedValue([] as any),
+        getRelayConfig: jest.fn(),
+        setRelayConfig: jest.fn(),
+        getRelaysForIdentity: (jest.fn() as any).mockResolvedValue([
+          { url: 'wss://relay.test', read: true, write: true, order: 0 }
+        ]),
+        setRelaysForIdentity: (jest.fn() as any).mockResolvedValue({ config: undefined, conflict: { conflicted: true, message: 'test' } }),
+        reloadRelaysForIdentity: (jest.fn() as any).mockResolvedValue([] as any),
+        getRelayStatus: (jest.fn() as any).mockResolvedValue({} as any),
+        onRelayStatusChange: jest.fn(),
+      };
+
+      handlers.clear();
+      registerHandlers({ ...mockDeps as any, nostling: nostlingDeps });
+
+      const handler = handlers.get('nostling:relays:get');
+      await handler!(null, 'test-identity-id');
+
+      expect(nostlingDeps.getRelaysForIdentity).toHaveBeenCalledWith('test-identity-id');
+    });
+
+    it('nostling:relays:set should pass identityId and relays to handler', async () => {
+      const mockDeps = createMockDependencies();
+      const testRelays: NostlingRelayEndpoint[] = [
+        { url: 'wss://relay.damus.io', read: true, write: true, order: 0 }
+      ];
+
+      const nostlingDeps: any = {
+        listIdentities: (jest.fn() as any).mockResolvedValue([] as any),
+        createIdentity: jest.fn(),
+        removeIdentity: jest.fn(),
+        listContacts: (jest.fn() as any).mockResolvedValue([] as any),
+        addContact: jest.fn(),
+        removeContact: jest.fn(),
+        markContactConnected: jest.fn(),
+        listMessages: (jest.fn() as any).mockResolvedValue([] as any),
+        sendMessage: jest.fn(),
+        discardUnknown: jest.fn(),
+        retryFailedMessages: (jest.fn() as any).mockResolvedValue([] as any),
+        getRelayConfig: jest.fn(),
+        setRelayConfig: jest.fn(),
+        getRelaysForIdentity: jest.fn(),
+        setRelaysForIdentity: (jest.fn() as any).mockResolvedValue({ config: { defaults: testRelays, perIdentity: {} }, conflict: undefined }),
+        reloadRelaysForIdentity: jest.fn(),
+        getRelayStatus: jest.fn(),
+        onRelayStatusChange: jest.fn(),
+      };
+
+      handlers.clear();
+      registerHandlers({ ...mockDeps as any, nostling: nostlingDeps });
+
+      const handler = handlers.get('nostling:relays:set');
+      await handler!(null, 'test-identity-id', testRelays);
+
+      expect(nostlingDeps.setRelaysForIdentity).toHaveBeenCalledWith('test-identity-id', testRelays);
+    });
+
+    it('nostling:relays:reload should call reloadRelaysForIdentity', async () => {
+      const mockDeps = createMockDependencies();
+      const nostlingDeps: any = {
+        listIdentities: (jest.fn() as any).mockResolvedValue([] as any),
+        createIdentity: jest.fn(),
+        removeIdentity: jest.fn(),
+        listContacts: (jest.fn() as any).mockResolvedValue([] as any),
+        addContact: jest.fn(),
+        removeContact: jest.fn(),
+        markContactConnected: jest.fn(),
+        listMessages: (jest.fn() as any).mockResolvedValue([] as any),
+        sendMessage: jest.fn(),
+        discardUnknown: jest.fn(),
+        retryFailedMessages: (jest.fn() as any).mockResolvedValue([] as any),
+        getRelayConfig: jest.fn(),
+        setRelayConfig: jest.fn(),
+        getRelaysForIdentity: jest.fn(),
+        setRelaysForIdentity: jest.fn(),
+        reloadRelaysForIdentity: (jest.fn() as any).mockResolvedValue([
+          { url: 'wss://relay.fresh', read: true, write: true, order: 0 }
+        ]),
+        getRelayStatus: jest.fn(),
+        onRelayStatusChange: jest.fn(),
+      };
+
+      handlers.clear();
+      registerHandlers({ ...mockDeps as any, nostling: nostlingDeps });
+
+      const handler = handlers.get('nostling:relays:reload');
+      const result = await handler!(null, 'test-identity-id');
+
+      expect(nostlingDeps.reloadRelaysForIdentity).toHaveBeenCalledWith('test-identity-id');
+      expect(Array.isArray(result)).toBe(true);
+    });
+
+    it('nostling:relays:getStatus should return relay status map', async () => {
+      const mockDeps = createMockDependencies();
+      const statusMap = { 'wss://relay.damus.io': 'connected', 'wss://relay.primal.net': 'disconnected' };
+
+      const nostlingDeps: any = {
+        listIdentities: (jest.fn() as any).mockResolvedValue([] as any),
+        createIdentity: jest.fn(),
+        removeIdentity: jest.fn(),
+        listContacts: (jest.fn() as any).mockResolvedValue([] as any),
+        addContact: jest.fn(),
+        removeContact: jest.fn(),
+        markContactConnected: jest.fn(),
+        listMessages: (jest.fn() as any).mockResolvedValue([] as any),
+        sendMessage: jest.fn(),
+        discardUnknown: jest.fn(),
+        retryFailedMessages: (jest.fn() as any).mockResolvedValue([] as any),
+        getRelayConfig: jest.fn(),
+        setRelayConfig: jest.fn(),
+        getRelaysForIdentity: jest.fn(),
+        setRelaysForIdentity: jest.fn(),
+        reloadRelaysForIdentity: jest.fn(),
+        getRelayStatus: (jest.fn() as any).mockResolvedValue(statusMap as any),
+        onRelayStatusChange: jest.fn(),
+      };
+
+      handlers.clear();
+      registerHandlers({ ...mockDeps as any, nostling: nostlingDeps });
+
+      const handler = handlers.get('nostling:relays:getStatus');
+      const result = await handler!();
+
+      expect(result).toEqual(statusMap);
+      expect(result['wss://relay.damus.io']).toBe('connected');
+    });
+
+    it('nostling:relays:set should detect conflicts', async () => {
+      const mockDeps = createMockDependencies();
+      const conflict: RelayConfigConflict = { conflicted: true, message: 'External modification detected' };
+
+      const nostlingDeps: any = {
+        listIdentities: (jest.fn() as any).mockResolvedValue([] as any),
+        createIdentity: jest.fn(),
+        removeIdentity: jest.fn(),
+        listContacts: (jest.fn() as any).mockResolvedValue([] as any),
+        addContact: jest.fn(),
+        removeContact: jest.fn(),
+        markContactConnected: jest.fn(),
+        listMessages: (jest.fn() as any).mockResolvedValue([] as any),
+        sendMessage: jest.fn(),
+        discardUnknown: jest.fn(),
+        retryFailedMessages: (jest.fn() as any).mockResolvedValue([] as any),
+        getRelayConfig: jest.fn(),
+        setRelayConfig: jest.fn(),
+        getRelaysForIdentity: jest.fn(),
+        setRelaysForIdentity: (jest.fn() as any).mockResolvedValue({ config: undefined, conflict } as any),
+        reloadRelaysForIdentity: jest.fn(),
+        getRelayStatus: jest.fn(),
+        onRelayStatusChange: jest.fn(),
+      };
+
+      handlers.clear();
+      registerHandlers({ ...mockDeps as any, nostling: nostlingDeps });
+
+      const handler = handlers.get('nostling:relays:set');
+      const result = await handler!(null, 'identity-id', []);
+
+      expect(result.conflict?.conflicted).toBe(true);
+      expect(result.config).toBeUndefined();
     });
   });
 });

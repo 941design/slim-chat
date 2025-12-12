@@ -6,6 +6,8 @@ import {
   CreateIdentityRequest,
   NostlingApi,
   NostlingRelayConfig,
+  NostlingRelayEndpoint,
+  RelayConfigResult,
   RendererApi,
   SendNostrMessageRequest,
   UpdateState,
@@ -123,11 +125,22 @@ const api: RendererApi = {
       },
     },
     relays: {
-      async get() {
-        return ipcRenderer.invoke('nostling:relays:get') as Promise<NostlingRelayConfig>;
+      async get(identityId: string) {
+        return ipcRenderer.invoke('nostling:relays:get', identityId) as Promise<NostlingRelayEndpoint[]>;
       },
-      async set(config: NostlingRelayConfig) {
-        return ipcRenderer.invoke('nostling:relays:set', config) as Promise<NostlingRelayConfig>;
+      async set(identityId: string, relays: NostlingRelayEndpoint[]) {
+        return ipcRenderer.invoke('nostling:relays:set', identityId, relays) as Promise<RelayConfigResult>;
+      },
+      async reload(identityId: string) {
+        return ipcRenderer.invoke('nostling:relays:reload', identityId) as Promise<NostlingRelayEndpoint[]>;
+      },
+      async getStatus() {
+        return ipcRenderer.invoke('nostling:relays:getStatus') as Promise<Record<string, 'connected' | 'connecting' | 'disconnected' | 'error'>>;
+      },
+      onStatusChange(callback: (url: string, status: string) => void) {
+        const listener = (_: any, url: string, status: string) => callback(url, status);
+        ipcRenderer.on('nostling:relay-status-changed', listener);
+        return () => ipcRenderer.removeListener('nostling:relay-status-changed', listener);
       },
     },
   },

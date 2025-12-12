@@ -447,7 +447,8 @@ app.on('ready', async () => {
     throw new Error('Database not initialized after migrations');
   }
   const secretStore = createSecretStore();
-  nostlingService = new NostlingService(database, secretStore);
+  const configDir = app.getPath('userData');
+  nostlingService = new NostlingService(database, secretStore, configDir);
   await nostlingService.initialize();
 
   // macOS: Clean up any stale DMG mounts from previous update attempts
@@ -481,8 +482,13 @@ app.on('ready', async () => {
       listMessages: (identityId, contactId) => getNostlingService().listMessages(identityId, contactId),
       sendMessage: (request) => getNostlingService().sendMessage(request),
       discardUnknown: (eventId) => getNostlingService().discardUnknown(eventId),
-      getRelayConfig: () => getNostlingService().getRelayConfig(),
-      setRelayConfig: (config) => getNostlingService().setRelayConfig(config),
+      getRelaysForIdentity: (identityId) => getNostlingService().getRelaysForIdentity(identityId),
+      setRelaysForIdentity: (identityId, relays) => getNostlingService().setRelaysForIdentity(identityId, relays),
+      reloadRelaysForIdentity: (identityId) => getNostlingService().reloadRelaysForIdentity(identityId),
+      getRelayStatus: async () => getNostlingService().getRelayStatus(),
+      onRelayStatusChange: (callback) => {
+        getNostlingService().onRelayStatusChange(callback);
+      },
       retryFailedMessages: (identityId) => getNostlingService().retryFailedMessages(identityId),
     },
   });

@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Relay Manager Redesign**: Enhanced relay configuration with filesystem-based persistence
+  - Compact table layout with high-density rows (≤36px) using @tanstack/react-table
+  - Drag-and-drop reordering via dnd-kit with visual feedback
+  - Per-relay read/write policies via checkbox controls (subscription vs publishing)
+  - Live connection status indicators (green/yellow/red dots) based on WebSocket state
+  - Filesystem-based configuration stored at `~/.config/nostling/identities/<id>/relays.json`
+  - Hash-based overwrite protection using SHA-256 to detect external config changes
+  - Conflict resolution modal with Reload/Overwrite/Cancel options
+  - One-time idempotent migration from SQLite database to filesystem
+  - Property-based integration tests: 50 tests covering table operations, drag-and-drop, policies, migration, and conflict resolution
+  - Total test suite: 746 tests, all passing with zero regressions
+
+### Added
 - **Ostrich-Themed Status Messages**: Playful, randomly-selected status messages throughout the application
   - Themed alternatives for update status messages (e.g., "Standing tall" for "Up to date", "Pecking up" for "Downloading")
   - Themed alternatives for Nostling queue status (e.g., "Flock gathered" for "Queued", "Wings spread" for "Sending")
@@ -43,6 +56,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sidebar simplified: removed update-related controls and status displays (structure preserved for future features)
 
 ### Fixed
+- Fixed WebSocket implementation for Nostr relay connections in Node.js/Electron environment
+  - Added ws package as WebSocket implementation for nostr-tools library
+  - Root cause: nostr-tools SimplePool required explicit WebSocket for non-browser contexts
+  - Used useWebSocketImplementation() to provide ws package to nostr-tools
+  - Relay connections now establish successfully in Electron main process
+  - Added regression tests to verify relay connections work without "WebSocket is not defined" errors
+  - Bug report: bug-fix-contract-websocket.md
+- Enhanced footer error display to show more of the error message
+  - Added title attribute for tooltip showing full error text on hover
+  - Added maxW and truncate to prevent error text from overflowing footer
+  - Applied same enhancement to relay hover info display
+- Fixed RelayTable layout and interaction bugs (relay configuration UI)
+  - Tooltip hover on status dot no longer causes table row height to jump from 36px
+  - All checkboxes (Enabled, Read, Write) now respond correctly to clicks
+  - Root cause: Tooltip rendered inline without portal positioning, causing layout reflow
+  - Root cause: Checkbox handlers used incorrect event type (React.ChangeEvent vs CheckboxCheckedChangeDetails)
+  - Added `positioning={{ strategy: 'fixed' }}` to Tooltip.Root to prevent layout interference
+  - Updated checkbox handlers to accept Chakra UI v3's CheckboxCheckedChangeDetails type
+  - Added 2 regression tests to verify tooltip positioning and checkbox type safety
+  - Bug report: bug-reports/relay-table-tooltip-checkbox-bug-report.md
 - Fixed macOS Gatekeeper warnings on auto-updated applications (auto-updates)
   - Configured electron-builder to use unsigned builds with `identity: null`
   - Apps remain unsigned but install correctly; users approve once in System Settings

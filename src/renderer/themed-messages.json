@@ -2,7 +2,6 @@
   "updatePhases": {
     "idle": [
       "Standing tall",
-      "Preening idly",
       "Ostrich lounging"
     ],
     "checking": [
@@ -11,28 +10,22 @@
       "Beak probing"
     ],
     "available": [
-      "Hatching updates",
       "Fresh eggs spotted",
       "New feathers available"
     ],
     "downloading": [
       "Pecking up",
-      "Flocking in",
-      "Nestling down"
+      "Flocking in"
     ],
     "downloaded": [
       "Pecked and cached",
-      "Nestled safely",
-      "Flock gathered"
+      "Nestled safely"
     ],
     "verifying": [
-      "Inspecting eggs",
-      "Preening feathers",
-      "Checking the clutch"
+      "Inspecting eggs"
     ],
     "ready": [
       "Ready to strut",
-      "Hatched and ready",
       "Feathers unfurled"
     ],
     "mounting": [
@@ -54,18 +47,14 @@
   "nostlingStatuses": {
     "queued": [
       "nestled in queue",
-      "waiting in the clutch",
       "eggs in the nest"
     ],
     "sending": [
-      "launching eggs",
       "flinging feathers",
       "taking flight"
     ],
     "sent": [
-      "delivered to flock",
-      "feathers sent",
-      "eggs hatched"
+      "delivered to flock"
     ],
     "error": [
       "fumbled egg(s)",

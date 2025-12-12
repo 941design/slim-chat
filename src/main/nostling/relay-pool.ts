@@ -10,7 +10,16 @@
 
 import { SimplePool } from 'nostr-tools';
 import type { Event } from 'nostr-tools';
+import { useWebSocketImplementation } from 'nostr-tools/pool';
+import WebSocket from 'ws';
 import { NostrEvent } from './crypto';
+import { log } from '../logging';
+
+// BUG FIX: Set WebSocket implementation for Node.js/Electron environment
+// Root cause: nostr-tools needs explicit WebSocket for non-browser contexts
+// Bug report: bug-fix-contract-websocket.md
+// Fixed: 2025-12-12
+useWebSocketImplementation(WebSocket);
 
 type SubCloser = {
   close: (reason?: string) => void;
@@ -64,6 +73,8 @@ export interface Subscription {
  */
 export interface RelayEndpoint {
   url: string;
+  read?: boolean;   // Allow receiving events from this relay (default: true)
+  write?: boolean;  // Allow publishing events to this relay (default: true)
 }
 
 // ============================================================================
@@ -96,7 +107,13 @@ export class RelayPool {
   private statusCheckInterval: NodeJS.Timeout | null;
 
   constructor() {
-    this.pool = new SimplePool({ enableReconnect: true });
+    // Pass WebSocket implementation directly to SimplePool for Node.js/Electron environment
+    // The websocketImplementation option is supported at runtime but not in TypeScript types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.pool = new SimplePool({
+      enableReconnect: true,
+      websocketImplementation: WebSocket
+    } as any);
     this.endpoints = new Map();
     this.statusMap = new Map();
     this.statusCallbacks = [];
@@ -104,20 +121,59 @@ export class RelayPool {
     this.statusCheckInterval = null;
   }
 
+  /**
+   * Normalizes relay endpoint to ensure read/write flags are set with defaults
+   */
+  private normalizeEndpoint(endpoint: RelayEndpoint): RelayEndpoint {
+    return {
+      url: endpoint.url,
+      read: endpoint.read !== false,  // Default to true
+      write: endpoint.write !== false // Default to true
+    };
+  }
+
+  /**
+   * Get readable relays (connected relays with read=true)
+   */
+  private getReadableRelays(): string[] {
+    return Array.from(this.endpoints.entries())
+      .filter(([url, endpoint]) =>
+        this.statusMap.get(url) === 'connected' && endpoint.read !== false
+      )
+      .map(([url]) => url);
+  }
+
+  /**
+   * Get writable relays (connected relays with write=true)
+   */
+  private getWritableRelays(): string[] {
+    return Array.from(this.endpoints.entries())
+      .filter(([url, endpoint]) =>
+        this.statusMap.get(url) === 'connected' && endpoint.write !== false
+      )
+      .map(([url]) => url);
+  }
+
   async connect(endpoints: RelayEndpoint[]): Promise<void> {
     this.disconnect();
 
+    log('info', `Connecting to ${endpoints.length} relay(s)`);
     for (const endpoint of endpoints) {
-      this.endpoints.set(endpoint.url, endpoint);
-      this.updateStatus(endpoint.url, 'connecting');
+      const normalized = this.normalizeEndpoint(endpoint);
+      this.endpoints.set(normalized.url, normalized);
+      this.updateStatus(normalized.url, 'connecting');
+      log('debug', `Relay ${endpoint.url}: connecting...`);
     }
 
     const connectionPromises = endpoints.map(async (endpoint) => {
       try {
         await this.pool.ensureRelay(endpoint.url, { connectionTimeout: 5000 });
         this.updateStatus(endpoint.url, 'connected');
+        log('info', `Relay ${endpoint.url}: connected`);
       } catch (error) {
         this.updateStatus(endpoint.url, 'error');
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        log('error', `Relay ${endpoint.url}: connection failed - ${errorMessage}`);
       }
     });
 
@@ -144,21 +200,20 @@ export class RelayPool {
   }
 
   async publish(event: NostrEvent): Promise<PublishResult[]> {
-    const connectedRelays = Array.from(this.endpoints.keys())
-      .filter(url => this.statusMap.get(url) === 'connected');
+    const writableRelays = this.getWritableRelays();
 
-    if (connectedRelays.length === 0) {
+    if (writableRelays.length === 0) {
       return [];
     }
 
     const eventForPublish = event as unknown as Event;
     const results: PublishResult[] = [];
 
-    const publishPromises = this.pool.publish(connectedRelays, eventForPublish);
+    const publishPromises = this.pool.publish(writableRelays, eventForPublish);
 
     await Promise.allSettled(
       publishPromises.map(async (promise, index) => {
-        const relay = connectedRelays[index];
+        const relay = writableRelays[index];
         try {
           const message = await Promise.race([
             promise,
@@ -181,10 +236,9 @@ export class RelayPool {
   }
 
   subscribe(filters: Filter[], onEvent: (event: NostrEvent) => void): Subscription {
-    const connectedRelays = Array.from(this.endpoints.keys())
-      .filter(url => this.statusMap.get(url) === 'connected');
+    const readableRelays = this.getReadableRelays();
 
-    if (connectedRelays.length === 0) {
+    if (readableRelays.length === 0) {
       return { close: () => {} };
     }
 
@@ -194,7 +248,7 @@ export class RelayPool {
     const filterToUse = filters.length > 0 ? filters[0] : {};
 
     const sub = this.pool.subscribeMany(
-      connectedRelays,
+      readableRelays,
       filterToUse,
       {
         onevent: (event: Event) => {
@@ -252,8 +306,10 @@ export class RelayPool {
 
         if (isConnected && currentStatus !== 'connected') {
           this.updateStatus(url, 'connected');
+          log('info', `Relay ${url}: reconnected`);
         } else if (!isConnected && currentStatus === 'connected') {
           this.updateStatus(url, 'disconnected');
+          log('warn', `Relay ${url}: disconnected`);
         }
       });
     }, 2000);

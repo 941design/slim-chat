@@ -161,6 +161,21 @@ export interface NostlingMessage {
 
 export interface NostlingRelayEndpoint {
   url: string;
+  read: boolean;
+  write: boolean;
+  order: number;
+}
+
+export type RelayConflictAction = 'reload' | 'overwrite' | 'cancel';
+
+export interface RelayConfigConflict {
+  conflicted: boolean;
+  message?: string;
+}
+
+export interface RelayConfigResult {
+  config?: NostlingRelayConfig;
+  conflict?: RelayConfigConflict;
 }
 
 export interface NostlingRelayConfig {
@@ -207,7 +222,10 @@ export interface NostlingApi {
     retry(identityId?: string): Promise<NostlingMessage[]>;
   };
   relays: {
-    get(): Promise<NostlingRelayConfig>;
-    set(config: NostlingRelayConfig): Promise<NostlingRelayConfig>;
+    get(identityId: string): Promise<NostlingRelayEndpoint[]>;
+    set(identityId: string, relays: NostlingRelayEndpoint[]): Promise<RelayConfigResult>;
+    reload(identityId: string): Promise<NostlingRelayEndpoint[]>;
+    getStatus(): Promise<Record<string, 'connected' | 'connecting' | 'disconnected' | 'error'>>;
+    onStatusChange(callback: (url: string, status: string) => void): () => void;
   };
 }

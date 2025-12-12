@@ -9,7 +9,7 @@
  */
 
 import { test, expect } from './fixtures';
-import { waitForAppReady, navigateToRelayConfig, returnToChat, clickButton } from './helpers';
+import { waitForAppReady, navigateToRelayConfig, returnToChat, clickButton, ensureIdentityExists } from './helpers';
 
 test.describe('Relay Configuration View', () => {
   test('should navigate to relay config via menu', async ({ page }) => {
@@ -50,113 +50,161 @@ test.describe('Relay Configuration View', () => {
   test('should add a new relay', async ({ page }) => {
     await waitForAppReady(page);
 
+    // Ensure an identity exists (required for relay table to show)
+    await ensureIdentityExists(page);
+
     // Navigate to relay config
     await navigateToRelayConfig(page);
 
-    // Count initial relay inputs
-    const initialCount = await page.locator('input[placeholder*="wss://"]').count();
+    // Wait for relay table to load
+    await expect(page.locator('table')).toBeVisible();
 
-    // Click "Add relay" button (first one is for default relays)
-    await page.locator('button:has-text("Add relay")').first().click();
+    // Count initial relay rows (excluding header and add-relay row)
+    const initialCount = await page.locator('table tbody tr input[placeholder="wss://relay.example.com"]').count();
 
-    // Verify new relay input appeared
-    const newCount = await page.locator('input[placeholder*="wss://"]').count();
-    expect(newCount).toBe(initialCount + 1);
+    // Find the add-relay input (last row in table has the "+" symbol and input)
+    const addRelayInput = page.locator('table tbody tr').last().locator('input[placeholder="wss://relay.example.com"]');
+    await expect(addRelayInput).toBeVisible();
 
-    // Verify Save Changes button is enabled (dirty state)
-    await expect(page.locator('button:has-text("Save Changes")')).toBeEnabled();
+    // Type a new relay URL and press Enter to add
+    await addRelayInput.fill('wss://test-relay.example.com');
+    await addRelayInput.press('Enter');
+
+    // Verify new relay input appeared (count increased)
+    // Wait for the change to be reflected - a new row should exist
+    await expect(page.locator('table tbody tr input[placeholder="wss://relay.example.com"]')).toHaveCount(initialCount + 1, { timeout: 5000 });
   });
 
   test('should edit relay URL', async ({ page }) => {
     await waitForAppReady(page);
 
+    // Ensure an identity exists (required for relay table to show)
+    await ensureIdentityExists(page);
+
     // Navigate to relay config
     await navigateToRelayConfig(page);
 
-    // Get relay input fields
-    const inputs = page.locator('input[placeholder*="wss://"]');
+    // Wait for relay table to load
+    await expect(page.locator('table')).toBeVisible();
 
-    // If no relays exist, add one first
-    if ((await inputs.count()) === 0) {
-      await page.locator('button:has-text("Add relay")').first().click();
+    // Get relay input fields (excluding the add-relay row which is the last row)
+    // The existing relay inputs are in rows before the last one
+    const relayRows = page.locator('table tbody tr');
+    const rowCount = await relayRows.count();
+
+    // If no relays exist (only the add row), add one first
+    if (rowCount <= 1) {
+      const addRelayInput = relayRows.last().locator('input[placeholder="wss://relay.example.com"]');
+      await addRelayInput.fill('wss://initial-relay.example.com');
+      await addRelayInput.press('Enter');
+      // Wait for the new row to appear
+      await expect(page.locator('table tbody tr')).toHaveCount(rowCount + 1, { timeout: 5000 });
     }
 
-    // Edit first relay URL
-    const firstInput = inputs.first();
-    await firstInput.fill('wss://edited-test.relay.com');
+    // Edit first relay URL (first row should be a relay, not the add row)
+    // Use specific selector for URL input to avoid matching hidden checkbox inputs
+    const firstRelayInput = relayRows.first().locator('input[placeholder="wss://relay.example.com"]');
+    await firstRelayInput.fill('wss://edited-test.relay.com');
+    await firstRelayInput.blur();
 
-    // Verify Save Changes button is enabled (dirty state)
-    await expect(page.locator('button:has-text("Save Changes")')).toBeEnabled();
+    // Verify the value was updated (changes are auto-saved via onChange)
+    await expect(firstRelayInput).toHaveValue('wss://edited-test.relay.com');
   });
 
   test('should remove a relay', async ({ page }) => {
     await waitForAppReady(page);
 
+    // Ensure an identity exists (required for relay table to show)
+    await ensureIdentityExists(page);
+
     // Navigate to relay config
     await navigateToRelayConfig(page);
 
-    // Add a relay if none exist
-    const inputs = page.locator('input[placeholder*="wss://"]');
-    let relayCount = await inputs.count();
-    if (relayCount === 0) {
-      await page.locator('button:has-text("Add relay")').first().click();
-      relayCount = 1;
+    // Wait for relay table to load
+    await expect(page.locator('table')).toBeVisible();
+
+    // Get relay rows (the last row is always the "add relay" row)
+    const relayRows = page.locator('table tbody tr');
+    let rowCount = await relayRows.count();
+
+    // Add a relay if only the add-row exists
+    if (rowCount <= 1) {
+      const addRelayInput = relayRows.last().locator('input[placeholder="wss://relay.example.com"]');
+      await addRelayInput.fill('wss://test-to-remove.example.com');
+      await addRelayInput.press('Enter');
+      // Wait for the new row to appear
+      await expect(page.locator('table tbody tr')).toHaveCount(rowCount + 1, { timeout: 5000 });
+      rowCount = await relayRows.count();
     }
 
-    // Click Remove button (X button) on first relay
-    await page.locator('button[aria-label="Remove relay"], button:has-text("Remove")').first().click();
+    // Click Remove button on first relay row
+    const removeButton = relayRows.first().locator('button[aria-label="Remove relay"]');
+    await expect(removeButton).toBeVisible();
+    await removeButton.click();
 
-    // Verify relay count decreased
-    const newCount = await page.locator('input[placeholder*="wss://"]').count();
-    expect(newCount).toBe(relayCount - 1);
+    // Verify relay row count decreased
+    await expect(page.locator('table tbody tr')).toHaveCount(rowCount - 1, { timeout: 5000 });
   });
 
   test('should persist relay changes after save', async ({ page }) => {
     await waitForAppReady(page);
 
+    // Ensure an identity exists (required for relay table to show)
+    await ensureIdentityExists(page);
+
     // Navigate to relay config
     await navigateToRelayConfig(page);
 
-    // Add a unique relay
-    await page.locator('button:has-text("Add relay")').first().click();
+    // Wait for relay table to load
+    await expect(page.locator('table')).toBeVisible();
+
+    // Add a unique relay via the add-relay input row
     const uniqueUrl = `wss://test-${Date.now()}.relay.com`;
-    await page.locator('input[placeholder*="wss://"]').last().fill(uniqueUrl);
+    const addRelayInput = page.locator('table tbody tr').last().locator('input[placeholder="wss://relay.example.com"]');
+    await addRelayInput.fill(uniqueUrl);
+    await addRelayInput.press('Enter');
 
-    // Save changes
-    await page.locator('button:has-text("Save Changes")').click();
+    // Wait for the relay to be added to the table
+    await expect(page.locator(`input[value="${uniqueUrl}"]`)).toBeVisible({ timeout: 5000 });
 
-    // Wait for save to complete (button should become disabled when dirty=false)
-    // Use a longer timeout since IPC calls may take time
-    await expect(page.locator('button:has-text("Save Changes")')).toBeDisabled({ timeout: 10000 });
-
-    // Return to chat and back
+    // Return to chat and back - changes are auto-saved via onChange callback
     await page.locator('.relay-config-done-button').click();
     await waitForAppReady(page);
     await navigateToRelayConfig(page);
 
+    // Wait for relay table to reload
+    await expect(page.locator('table')).toBeVisible();
+
     // Verify relay persisted
-    await expect(page.locator(`input[value="${uniqueUrl}"]`)).toBeVisible();
+    await expect(page.locator(`input[value="${uniqueUrl}"]`)).toBeVisible({ timeout: 5000 });
   });
 
   test('should have relay configuration UI elements', async ({ page }) => {
     await waitForAppReady(page);
 
+    // Ensure an identity exists (required for relay table to show)
+    await ensureIdentityExists(page);
+
     // Navigate to relay config
     await navigateToRelayConfig(page);
 
     // Verify UI elements are present
-    await expect(page.locator('text=Default relays')).toBeVisible();
-    await expect(page.locator('text=Per-identity overrides')).toBeVisible();
-    await expect(page.locator('button:has-text("Add relay")')).toBeVisible();
-    await expect(page.locator('button:has-text("Save Changes")')).toBeVisible();
-    await expect(page.locator('button:has-text("Refresh")')).toBeVisible();
+    // Heading "Relay Configuration" (using role selector to avoid matching menu item)
+    await expect(page.getByRole('heading', { name: 'Relay Configuration' })).toBeVisible();
+    // Done button to return to chat
+    await expect(page.locator('.relay-config-done-button')).toBeVisible();
+    // Relay table is visible
+    await expect(page.locator('table')).toBeVisible();
+    // Verify header text exists (using text selectors which are more robust)
+    await expect(page.locator('text=Enabled')).toBeVisible();
+    await expect(page.locator('text=Status')).toBeVisible();
+    await expect(page.locator('text=URL')).toBeVisible();
 
-    // Verify relay inputs exist (either default relays or previously configured)
-    const inputs = page.locator('input[placeholder*="wss://"]');
-    const count = await inputs.count();
+    // Verify add-relay input row exists (has "+" symbol and input)
+    const addRelayRow = page.locator('table tbody tr').last();
+    await expect(addRelayRow.locator('input[placeholder="wss://relay.example.com"]')).toBeVisible();
 
-    // Should have some relays configured (defaults are seeded on first app start)
-    // Note: Default relays (10) are seeded in service.ts when database is empty
-    expect(count).toBeGreaterThanOrEqual(0);
+    // Verify summary text exists at bottom (e.g., "0 relays · 0 connected · 0 failed")
+    await expect(page.locator('text=/\\d+ relays/')).toBeVisible();
   });
 });

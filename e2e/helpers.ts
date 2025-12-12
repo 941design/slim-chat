@@ -114,3 +114,36 @@ export async function returnToChat(page: Page): Promise<void> {
   // Wait for conversation pane to be visible
   await page.waitForSelector('.conversation-pane', { timeout: 5000 });
 }
+
+/**
+ * Ensures an identity exists by creating one if none exist.
+ * This is required for relay config tests since the relay table only shows
+ * when an identity is selected.
+ */
+export async function ensureIdentityExists(page: Page, label = 'Test Identity'): Promise<void> {
+  // Check if any identity exists in the sidebar
+  const identityItems = page.locator('.identity-item, [data-testid="identity-item"]');
+  const count = await identityItems.count();
+
+  if (count > 0) {
+    // Identity already exists, click on it to select it
+    await identityItems.first().click();
+    return;
+  }
+
+  // No identity exists, create one
+  // Click the + button to open identity modal
+  await page.locator('button[aria-label="Create identity"]').click();
+
+  // Wait for modal to appear
+  await page.waitForSelector('text=Create or Import Identity', { timeout: 5000 });
+
+  // Fill in the label
+  await page.locator('input[placeholder="Personal account"]').fill(label);
+
+  // Click Save button
+  await page.locator('button:has-text("Save")').click();
+
+  // Wait for modal to close and identity to be created
+  await page.waitForSelector('text=Create or Import Identity', { state: 'hidden', timeout: 5000 });
+}

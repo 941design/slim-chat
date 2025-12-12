@@ -11,7 +11,8 @@ import {
   AppConfig,
   AppStatus,
   CreateIdentityRequest,
-  NostlingRelayConfig,
+  NostlingRelayEndpoint,
+  RelayConfigResult,
   SendNostrMessageRequest,
   UpdateState,
 } from '../../shared/types';
@@ -28,8 +29,11 @@ interface NostlingIpcDependencies {
   sendMessage: (request: SendNostrMessageRequest) => Promise<any>;
   discardUnknown: (eventId: string) => Promise<void>;
   retryFailedMessages: (identityId?: string) => Promise<any>;
-  getRelayConfig: () => Promise<NostlingRelayConfig>;
-  setRelayConfig: (config: NostlingRelayConfig) => Promise<NostlingRelayConfig>;
+  getRelaysForIdentity: (identityId: string) => Promise<any>;
+  setRelaysForIdentity: (identityId: string, relays: any) => Promise<any>;
+  reloadRelaysForIdentity: (identityId: string) => Promise<any>;
+  getRelayStatus: () => Promise<Record<string, string>>;
+  onRelayStatusChange: (callback: (url: string, status: string) => void) => void;
 }
 
 /**
@@ -178,11 +182,24 @@ export function registerHandlers(dependencies: {
       dependencies.nostling!.retryFailedMessages(identityId)
     );
 
-    // Relay configuration
-    ipcMain.handle('nostling:relays:get', async () => dependencies.nostling!.getRelayConfig());
-    ipcMain.handle('nostling:relays:set', async (_, config: NostlingRelayConfig) =>
-      dependencies.nostling!.setRelayConfig(config)
+    // Relay configuration (legacy global config)
+    ipcMain.handle('nostling:relays:get', async (_, identityId: string) =>
+      dependencies.nostling!.getRelaysForIdentity(identityId)
     );
+    ipcMain.handle('nostling:relays:set', async (_, identityId: string, relays: NostlingRelayEndpoint[]) =>
+      dependencies.nostling!.setRelaysForIdentity(identityId, relays)
+    );
+    ipcMain.handle('nostling:relays:reload', async (_, identityId: string) =>
+      dependencies.nostling!.reloadRelaysForIdentity(identityId)
+    );
+    ipcMain.handle('nostling:relays:getStatus', async () =>
+      dependencies.nostling!.getRelayStatus()
+    );
+    ipcMain.on('nostling:relays:onStatusChange', (event, callback: (url: string, status: string) => void) => {
+      dependencies.nostling!.onRelayStatusChange((url: string, status: string) => {
+        event.sender.send('nostling:relay-status-changed', url, status);
+      });
+    });
   }
 
   // BUG FIX: Legacy IPC handlers for backward compatibility

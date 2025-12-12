@@ -77,12 +77,15 @@ src/
 │   ├── logging.ts  # Logging system
 │   ├── ipc/        # IPC handlers
 │   ├── security/   # Crypto verification
+│   ├── relay/      # Relay configuration management
 │   └── update/     # Update management
 ├── preload/        # Preload script
 │   └── index.ts    # API bridge
 ├── renderer/       # React frontend
 │   ├── main.tsx    # React root
 │   ├── index.html  # HTML entry
+│   ├── components/ # UI components
+│   │   └── RelayManager.tsx  # Relay configuration UI
 │   └── utils/      # Utilities
 │       ├── themed-messages.ts    # Theme configuration
 │       ├── utils.themed.ts       # Update status theming
@@ -103,6 +106,8 @@ IPC channels use domain-prefixed naming:
 | `updates:restart` | Apply update and restart |
 | `config:get` | Get configuration |
 | `config:set` | Update configuration |
+| `relay:load` | Load relay configuration for identity |
+| `relay:save` | Save relay configuration with hash verification |
 | `update-state` | Broadcast state changes |
 
 ## Update System
@@ -215,6 +220,79 @@ release/            # After packaging
 - AppImage format for portability
 - No root required for installation or updates
 - Standard electron-updater flow
+
+## Relay Configuration System
+
+The relay manager provides per-identity relay configuration with filesystem-based persistence and conflict detection.
+
+### Architecture
+
+**Filesystem-Based Storage:**
+- Configuration stored at `~/.config/nostling/identities/<identityId>/relays.json`
+- One file per identity, isolated from database
+- Human-readable JSON format for manual editing
+- Automatic directory creation on first save
+
+**File Format:**
+```json
+{
+  "relays": [
+    {
+      "url": "wss://relay.example.com",
+      "read": true,
+      "write": true
+    }
+  ]
+}
+```
+
+**Hash-Based Overwrite Protection:**
+- SHA-256 hash computed on load and before save
+- Detects external modifications to relay configuration files
+- On conflict: presents modal with Reload/Overwrite/Cancel options
+- Prevents accidental loss of manual edits
+
+**Migration from Database:**
+- One-time idempotent migration from SQLite `relays` table
+- Runs automatically on first relay:load for each identity
+- Creates filesystem config from database records
+- Database records remain unchanged (safe rollback)
+
+### UI Components
+
+**Compact Table Layout:**
+- High-density rows (≤36px) using @tanstack/react-table
+- Columns: Status indicator, URL, Read checkbox, Write checkbox, Actions
+- Drag handle for reordering
+- Delete button per row
+
+**Drag-and-Drop Reordering:**
+- Implemented with dnd-kit library
+- Visual feedback during drag operations
+- Preserves read/write policies during reorder
+- Updates configuration order immediately
+
+**Read/Write Policies:**
+- Read checkbox: controls relay subscription (receiving events)
+- Write checkbox: controls relay publishing (sending events)
+- Independent controls per relay
+- Persisted in relays.json
+
+**Live Status Indicators:**
+- Green dot: connected
+- Yellow dot: connecting/reconnecting
+- Red dot: disconnected/error
+- Based on WebSocket connection state
+
+### Conflict Resolution
+
+When external modifications detected:
+
+1. **Reload**: Discard UI changes, load file from disk
+2. **Overwrite**: Save UI state, replace file contents
+3. **Cancel**: Keep UI state, remain in conflict state
+
+User must explicitly resolve conflict before saving again.
 
 ## Themed Messages System
 

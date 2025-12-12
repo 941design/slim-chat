@@ -30,7 +30,6 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 + instead of help create about menu item
 + rename identities to something more intuitive
 + create menu item for managing identities
-+ create nostling like status states: picking, flocking, ...
 + compress migrations into one initial migration
 + I see - the e2e tests don't clean the database. The Electron app uses the default userData path, which persists between test runs.
   There's an old database with the read and write columns that was created before the migration removed them.
@@ -46,6 +45,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 - **Identity management** - Create/import identities from nsec keys
 - **Contact whitelist** - Only receive messages from known contacts
 - **Relay connectivity** - WebSocket connections to Nostr relays with auto-reconnection
+- **Relay management** - Compact table with drag-and-drop reordering, per-relay read/write policies, and live connection status
 - **Offline support** - Queue messages when offline, publish when connectivity restored
 - **Secure auto-updates** with RSA-4096 cryptographic verification
 - **Auto-update footer** with real-time progress, configurable check intervals, and manual refresh
@@ -208,6 +208,7 @@ The app stores configuration and data in:
 Files:
 - `config.json` - Application configuration
 - `nostling.db` - SQLite database for application state
+- `identities/<id>/relays.json` - Per-identity relay configurations with read/write policies
 
 ## Log Files
 

@@ -58,7 +58,7 @@ beforeEach(async () => {
   database = new SQL.Database();
   await runMigrations(database);
   secretStore = new MemorySecretStore();
-  service = new NostlingService(database, secretStore);
+  service = new NostlingService(database, secretStore, '/tmp/nostling-test');
   (log as jest.Mock).mockClear();
 });
 
