@@ -1,6 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { NostlingContact, NostlingIdentity } from '../../shared/types';
-import { abbreviateNpub, buildSidebarEntries, getPreferredDisplayName } from './sidebar';
+import { abbreviateNpub, getPreferredDisplayName } from './sidebar';
 
 describe('sidebar utilities', () => {
   it('abbreviates long npubs and leaves short ones intact', () => {
@@ -21,20 +20,5 @@ describe('sidebar utilities', () => {
   it('uses abbreviated npub when neither profile nor alias are present', () => {
     const npub = 'npub1longexamplekeyvaluehere';
     expect(getPreferredDisplayName({ profileName: null, alias: '', npub })).toBe(abbreviateNpub(npub));
-  });
-
-  it('combines identities and contacts into a single ordered list', () => {
-    const identities: NostlingIdentity[] = [
-      { id: 'i-1', npub: 'npub-i1', secretRef: 'nostr-secret:one', label: 'Main', createdAt: 'now' },
-    ];
-    const contacts: NostlingContact[] = [
-      { id: 'c-1', identityId: 'i-1', npub: 'npub-c1', alias: 'Contact', state: 'connected', createdAt: 'later' },
-    ];
-
-    const entries = buildSidebarEntries(identities, contacts);
-
-    expect(entries).toHaveLength(2);
-    expect(entries[0].type).toBe('identity');
-    expect(entries[1].type).toBe('contact');
   });
 });

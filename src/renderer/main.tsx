@@ -21,6 +21,7 @@ import {
   Textarea,
   Menu,
   Portal,
+  Separator,
 } from '@chakra-ui/react';
 import {
   AppStatus,
@@ -42,7 +43,7 @@ import type { ThemeId } from './themes/definitions';
 import { QrCodeScannerModal } from './components/QrCodeScannerModal';
 import { QrCodeDisplayModal } from './components/QrCodeDisplayModal';
 import { CameraIcon, QrCodeIcon } from './components/qr-icons';
-import { buildSidebarEntries, getPreferredDisplayName } from './utils/sidebar';
+import { getPreferredDisplayName } from './utils/sidebar';
 
 // Simple refresh icon component
 const RefreshIcon = () => (
@@ -488,180 +489,185 @@ function ContactStateBadge({ state }: { state: 'pending' | 'connected' }) {
   );
 }
 
-function ContactList({
-  contacts,
+function IdentityList({
   identities,
-  selectedIdentityId,
-  selectedContactId,
-  onSelectIdentity,
-  onSelectContact,
-  onOpenIdentityModal,
-  onOpenContactModal,
+  selectedId,
+  onSelect,
+  onOpenCreate,
   onShowQr,
 }: {
-  contacts: NostlingContact[];
   identities: NostlingIdentity[];
-  selectedIdentityId: string | null;
-  selectedContactId: string | null;
-  onSelectIdentity: (id: string) => void;
-  onSelectContact: (id: string | null) => void;
-  onOpenIdentityModal: () => void;
-  onOpenContactModal: () => void;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onOpenCreate: () => void;
   onShowQr: (identity: NostlingIdentity) => void;
 }) {
   const colors = useThemeColors();
-  const entries = buildSidebarEntries(identities, contacts);
-
-  const renderIdentity = (identity: NostlingIdentity) => {
-    const displayName = getPreferredDisplayName({
-      profileName: identity.profileName,
-      alias: identity.alias ?? identity.label,
-      npub: identity.npub,
-    });
-    const isSelected = selectedIdentityId === identity.id && !selectedContactId;
-
-    return (
-      <Box
-        key={identity.id}
-        borderWidth="1px"
-        borderColor={isSelected ? 'brand.400' : colors.border}
-        borderRadius="md"
-        p="2"
-        bg={isSelected ? colors.surfaceBgSelected : 'transparent'}
-        _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
-        onClick={() => {
-          onSelectContact(null);
-          onSelectIdentity(identity.id);
-        }}
-        data-testid={`identity-item-${identity.id}`}
-      >
-        <HStack justify="space-between" align="center">
-          <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
-            {displayName}
-          </Text>
-          <HStack gap="1">
-            <IconButton
-              size="xs"
-              variant="ghost"
-              aria-label="Show QR code"
-              title="Show QR code for this identity"
-              onClick={(e) => {
-                e.stopPropagation();
-                onShowQr(identity);
-              }}
-              color={colors.textSubtle}
-              _hover={{ color: colors.textMuted }}
-            >
-              <QrCodeIcon />
-            </IconButton>
-            <IconButton
-              size="xs"
-              variant="ghost"
-              aria-label="Copy npub"
-              title="Copy npub to clipboard"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigator.clipboard.writeText(identity.npub);
-              }}
-              color={colors.textSubtle}
-              _hover={{ color: colors.textMuted }}
-            >
-              <CopyIcon />
-            </IconButton>
-          </HStack>
-        </HStack>
-      </Box>
-    );
-  };
-
-  const renderContact = (contact: NostlingContact) => {
-    const displayName = getPreferredDisplayName({
-      profileName: contact.profileName,
-      alias: contact.alias,
-      npub: contact.npub,
-    });
-    const isSelected = selectedContactId === contact.id && selectedIdentityId === contact.identityId;
-
-    return (
-      <Box
-        key={contact.id}
-        borderWidth="1px"
-        borderColor={isSelected ? 'brand.400' : colors.border}
-        borderRadius="md"
-        p="2"
-        bg={isSelected ? colors.surfaceBgSelected : 'transparent'}
-        _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
-        onClick={() => {
-          onSelectIdentity(contact.identityId);
-          onSelectContact(contact.id);
-        }}
-        data-testid={`contact-item-${contact.id}`}
-      >
-        <HStack justify="space-between" align="center">
-          <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
-            {displayName}
-          </Text>
-          <HStack gap="1">
-            <IconButton
-              size="xs"
-              variant="ghost"
-              aria-label="Copy npub"
-              title="Copy npub to clipboard"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigator.clipboard.writeText(contact.npub);
-              }}
-              color={colors.textSubtle}
-              _hover={{ color: colors.textMuted }}
-            >
-              <CopyIcon />
-            </IconButton>
-            <ContactStateBadge state={contact.state} />
-          </HStack>
-        </HStack>
-      </Box>
-    );
-  };
-
   return (
-    <Box data-testid="identity-contact-list" display="flex" flexDirection="column" gap="2" flex="1" minH="0">
-      <HStack justify="space-between" align="center">
+    <Box data-testid="identity-list">
+      <HStack justify="space-between" mb="2">
         <Heading size="sm" color={colors.textMuted}>
-          Identities & Contacts
+          Identities
         </Heading>
-        <HStack gap="2">
-          <IconButton
-            size="sm"
-            aria-label="Create identity"
-            title="Create or import identity"
-            onClick={onOpenIdentityModal}
-            colorPalette="blue"
-            variant="subtle"
-          >
-            +
-          </IconButton>
-          <IconButton
-            size="sm"
-            aria-label="Add contact"
-            title={identities.length === 0 ? 'Create an identity first' : 'Add contact'}
-            onClick={onOpenContactModal}
-            colorPalette="blue"
-            variant="subtle"
-            disabled={identities.length === 0}
-          >
-            +
-          </IconButton>
-        </HStack>
+        <IconButton
+          size="sm"
+          aria-label="Create identity"
+          title="Create or import identity"
+          onClick={onOpenCreate}
+          colorPalette="blue"
+          variant="subtle"
+        >
+          +
+        </IconButton>
       </HStack>
-      <VStack align="stretch" gap="2" flex="1" minH="0" overflowY="auto" pr="1">
-        {entries.length === 0 && (
+      <VStack align="stretch" gap="2">
+        {identities.length === 0 && (
           <Text fontSize="sm" color={colors.textSubtle}>
-            No identities or contacts yet. Create an identity to get started.
+            No identities yet. Create or import one to get started.
           </Text>
         )}
-        {entries.map((entry) =>
-          entry.type === 'identity' ? renderIdentity(entry.identity) : renderContact(entry.contact)
+        {identities.map((identity) => {
+          const displayName = getPreferredDisplayName({
+            profileName: identity.profileName,
+            alias: identity.alias ?? identity.label,
+            npub: identity.npub,
+          });
+          return (
+            <Box
+              key={identity.id}
+              borderWidth="1px"
+              borderColor={selectedId === identity.id ? 'brand.400' : colors.border}
+              borderRadius="md"
+              p="2"
+              bg={selectedId === identity.id ? colors.surfaceBgSelected : 'transparent'}
+              _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
+              onClick={() => onSelect(identity.id)}
+              data-testid={`identity-item-${identity.id}`}
+            >
+              <HStack justify="space-between" align="center">
+                <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
+                  {displayName}
+                </Text>
+                <HStack gap="1">
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    aria-label="Show QR code"
+                    title="Show QR code for this identity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShowQr(identity);
+                    }}
+                    color={colors.textSubtle}
+                    _hover={{ color: colors.textMuted }}
+                  >
+                    <QrCodeIcon />
+                  </IconButton>
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    aria-label="Copy npub"
+                    title="Copy npub to clipboard"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(identity.npub);
+                    }}
+                    color={colors.textSubtle}
+                    _hover={{ color: colors.textMuted }}
+                  >
+                    <CopyIcon />
+                  </IconButton>
+                </HStack>
+              </HStack>
+            </Box>
+          );
+        })}
+      </VStack>
+    </Box>
+  );
+}
+
+function ContactList({
+  contacts,
+  selectedId,
+  onSelect,
+  onOpenAdd,
+  disabled,
+}: {
+  contacts: NostlingContact[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onOpenAdd: () => void;
+  disabled: boolean;
+}) {
+  const colors = useThemeColors();
+  return (
+    <Box mt="6" data-testid="contact-list">
+      <HStack justify="space-between" mb="2">
+        <Heading size="sm" color={colors.textMuted}>
+          Contacts
+        </Heading>
+        <IconButton
+          size="sm"
+          aria-label="Add contact"
+          title={disabled ? 'Create an identity first' : 'Add contact'}
+          onClick={onOpenAdd}
+          colorPalette="blue"
+          variant="subtle"
+          disabled={disabled}
+        >
+          +
+        </IconButton>
+      </HStack>
+      <VStack align="stretch" gap="2">
+        {(contacts?.length || 0) === 0 && (
+          <Text fontSize="sm" color={colors.textSubtle}>
+            {disabled ? 'Add an identity to manage contacts.' : 'No contacts yet.'}
+          </Text>
         )}
+        {(contacts || []).map((contact) => {
+          const displayName = getPreferredDisplayName({
+            profileName: contact.profileName,
+            alias: contact.alias,
+            npub: contact.npub,
+          });
+          return (
+            <Box
+              key={contact.id}
+              borderWidth="1px"
+              borderColor={selectedId === contact.id ? 'brand.400' : colors.border}
+              borderRadius="md"
+              p="2"
+              bg={selectedId === contact.id ? colors.surfaceBgSelected : 'transparent'}
+              _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
+              onClick={() => onSelect(contact.id)}
+              data-testid={`contact-item-${contact.id}`}
+            >
+              <HStack justify="space-between" align="center">
+                <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
+                  {displayName}
+                </Text>
+                <HStack gap="1">
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    aria-label="Copy npub"
+                    title="Copy npub to clipboard"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(contact.npub);
+                    }}
+                    color={colors.textSubtle}
+                    _hover={{ color: colors.textMuted }}
+                  >
+                    <CopyIcon />
+                  </IconButton>
+                  <ContactStateBadge state={contact.state} />
+                </HStack>
+              </HStack>
+            </Box>
+          );
+        })}
       </VStack>
     </Box>
   );
@@ -1227,7 +1233,7 @@ function Sidebar({
   selectedIdentityId: string | null;
   selectedContactId: string | null;
   onSelectIdentity: (id: string) => void;
-  onSelectContact: (id: string | null) => void;
+  onSelectContact: (id: string) => void;
   onOpenIdentityModal: () => void;
   onOpenContactModal: () => void;
 }) {
@@ -1244,23 +1250,25 @@ function Sidebar({
       borderColor={colors.border}
       bg={colors.surfaceBg}
       p="4"
-      display="flex"
-      flexDirection="column"
-      minH="0"
-      h="100%"
       data-testid="app-sidebar"
     >
-      <ContactList
-        contacts={currentContacts}
-        identities={identities}
-        selectedIdentityId={selectedIdentityId}
-        selectedContactId={selectedContactId}
-        onSelectIdentity={onSelectIdentity}
-        onSelectContact={onSelectContact}
-        onOpenIdentityModal={onOpenIdentityModal}
-        onOpenContactModal={onOpenContactModal}
-        onShowQr={setQrDisplayIdentity}
-      />
+      <VStack align="stretch" gap="4">
+        <IdentityList
+          identities={identities}
+          selectedId={selectedIdentityId}
+          onSelect={onSelectIdentity}
+          onOpenCreate={onOpenIdentityModal}
+          onShowQr={setQrDisplayIdentity}
+        />
+        <Separator borderColor={colors.borderSubtle} />
+        <ContactList
+          contacts={currentContacts}
+          selectedId={selectedContactId}
+          onSelect={onSelectContact}
+          onOpenAdd={onOpenContactModal}
+          disabled={identities.length === 0}
+        />
+      </VStack>
       <QrCodeDisplayModal
         isOpen={qrDisplayIdentity !== null}
         onClose={() => setQrDisplayIdentity(null)}
