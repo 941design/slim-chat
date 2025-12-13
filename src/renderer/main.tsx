@@ -41,6 +41,9 @@ import { ThemeSelector } from './components/ThemeSelector';
 import { createThemeSystem, getThemeIdForIdentity } from './themes/useTheme';
 import { ThemeProvider, useThemeColors } from './themes/ThemeContext';
 import type { ThemeId } from './themes/definitions';
+import { QrCodeScannerModal } from './components/QrCodeScannerModal';
+import { QrCodeDisplayModal } from './components/QrCodeDisplayModal';
+import { CameraIcon, QrCodeIcon } from './components/qr-icons';
 
 // Simple refresh icon component
 const RefreshIcon = () => (
@@ -493,11 +496,13 @@ function IdentityList({
   selectedId,
   onSelect,
   onOpenCreate,
+  onShowQr,
 }: {
   identities: NostlingIdentity[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onOpenCreate: () => void;
+  onShowQr: (identity: NostlingIdentity) => void;
 }) {
   const colors = useThemeColors();
   return (
@@ -542,6 +547,20 @@ function IdentityList({
               <Text color={colors.textSubtle} fontSize="xs" lineClamp={1} flex="1">
                 {identity.npub}
               </Text>
+              <IconButton
+                size="xs"
+                variant="ghost"
+                aria-label="Show QR code"
+                title="Show QR code for this identity"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShowQr(identity);
+                }}
+                color={colors.textSubtle}
+                _hover={{ color: colors.textMuted }}
+              >
+                <QrCodeIcon />
+              </IconButton>
               <IconButton
                 size="xs"
                 variant="ghost"
@@ -981,6 +1000,7 @@ function ContactModal({
     alias: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const identityMissing = form.identityId.trim().length === 0;
   const npubMissing = form.npub.trim().length === 0;
 
@@ -1031,15 +1051,27 @@ function ContactModal({
                 </NativeSelect.Root>
                 {identityMissing && <Field.ErrorText>Select an identity.</Field.ErrorText>}
               </Field.Root>
-              <Field.Root invalid={npubMissing} required>
-                <Field.Label>Contact npub</Field.Label>
-                <Input
-                  placeholder="npub..."
-                  value={form.npub}
-                  onChange={(event) => setForm((prev) => ({ ...prev, npub: event.target.value }))}
-                />
-                {npubMissing && <Field.ErrorText>npub is required.</Field.ErrorText>}
-              </Field.Root>
+              <HStack gap="2" align="end">
+                <Field.Root invalid={npubMissing} required flex="1">
+                  <Field.Label>Contact npub</Field.Label>
+                  <Input
+                    placeholder="npub..."
+                    value={form.npub}
+                    onChange={(event) => setForm((prev) => ({ ...prev, npub: event.target.value }))}
+                  />
+                  {npubMissing && <Field.ErrorText>npub is required.</Field.ErrorText>}
+                </Field.Root>
+                <IconButton
+                  size="md"
+                  variant="outline"
+                  aria-label="Scan QR code"
+                  title="Scan QR code from camera"
+                  onClick={() => setScannerOpen(true)}
+                  disabled={identityMissing || submitting}
+                >
+                  <CameraIcon />
+                </IconButton>
+              </HStack>
               <Field.Root>
                 <Field.Label>Alias (optional)</Field.Label>
                 <Input
@@ -1062,6 +1094,15 @@ function ContactModal({
           </Dialog.Footer>
         </Dialog.Content>
       </Dialog.Positioner>
+      <QrCodeScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        identityId={form.identityId}
+        onNpubScanned={(npub) => {
+          setForm((prev) => ({ ...prev, npub }));
+          setScannerOpen(false);
+        }}
+      />
     </Dialog.Root>
   );
 }
@@ -1169,6 +1210,7 @@ function Sidebar({
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
+  const [qrDisplayIdentity, setQrDisplayIdentity] = useState<NostlingIdentity | null>(null);
 
   return (
     <Box
@@ -1187,6 +1229,7 @@ function Sidebar({
           selectedId={selectedIdentityId}
           onSelect={onSelectIdentity}
           onOpenCreate={onOpenIdentityModal}
+          onShowQr={setQrDisplayIdentity}
         />
         <Separator borderColor={colors.borderSubtle} />
         <ContactList
@@ -1197,6 +1240,12 @@ function Sidebar({
           disabled={identities.length === 0}
         />
       </VStack>
+      <QrCodeDisplayModal
+        isOpen={qrDisplayIdentity !== null}
+        onClose={() => setQrDisplayIdentity(null)}
+        npub={qrDisplayIdentity?.npub || ''}
+        label={qrDisplayIdentity?.label}
+      />
     </Box>
   );
 }

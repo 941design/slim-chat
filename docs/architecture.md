@@ -85,8 +85,10 @@ src/
 │   ├── main.tsx    # React root
 │   ├── index.html  # HTML entry
 │   ├── components/ # UI components
-│   │   ├── RelayManager.tsx   # Relay configuration UI
-│   │   └── ThemeSelector.tsx  # Theme selection UI
+│   │   ├── RelayManager.tsx      # Relay configuration UI
+│   │   ├── ThemeSelector.tsx     # Theme selection UI
+│   │   ├── QrCodeScanner.tsx     # Camera-based QR scanning
+│   │   └── QrCodeDisplay.tsx     # QR code display modal
 │   ├── themes/     # Theme system
 │   │   ├── definitions.ts     # Theme registry and configs
 │   │   └── useTheme.ts        # Theme application logic
@@ -417,3 +419,103 @@ The application provides per-identity theme customization with 10 distinctive co
 - **Type safety**: Theme IDs validated at compile-time via TypeScript
 - **Performance**: Theme system creation memoized to avoid unnecessary recalculation
 - **Testability**: Property-based tests verify persistence, application, fallback, and identity switching
+
+## QR Code Contact Management
+
+The application provides camera-based QR code scanning for adding contacts and QR code display for sharing identity npub values.
+
+### Architecture
+
+**Dual Functionality:**
+1. **QR Code Scanning** - Camera-based scanning to add contacts
+2. **QR Code Display** - Show identity npub as scannable QR code
+
+**Scanner Integration:**
+- Integrated into contact modal via camera icon button
+- Uses html5-qrcode library for cross-platform camera access
+- Frame rate limited to 20fps for performance optimization
+- Automatic camera cleanup on modal close or component unmount
+
+**Display Integration:**
+- Accessible from identity list via QR code icon
+- Uses qrcode library to generate QR code from npub
+- Rendered as canvas element in modal dialog
+
+### Scanner Lifecycle
+
+**Initialization:**
+1. User clicks camera icon in contact modal
+2. Scanner requests camera permissions
+3. Camera stream starts at 20fps
+4. QR code detection begins
+
+**Detection:**
+1. Frame capture and QR code detection via html5-qrcode
+2. Successful detection extracts npub from QR code
+3. Scanner populates npub field in contact form
+4. User reviews and verifies npub before adding contact
+
+**Cleanup:**
+1. User closes modal or stops scanner
+2. Camera stream stopped via html5-qrcode.stop()
+3. Camera permissions released
+4. Lifecycle guards prevent double-cleanup
+
+### QR Code Display
+
+**Generation:**
+1. User clicks QR icon next to identity in identity list
+2. npub extracted from identity record
+3. QR code generated via qrcode.toCanvas()
+4. Canvas rendered in modal dialog
+
+**Theme Adaptation:**
+- QR codes adapt colors based on current theme
+- Light themes: dark foreground, light background
+- Dark themes: light foreground, dark background
+- Ensures scanability across all theme combinations
+
+### Data Integrity
+
+**Database Constraint:**
+- UNIQUE constraint on (identity_id, contact_npub) in contacts table
+- Prevents duplicate contacts within same identity
+- Different identities can have same contact (isolation)
+- Constraint enforced at database level for reliability
+
+### Performance Optimizations
+
+**Scanner Performance:**
+- Frame rate limited to 20fps (50ms between frames)
+- Prevents excessive CPU usage during scanning
+- Balances detection speed with resource efficiency
+
+**Resource Management:**
+- Camera cleanup on all exit paths (modal close, unmount, error)
+- Lifecycle guards prevent resource leaks
+- Proper async cleanup handling
+
+### User Workflow
+
+**Adding Contact via QR Scan:**
+1. User opens contact management modal
+2. Clicks camera icon to activate scanner
+3. Points camera at QR code containing npub
+4. Scanner detects QR code and populates npub field
+5. User reviews populated npub
+6. User adds contact (duplicate detection via database constraint)
+
+**Displaying Identity QR Code:**
+1. User navigates to identity list
+2. Clicks QR code icon next to desired identity
+3. Modal opens showing npub as scannable QR code
+4. Other users scan with their camera to add contact
+
+### Design Principles
+
+- **Camera lifecycle safety**: Proper cleanup on all exit paths
+- **Theme consistency**: QR codes adapt to current theme colors
+- **Performance**: Frame rate limiting prevents resource exhaustion
+- **Data integrity**: Database constraints prevent duplicates
+- **User control**: Scanner activation explicit via button click
+- **Testability**: Property-based tests verify scanner lifecycle, display, theme adaptation

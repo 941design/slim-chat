@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **QR Code Contact Management**: Scan QR codes to add contacts or display identity npub as scannable QR code
+  - Camera-based QR code scanning integrated into contact modal with camera icon button
+  - QR code display for identities accessible from identity list
+  - Theme-aware QR codes adapt foreground/background colors for light and dark themes
+  - Performance optimized with 20fps scanning frame rate limiting
+  - Proper camera lifecycle management with automatic cleanup and resource release
+  - Database UNIQUE constraint on (identity_id, contact_npub) prevents duplicate contacts
+  - Property-based integration tests: 14 tests covering scanner lifecycle, QR display, theme adaptation, and data integrity
+  - Total test suite: 920 tests, all passing with zero regressions
+
 ### Fixed
 - Fixed duplicate event ingestion in Nostling conversations (message deduplication)
   - Events with the same event_id can now be ingested only once per conversation (identity_id + contact_id pair)

@@ -206,6 +206,18 @@ export class NostlingService {
     return this.withErrorLogging('add contact', async () => {
       this.assertIdentityExists(request.identityId);
 
+      // Check for existing contact with same identity_id and npub
+      const existingStmt = this.database.prepare(
+        'SELECT id FROM nostr_contacts WHERE identity_id = ? AND npub = ?'
+      );
+      existingStmt.bind([request.identityId, request.npub]);
+      if (existingStmt.step()) {
+        const existingRow = existingStmt.getAsObject();
+        existingStmt.free();
+        throw new Error(`Contact with npub ${request.npub} already exists for this identity`);
+      }
+      existingStmt.free();
+
       const id = randomUUID();
       const now = new Date().toISOString();
       const alias = request.alias?.trim() || request.npub;

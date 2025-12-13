@@ -2,16 +2,9 @@
 
 A desktop messaging application built on the Nostr protocol with secure auto-updates, built with Electron, React, and TypeScript.
 
-# TODO
-
-+ color themes 5 choices
-+ create proper readme
-+ why sending queue and not immediately?
-
 ## Features
 
-+ scan contacts
-+ display QR
++ **QR code contact management** - Scan QR codes via camera or display npub as QR code
 + change aliases
 + remove contacts
 + menu
@@ -71,6 +64,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 - **Nostr encrypted messaging** with NIP-04 encryption via nostr-tools
 - **Identity management** - Create/import identities from nsec keys
 - **Contact whitelist** - Only receive messages from known contacts
+- **QR code contact management** - Scan QR codes via camera to add contacts or display identity npub as scannable QR code
 - **Relay connectivity** - WebSocket connections to Nostr relays with auto-reconnection
 - **Relay management** - Compact table with drag-and-drop reordering, per-relay read/write policies, and live connection status
 - **Offline support** - Queue messages when offline, publish when connectivity restored
@@ -116,6 +110,29 @@ Each identity can have its own visual theme, allowing you to distinguish identit
 4. Your theme choice is saved per-identity in the database
 
 Themes are applied instantly when selected and persist across application restarts. If you switch to a different identity, the app will display that identity's saved theme.
+
+### QR Code Contact Management
+
+Add contacts by scanning QR codes or share your identity's npub as a scannable QR code.
+
+**To scan a contact's QR code:**
+1. Open the contact management modal
+2. Click the camera icon button to activate the scanner
+3. Point your camera at a QR code containing a Nostr npub
+4. The scanned npub will populate the input field for review
+5. Verify the npub and add the contact
+
+**To display your identity as a QR code:**
+1. Navigate to the identity list
+2. Click the QR code icon next to your identity
+3. A modal displays your npub as a scannable QR code
+4. Other users can scan this with their camera to add you as a contact
+
+**Features:**
+- Theme-aware QR codes adapt colors for light and dark themes
+- Performance optimized with 20fps frame rate limiting
+- Automatic camera cleanup and resource management
+- Database constraint prevents duplicate contacts
 
 ## Quick Start
 
