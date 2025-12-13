@@ -2,6 +2,8 @@ export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 export type AutoCheckInterval = '1h' | '2h' | '4h' | '12h' | '24h' | 'never';
 
+export type MessagePollingInterval = '10s' | '30s' | '1m' | '5m' | 'disabled';
+
 export interface AppConfig {
   autoUpdate: boolean;
   logLevel: LogLevel;
@@ -9,6 +11,7 @@ export interface AppConfig {
   // or from devUpdateSource in dev mode
   autoUpdateBehavior?: 'manual' | 'auto-download'; // GAP-005
   autoCheckInterval?: AutoCheckInterval; // Auto-update footer feature: configurable check interval
+  messagePollingInterval?: MessagePollingInterval; // Message polling interval for catching missed events
   logRetentionDays?: number; // GAP-011
   logMaxFileSizeMB?: number; // GAP-011
   forceDevUpdateConfig?: boolean; // Dev mode: force update checks in unpacked app

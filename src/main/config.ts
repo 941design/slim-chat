@@ -1,13 +1,14 @@
 import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
-import { AppConfig, LogLevel, AutoCheckInterval } from '../shared/types';
+import { AppConfig, LogLevel, AutoCheckInterval, MessagePollingInterval } from '../shared/types';
 import { log } from './logging';
 
 const DEFAULT_CONFIG: AppConfig = {
   autoUpdate: true,
   logLevel: 'info',
   autoCheckInterval: '1h', // Auto-update footer: default to hourly checks
+  messagePollingInterval: '10s', // Message polling: default to 10 seconds
 };
 
 const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
@@ -44,10 +45,15 @@ function normalizeConfig(raw: any): AppConfig {
     ? raw.autoCheckInterval
     : DEFAULT_CONFIG.autoCheckInterval!;
 
+  const messagePollingInterval: MessagePollingInterval = ['10s', '30s', '1m', '5m', 'disabled'].includes(raw?.messagePollingInterval)
+    ? raw.messagePollingInterval
+    : DEFAULT_CONFIG.messagePollingInterval!;
+
   return {
     autoUpdate: typeof raw?.autoUpdate === 'boolean' ? raw.autoUpdate : DEFAULT_CONFIG.autoUpdate,
     logLevel,
     autoCheckInterval,
+    messagePollingInterval,
     // manifestUrl removed - manifest URL now always derived from GitHub repo in production
     // or from devUpdateSource in dev mode. Old configs with this field are ignored gracefully.
     autoUpdateBehavior: ['manual', 'auto-download'].includes(raw?.autoUpdateBehavior)

@@ -346,6 +346,37 @@ export class RelayPool {
     };
   }
 
+  /**
+   * Performs a one-shot query for events matching the filter.
+   * Used for polling/catch-up fetching alongside streaming subscriptions.
+   *
+   * @param filters - Array of NIP-01 filters (first filter is used)
+   * @param params - Optional parameters including maxWait timeout
+   * @returns Array of matching events
+   */
+  async querySync(filters: Filter[], params?: { maxWait?: number }): Promise<NostrEvent[]> {
+    const readableRelays = this.getReadableRelays();
+
+    if (readableRelays.length === 0) {
+      log('debug', 'querySync skipped: no readable relays');
+      return [];
+    }
+
+    const filterToUse = filters.length > 0 ? filters[0] : {};
+    const maxWait = params?.maxWait ?? 5000;
+
+    try {
+      log('debug', `querySync: querying ${readableRelays.length} relay(s) with maxWait=${maxWait}ms`);
+      const events = await this.pool.querySync(readableRelays, filterToUse, { maxWait });
+      log('debug', `querySync: received ${events.length} event(s)`);
+      return events as unknown as NostrEvent[];
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      log('warn', `querySync failed: ${errorMessage}`);
+      return [];
+    }
+  }
+
   getStatus(): Map<string, RelayStatus> {
     return new Map(this.statusMap);
   }

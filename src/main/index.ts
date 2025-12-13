@@ -376,6 +376,11 @@ async function setConfig(partial: Partial<AppConfig>): Promise<AppConfig> {
   if (partial.autoCheckInterval !== undefined) {
     restartAutoCheckTimer();
   }
+  // Message polling: restart if interval changed
+  if (partial.messagePollingInterval !== undefined && nostlingService) {
+    const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '10s');
+    nostlingService.startPolling(pollingMs);
+  }
   return config;
 }
 
@@ -398,6 +403,18 @@ function intervalToMilliseconds(interval: string): number {
     '24h': 86400000,  // 24 hours
   };
   return intervalMap[interval] || 3600000; // Default to 1h if unknown
+}
+
+// Helper function to convert message polling interval string to milliseconds
+function pollingIntervalToMilliseconds(interval: string): number {
+  const intervalMap: Record<string, number> = {
+    '10s': 10000,     // 10 seconds (default)
+    '30s': 30000,     // 30 seconds
+    '1m': 60000,      // 1 minute
+    '5m': 300000,     // 5 minutes
+    'disabled': 0,    // Disabled
+  };
+  return intervalMap[interval] || 10000; // Default to 10s if unknown
 }
 
 // Start automatic update check timer based on config
@@ -455,6 +472,10 @@ app.on('ready', async () => {
   const configDir = app.getPath('userData');
   nostlingService = new NostlingService(database, secretStore, configDir);
   await nostlingService.initialize();
+
+  // Start message polling based on config
+  const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '10s');
+  nostlingService.startPolling(pollingMs);
 
   // macOS: Clean up any stale DMG mounts from previous update attempts
   if (process.platform === 'darwin') {

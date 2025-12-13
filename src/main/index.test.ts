@@ -134,6 +134,9 @@ jest.mock('./nostling/service', () => ({
     getRelayConfig: jest.fn(),
     setRelayConfig: jest.fn(),
     retryFailedMessages: jest.fn(),
+    startPolling: jest.fn(),
+    stopPolling: jest.fn(),
+    pollMessages: jest.fn(() => Promise.resolve(0)),
   })),
 }));
 

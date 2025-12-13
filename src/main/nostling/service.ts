@@ -89,6 +89,8 @@ export class NostlingService {
   private subscriptions: Map<string, { close: () => void }> = new Map();
   private seenEventIds: Set<string> = new Set();
   private relayConfigManager: RelayConfigManager;
+  private pollingTimer: NodeJS.Timeout | null = null;
+  private pollingIntervalMs: number = 0;
 
   constructor(private readonly database: Database, private readonly secretStore: NostlingSecretStore, configDir: string, options: NostlingServiceOptions = {}) {
     this.online = Boolean(options.online);
@@ -560,6 +562,9 @@ export class NostlingService {
   async destroy(): Promise<void> {
     log('info', 'Shutting down nostling service');
 
+    // Stop polling timer
+    this.stopPolling();
+
     // Close all subscriptions
     for (const [identityId, subscription] of this.subscriptions.entries()) {
       subscription.close();
@@ -575,6 +580,97 @@ export class NostlingService {
 
     this.online = false;
     log('info', 'Nostling service shut down');
+  }
+
+  // ============================================================================
+  // Message Polling
+  // ============================================================================
+
+  /**
+   * Polls for recent messages from all relays as a catch-up mechanism.
+   * This supplements real-time streaming subscriptions to ensure messages
+   * aren't missed during brief disconnections.
+   *
+   * @returns Number of events processed (may include duplicates filtered by deduplication)
+   */
+  async pollMessages(): Promise<number> {
+    if (!this.relayPool) {
+      log('debug', 'Polling skipped: relay pool not initialized');
+      return 0;
+    }
+
+    const identities = await this.listIdentities();
+    if (identities.length === 0) {
+      log('debug', 'Polling skipped: no identities');
+      return 0;
+    }
+
+    let processedCount = 0;
+    // Lookback window: 5 minutes (catches messages during brief disconnections)
+    const sinceTimestamp = Math.floor((Date.now() - 5 * 60 * 1000) / 1000);
+
+    for (const identity of identities) {
+      const filters = await this.getKind4Filters(identity.id);
+      if (filters.length === 0) {
+        continue;
+      }
+
+      // Add 'since' filter to limit query scope
+      const pollFilters = filters.map(f => ({ ...f, since: sinceTimestamp }));
+
+      try {
+        const events = await this.relayPool.querySync(pollFilters, { maxWait: 5000 });
+
+        for (const event of events) {
+          // handleIncomingEvent uses seenEventIds for deduplication
+          this.handleIncomingEvent(identity.id, event);
+          processedCount++;
+        }
+      } catch (error) {
+        log('warn', `Polling failed for identity ${identity.id}: ${this.toErrorMessage(error)}`);
+      }
+    }
+
+    if (processedCount > 0) {
+      log('debug', `Polling processed ${processedCount} event(s)`);
+    }
+
+    return processedCount;
+  }
+
+  /**
+   * Starts periodic message polling at the specified interval.
+   *
+   * @param intervalMs - Polling interval in milliseconds (0 to disable)
+   */
+  startPolling(intervalMs: number): void {
+    this.stopPolling();
+
+    if (intervalMs <= 0) {
+      log('info', 'Message polling disabled');
+      return;
+    }
+
+    this.pollingIntervalMs = intervalMs;
+
+    this.pollingTimer = setInterval(() => {
+      this.pollMessages().catch(err => {
+        log('error', `Polling error: ${this.toErrorMessage(err)}`);
+      });
+    }, intervalMs);
+
+    log('info', `Message polling started (interval: ${intervalMs}ms)`);
+  }
+
+  /**
+   * Stops periodic message polling.
+   */
+  stopPolling(): void {
+    if (this.pollingTimer) {
+      clearInterval(this.pollingTimer);
+      this.pollingTimer = null;
+      log('info', 'Message polling stopped');
+    }
   }
 
   /**
