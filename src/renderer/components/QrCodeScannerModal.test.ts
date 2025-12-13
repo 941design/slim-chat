@@ -651,17 +651,17 @@ describe('QrCodeScannerModal - Property-Based Tests', () => {
 
     // Close once
     props = { ...props, isOpen: false };
-    let element2 = React.createElement(QrCodeScannerModal, props);
+    const element2 = React.createElement(QrCodeScannerModal, props);
     expect(element2.props.isOpen).toBe(false);
 
     // Close again (should be safe)
     props = { ...props, isOpen: false };
-    let element3 = React.createElement(QrCodeScannerModal, props);
+    const element3 = React.createElement(QrCodeScannerModal, props);
     expect(element3.props.isOpen).toBe(false);
 
     // Re-open should work
     props = { ...props, isOpen: true };
-    let element4 = React.createElement(QrCodeScannerModal, props);
+    const element4 = React.createElement(QrCodeScannerModal, props);
     expect(element4.props.isOpen).toBe(true);
   });
 

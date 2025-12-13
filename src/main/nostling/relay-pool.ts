@@ -110,7 +110,7 @@ export class RelayPool {
     // Pass WebSocket implementation directly to SimplePool for Node.js/Electron environment
     // The websocketImplementation option is supported at runtime but not in TypeScript types
     // enablePing: keeps connections alive by sending periodic pings (prevents idle disconnections)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     this.pool = new SimplePool({
       enableReconnect: true,
       enablePing: true,

@@ -152,11 +152,11 @@ describe('Bug: Message Deduplication on Restart', () => {
 
   it('verifies database-level deduplication within same session', async () => {
     // Initial session
-    let database = new SQL.Database();
+    const database = new SQL.Database();
     await runMigrations(database);
     const secretStore = new MemorySecretStore();
 
-    let service = new NostlingService(database, secretStore, '/tmp/nostling-test');
+    const service = new NostlingService(database, secretStore, '/tmp/nostling-test');
 
     const identity = await service.createIdentity({
       label: 'Test',
