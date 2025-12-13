@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed duplicate event ingestion in Nostling conversations (message deduplication)
+  - Events with the same event_id can now be ingested only once per conversation (identity_id + contact_id pair)
+  - Same event_id can appear in different conversations (per-conversation deduplication, not global)
+  - Root cause: No database-level unique constraint on (identity_id, contact_id, event_id)
+  - Added composite UNIQUE index on (identity_id, contact_id, event_id) for non-NULL event_id values
+  - Added service-level check for duplicate event_id before insertion
+  - Migration automatically cleans up existing duplicates (keeps newest by timestamp)
+  - Added regression tests to prevent recurrence
+  - Bug report: bug-reports/duplicate-event-ingestion.md
+
 ### Added
 - **Theme System**: Per-identity theme customization with 10 distinctive color schemes
   - 10 predefined themes: Light, Dark, Sunset, Ocean, Forest, Purple Haze, Ember, Twilight, Mint, Amber

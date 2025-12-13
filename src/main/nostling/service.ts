@@ -310,6 +310,23 @@ export class NostlingService {
         return null;
       }
 
+      // BUG FIX: Check for existing event_id per conversation before INSERT to prevent duplicates
+      // Root cause: No database-level check preventing duplicate event_id insertion per conversation
+      // Bug report: bug-reports/duplicate-event-ingestion.md
+      // Date: 2025-12-13
+      if (options.eventId) {
+        const existing = this.database.prepare(
+          'SELECT id FROM nostr_messages WHERE event_id = ? AND identity_id = ? AND contact_id = ?'
+        );
+        existing.bind([options.eventId, options.identityId, contact.id]);
+        if (existing.step()) {
+          existing.free();
+          log('info', `Duplicate event ${options.eventId} for conversation (identity: ${options.identityId}, contact: ${contact.id}) already ingested, skipping`);
+          return null;
+        }
+        existing.free();
+      }
+
       const now = options.timestamp || new Date().toISOString();
       const id = randomUUID();
 
