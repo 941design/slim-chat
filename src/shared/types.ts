@@ -135,6 +135,8 @@ export interface NostlingIdentity {
   npub: string;
   secretRef: string;
   label: string;
+  profileName?: string | null;
+  alias?: string | null;
   relays?: string[];
   theme?: string; // Theme ID for per-identity theming
   createdAt: string;
@@ -145,6 +147,7 @@ export interface NostlingContact {
   identityId: string;
   npub: string;
   alias: string;
+  profileName?: string | null;
   state: NostlingContactState;
   createdAt: string;
   lastMessageAt?: string;
