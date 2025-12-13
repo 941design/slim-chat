@@ -212,14 +212,14 @@ function StateTable() {
 }
 
 interface HeaderProps {
-  onShowHelp: () => void;
+  onShowAbout: () => void;
   onShowRelayConfig: () => void;
   currentTheme: ThemeId;
   onThemeChange: (themeId: ThemeId) => Promise<void>;
   identityId: string | null;
 }
 
-function Header({ onShowHelp, onShowRelayConfig, currentTheme, onThemeChange, identityId }: HeaderProps) {
+function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, identityId }: HeaderProps) {
   const colors = useThemeColors();
   return (
     <Box
@@ -282,8 +282,8 @@ function Header({ onShowHelp, onShowRelayConfig, currentTheme, onThemeChange, id
                 </Box>
                 <Menu.Separator borderColor={colors.borderSubtle} />
                 <Menu.Item
-                  value="help"
-                  onClick={onShowHelp}
+                  value="about"
+                  onClick={onShowAbout}
                   px="3"
                   py="2"
                   cursor="pointer"
@@ -291,7 +291,7 @@ function Header({ onShowHelp, onShowRelayConfig, currentTheme, onThemeChange, id
                 >
                   <HStack gap="2">
                     <HelpIcon />
-                    <Text color={colors.text}>Help</Text>
+                    <Text color={colors.text}>About</Text>
                   </HStack>
                 </Menu.Item>
               </Menu.Content>
@@ -1107,85 +1107,120 @@ function ContactModal({
   );
 }
 
-function HelpModal({
-  isOpen,
-  onClose,
+function AboutView({
+  onReturn,
+  nostlingStatusText,
+  queueSummary,
+  lastSync,
+  lastError,
+  onRetryFailed,
 }: {
-  isOpen: boolean;
-  onClose: () => void;
+  onReturn: () => void;
+  nostlingStatusText: string;
+  queueSummary: { queued: number; sending: number; errors: number; lastActivity?: string };
+  lastSync: string | null;
+  lastError: string | null;
+  onRetryFailed?: () => void;
 }) {
   const colors = useThemeColors();
+
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && onClose()}>
-      <Dialog.Backdrop />
-      <Dialog.Positioner>
-        <Dialog.Content maxW="500px" data-testid="help-modal">
-          <Dialog.Header>
-            <Dialog.Title>Help</Dialog.Title>
-          </Dialog.Header>
-          <Dialog.CloseTrigger />
-          <Dialog.Body>
-            <VStack align="start" gap="4">
-              <Box>
-                <Heading size="sm" color={colors.text} mb="2">
-                  About Nostling
-                </Heading>
-                <Text color={colors.textMuted} fontSize="sm">
-                  Nostling is a desktop messaging application built on the Nostr protocol.
-                  It provides secure, decentralized communication through end-to-end encrypted messages.
-                </Text>
-              </Box>
+    <Box
+      borderWidth="1px"
+      borderColor={colors.border}
+      borderRadius="md"
+      bg={colors.surfaceBgSubtle}
+      p="4"
+      data-testid="about-view"
+    >
+      <HStack justify="space-between" align="center" mb="4">
+        <Heading size="sm" color={colors.textMuted}>
+          About Nostling
+        </Heading>
+        <Button
+          size="sm"
+          variant="outline"
+          colorPalette="blue"
+          onClick={onReturn}
+          className="about-return-button"
+        >
+          Return
+        </Button>
+      </HStack>
 
-              <Box>
-                <Heading size="sm" color={colors.text} mb="2">
-                  Getting Started
-                </Heading>
-                <VStack align="start" gap="1">
-                  <Text color={colors.textMuted} fontSize="sm">
-                    1. Create or import an identity using the + button in the Identities section
-                  </Text>
-                  <Text color={colors.textMuted} fontSize="sm">
-                    2. Configure your relay servers in the menu → Relay Configuration
-                  </Text>
-                  <Text color={colors.textMuted} fontSize="sm">
-                    3. Add contacts using their npub (public key)
-                  </Text>
-                  <Text color={colors.textMuted} fontSize="sm">
-                    4. Start messaging!
-                  </Text>
-                </VStack>
-              </Box>
+      <Stack gap="4">
+        <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBg} p="4">
+          <Heading size="sm" color={colors.text} mb="2">
+            Nostling Overview
+          </Heading>
+          <Text color={colors.textMuted} fontSize="sm">
+            Nostling is a desktop messaging application built on the Nostr protocol. It provides secure,
+            decentralized communication through end-to-end encrypted messages.
+          </Text>
+        </Box>
 
-              <Box>
-                <Heading size="sm" color={colors.text} mb="2">
-                  Keyboard Shortcuts
-                </Heading>
-                <VStack align="start" gap="1">
-                  <HStack>
-                    <Badge colorPalette="gray" fontFamily="mono" fontSize="xs">Enter</Badge>
-                    <Text color={colors.textMuted} fontSize="sm">Send message</Text>
-                  </HStack>
-                </VStack>
-              </Box>
+        <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBg} p="4">
+          <Heading size="sm" color={colors.text} mb="2">
+            Getting Started
+          </Heading>
+          <VStack align="start" gap="2">
+            <Text color={colors.textMuted} fontSize="sm">
+              1. Create or import an identity using the + button in the Identities section.
+            </Text>
+            <Text color={colors.textMuted} fontSize="sm">
+              2. Configure your relay servers in the menu → Relay Configuration.
+            </Text>
+            <Text color={colors.textMuted} fontSize="sm">
+              3. Add contacts using their npub (public key).
+            </Text>
+            <Text color={colors.textMuted} fontSize="sm">
+              4. Start messaging!
+            </Text>
+          </VStack>
+        </Box>
 
-              <Box>
-                <Heading size="sm" color={colors.text} mb="2">
-                  Need More Help?
-                </Heading>
-                <Text color={colors.textMuted} fontSize="sm">
-                  Visit the project repository for documentation, bug reports, and feature requests.
-                </Text>
-              </Box>
-            </VStack>
-          </Dialog.Body>
-          <Dialog.Footer>
-            <Button variant="ghost" onClick={onClose}>
-              Close
-            </Button>
-          </Dialog.Footer>
-        </Dialog.Content>
-      </Dialog.Positioner>
-    </Dialog.Root>
+        <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBg} p="4">
+          <Heading size="sm" color={colors.text} mb="2">
+            Keyboard Shortcuts
+          </Heading>
+          <VStack align="start" gap="2">
+            <HStack>
+              <Badge colorPalette="gray" fontFamily="mono" fontSize="xs" bg={colors.surfaceBgSubtle}>
+                Enter
+              </Badge>
+              <Text color={colors.textMuted} fontSize="sm">
+                Send message
+              </Text>
+            </HStack>
+          </VStack>
+        </Box>
+
+        <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBg} p="4">
+          <Heading size="sm" color={colors.text} mb="3">
+            Nostling State
+          </Heading>
+          <NostlingStatusCard
+            statusText={nostlingStatusText}
+            queueSummary={queueSummary}
+            lastSync={lastSync}
+            lastError={lastError}
+            onRetryFailed={onRetryFailed}
+          />
+          <Box mt="3" borderWidth="1px" borderColor={colors.borderSubtle} borderRadius="md" bg={colors.surfaceBgSubtle} p="3">
+            <StateTable />
+          </Box>
+        </Box>
+
+        <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBg} p="4">
+          <Heading size="sm" color={colors.text} mb="2">
+            Need More Help?
+          </Heading>
+          <Text color={colors.textMuted} fontSize="sm">
+            Visit the project repository for documentation, bug reports, and feature requests.
+          </Text>
+        </Box>
+      </Stack>
+    </Box>
   );
 }
 
@@ -1250,7 +1285,7 @@ function Sidebar({
   );
 }
 
-type AppView = 'chat' | 'relay-config';
+type AppView = 'chat' | 'relay-config' | 'about';
 
 interface AppProps {
   onThemeChange: (themeId: ThemeId) => void;
@@ -1264,7 +1299,6 @@ function App({ onThemeChange }: AppProps) {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [identityModalOpen, setIdentityModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
-  const [helpModalOpen, setHelpModalOpen] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>('chat');
   const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('dark');
 
@@ -1396,9 +1430,26 @@ function App({ onThemeChange }: AppProps) {
     setCurrentView('relay-config');
   };
 
+  const handleShowAbout = () => {
+    setCurrentView('about');
+  };
+
   const handleReturnToChat = () => {
     setCurrentView('chat');
   };
+
+  useEffect(() => {
+    if (currentView !== 'about') return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setCurrentView('chat');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentView]);
 
   // Relay management methods
   const loadRelaysForIdentity = async (identityId: string) => {
@@ -1472,7 +1523,7 @@ function App({ onThemeChange }: AppProps) {
   return (
     <Flex className="app-shell" direction="column" h="100vh" bg={colors.appBg} data-testid="app-shell">
       <Header
-        onShowHelp={() => setHelpModalOpen(true)}
+        onShowAbout={handleShowAbout}
         onShowRelayConfig={handleShowRelayConfig}
         currentTheme={currentThemeId}
         onThemeChange={handleThemeChange}
@@ -1492,13 +1543,6 @@ function App({ onThemeChange }: AppProps) {
         <Box as="main" flex="1" p="4" overflowY="auto">
           {currentView === 'chat' ? (
             <Stack gap="4">
-              <NostlingStatusCard
-                statusText={nostling.nostlingStatusText}
-                queueSummary={nostling.queueSummary}
-                lastSync={nostling.lastSync}
-                lastError={nostling.lastError}
-                onRetryFailed={nostling.retryFailedMessages}
-              />
               <ConversationPane
                 identity={selectedIdentity}
                 contact={selectedContact}
@@ -1508,9 +1552,8 @@ function App({ onThemeChange }: AppProps) {
                 isRefreshing={messagesLoading}
                 queueSummary={nostling.queueSummary}
               />
-              <StateTable />
             </Stack>
-          ) : (
+          ) : currentView === 'relay-config' ? (
             <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} p="4" data-testid="relay-config-view">
               <HStack justify="space-between" mb="4">
                 <Heading size="sm" color={colors.textMuted}>
@@ -1543,6 +1586,15 @@ function App({ onThemeChange }: AppProps) {
                 <Text color={colors.textSubtle}>Select an identity to configure relays.</Text>
               )}
             </Box>
+          ) : (
+            <AboutView
+              onReturn={handleReturnToChat}
+              nostlingStatusText={nostling.nostlingStatusText}
+              queueSummary={nostling.queueSummary}
+              lastSync={nostling.lastSync}
+              lastError={nostling.lastError}
+              onRetryFailed={nostling.retryFailedMessages}
+            />
           )}
         </Box>
       </Flex>
@@ -1557,10 +1609,6 @@ function App({ onThemeChange }: AppProps) {
         onSubmit={handleAddContact}
         identities={nostling.identities}
         defaultIdentityId={selectedIdentityId}
-      />
-      <HelpModal
-        isOpen={helpModalOpen}
-        onClose={() => setHelpModalOpen(false)}
       />
       <RelayConflictModal
         isOpen={conflictModalOpen}

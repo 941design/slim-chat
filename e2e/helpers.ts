@@ -107,12 +107,29 @@ export async function navigateToRelayConfig(page: Page): Promise<void> {
 }
 
 /**
+ * Opens the hamburger menu and navigates to the About view.
+ */
+export async function navigateToAbout(page: Page): Promise<void> {
+  await page.locator('button[aria-label="Open menu"]').click();
+  await page.locator('[data-value="about"]').click();
+  await page.waitForSelector('[data-testid="about-view"]', { timeout: 5000 });
+}
+
+/**
  * Clicks the Done button in relay config to return to chat view.
  */
 export async function returnToChat(page: Page): Promise<void> {
   await page.locator('.relay-config-done-button').click();
   // Wait for conversation pane to be visible
   await page.waitForSelector('.conversation-pane', { timeout: 5000 });
+}
+
+/**
+ * Returns from the About view using the Return button.
+ */
+export async function returnFromAbout(page: Page): Promise<void> {
+  await page.locator('.about-return-button').click();
+  await page.waitForSelector('[data-testid="conversation-pane"]', { timeout: 5000 });
 }
 
 /**

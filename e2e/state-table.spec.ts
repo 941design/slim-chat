@@ -1,9 +1,10 @@
 import { test, expect } from './fixtures';
-import { waitForAppReady } from './helpers';
+import { waitForAppReady, navigateToAbout } from './helpers';
 
 test.describe('State Table Display', () => {
   test('should display state table or empty message in main area', async ({ page }) => {
     await waitForAppReady(page);
+    await navigateToAbout(page);
 
     // Either the table container or empty message should be visible
     const tableContainer = page.locator('.state-table-container');

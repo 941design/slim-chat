@@ -13,7 +13,7 @@
  */
 
 import { test, expect, type Page } from './fixtures';
-import { waitForAppReady, ensureIdentityExists } from './helpers';
+import { waitForAppReady, ensureIdentityExists, navigateToAbout } from './helpers';
 
 // Theme semantic color definitions for testing
 const THEME_COLORS = {
@@ -234,6 +234,7 @@ test.describe('Theme Components', () => {
   });
 
   test('should apply theme to nostling status card', async ({ page }) => {
+    await navigateToAbout(page);
     const statusCard = page.locator('[data-testid="nostling-status-card"]');
 
     // Verify status card exists
