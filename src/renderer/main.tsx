@@ -716,11 +716,6 @@ function MessageBubble({
   const colors = useThemeColors();
   return (
     <HStack justify={isOwn ? 'flex-end' : 'flex-start'} align="flex-end" mb="2" gap="2" data-testid="message-bubble">
-      {!isOwn && (
-        <Text fontSize="xs" color={colors.textSubtle}>
-          {formatTimestamp(message.timestamp)}
-        </Text>
-      )}
       <Box
         maxW="70%"
         bg={isOwn ? 'brand.900' : colors.surfaceBgSubtle}
@@ -740,11 +735,6 @@ function MessageBubble({
           <MessageStatusBadge status={message.status} />
         </HStack>
       </Box>
-      {isOwn && (
-        <Text fontSize="xs" color={colors.textSubtle}>
-          {formatTimestamp(message.timestamp)}
-        </Text>
-      )}
     </HStack>
   );
 }
@@ -754,8 +744,6 @@ interface ConversationPaneProps {
   contact: NostlingContact | null;
   messages: NostlingMessage[];
   onSend: (plaintext: string) => Promise<boolean>;
-  onRefresh: () => Promise<void>;
-  isRefreshing: boolean;
   queueSummary: { queued: number; sending: number; errors: number };
 }
 
@@ -764,8 +752,6 @@ function ConversationPane({
   contact,
   messages,
   onSend,
-  onRefresh,
-  isRefreshing,
   queueSummary,
 }: ConversationPaneProps) {
   const colors = useThemeColors();
@@ -825,33 +811,6 @@ function ConversationPane({
 
   return (
     <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle} className="conversation-pane" data-testid="conversation-pane">
-      <Flex align="center" justify="space-between" p="4" borderBottomWidth="1px" borderColor={colors.border}>
-        <Stack gap="1">
-          <Heading size="sm" color={colors.text}>
-            {contact.alias || contact.npub}
-          </Heading>
-          <HStack gap="2">
-            <Text color={colors.textSubtle} fontSize="sm">
-              {identity.label || identity.npub} → {contact.npub}
-            </Text>
-            <ContactStateBadge state={contact.state} />
-          </HStack>
-          <Text color={colors.textSubtle} fontSize="sm">
-            {queueText}
-          </Text>
-        </Stack>
-        <IconButton
-          size="sm"
-          aria-label="Refresh messages"
-          title="Refresh conversation"
-          onClick={onRefresh}
-          variant="ghost"
-          disabled={isRefreshing}
-        >
-          <RefreshIcon />
-        </IconButton>
-      </Flex>
-
       <Box ref={listRef} px="4" pt="4" pb="2" h="50vh" overflowY="auto" className="conversation-messages">
         {messages.length === 0 && (
           <Text color={colors.textSubtle} fontSize="sm">
@@ -1349,8 +1308,6 @@ function App({ onThemeChange }: AppProps) {
     return [...entries].sort((left, right) => left.timestamp.localeCompare(right.timestamp));
   }, [messageKey, nostling.messages]);
 
-  const messagesLoading = messageKey ? Boolean(nostling.loading.messages[messageKey]) : false;
-
   useEffect(() => {
     if (nostling.identities.length === 0) {
       setSelectedIdentityId(null);
@@ -1408,11 +1365,6 @@ function App({ onThemeChange }: AppProps) {
     });
 
     return Boolean(message);
-  };
-
-  const handleRefreshMessages = async () => {
-    if (!selectedIdentityId || !selectedContactId) return;
-    await nostling.refreshMessages(selectedIdentityId, selectedContactId);
   };
 
   useEffect(() => {
@@ -1542,8 +1494,6 @@ function App({ onThemeChange }: AppProps) {
                 contact={selectedContact}
                 messages={conversationMessages}
                 onSend={handleSendMessage}
-                onRefresh={handleRefreshMessages}
-                isRefreshing={messagesLoading}
                 queueSummary={nostling.queueSummary}
               />
             </Stack>
