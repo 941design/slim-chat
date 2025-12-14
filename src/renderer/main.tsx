@@ -81,6 +81,12 @@ const CopyIcon = () => (
   </svg>
 );
 
+const TrashIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+    <path d="M9 3v1H4v2h16V4h-5V3H9zm-1 6v9c0 1.1.9 2 2 2h4c1.1 0 2-.9 2-2V9H8zm3 2h2v7h-2v-7z" />
+  </svg>
+);
+
 const initialUpdateState: UpdateState = { phase: 'idle' };
 
 function useStatus() {
@@ -594,12 +600,14 @@ function ContactList({
   onSelect,
   onOpenAdd,
   disabled,
+  onRequestDelete,
 }: {
   contacts: NostlingContact[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   onOpenAdd: () => void;
   disabled: boolean;
+  onRequestDelete: (contact: NostlingContact) => void;
 }) {
   const colors = useThemeColors();
   return (
@@ -662,6 +670,21 @@ function ContactList({
                     _hover={{ color: colors.textMuted }}
                   >
                     <CopyIcon />
+                  </IconButton>
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    aria-label="Delete contact"
+                    title="Remove contact"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRequestDelete(contact);
+                    }}
+                    color={colors.textSubtle}
+                    _hover={{ color: colors.textMuted }}
+                    data-testid={`delete-contact-${contact.id}`}
+                  >
+                    <TrashIcon />
                   </IconButton>
                   <ContactStateBadge state={contact.state} />
                 </HStack>
@@ -1061,6 +1084,52 @@ function ContactModal({
   );
 }
 
+function DeleteContactDialog({
+  contact,
+  isOpen,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  contact: NostlingContact | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+  loading: boolean;
+}) {
+  const colors = useThemeColors();
+  const displayName = contact ? getPreferredDisplayName({ profileName: contact.profileName, alias: contact.alias, npub: contact.npub }) : '';
+
+  return (
+    <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && onClose()} closeOnInteractOutside={!loading}>
+      <Dialog.Backdrop />
+      <Dialog.Positioner>
+        <Dialog.Content data-testid="delete-contact-dialog">
+          <Dialog.Header>
+            <Dialog.Title>Remove contact</Dialog.Title>
+          </Dialog.Header>
+          <Dialog.CloseTrigger disabled={loading} />
+          <Dialog.Body>
+            <Text color={colors.text}>
+              Are you sure you want to remove {displayName || 'this contact'}?
+            </Text>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <HStack gap="2">
+              <Button variant="ghost" onClick={onClose} disabled={loading}>
+                Cancel
+              </Button>
+              <Button colorPalette="red" onClick={onConfirm} loading={loading} data-testid="confirm-delete-contact-button">
+                Delete
+              </Button>
+            </HStack>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
+  );
+}
+
 function AboutView({
   onReturn,
   nostlingStatusText,
@@ -1187,6 +1256,7 @@ function Sidebar({
   onSelectContact,
   onOpenIdentityModal,
   onOpenContactModal,
+  onRequestDeleteContact,
 }: {
   identities: NostlingIdentity[];
   contacts: Record<string, NostlingContact[]>;
@@ -1196,6 +1266,7 @@ function Sidebar({
   onSelectContact: (id: string) => void;
   onOpenIdentityModal: () => void;
   onOpenContactModal: () => void;
+  onRequestDeleteContact: (contact: NostlingContact) => void;
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
@@ -1227,6 +1298,7 @@ function Sidebar({
           onSelect={onSelectContact}
           onOpenAdd={onOpenContactModal}
           disabled={identities.length === 0}
+          onRequestDelete={onRequestDeleteContact}
         />
       </VStack>
       <QrCodeDisplayModal
@@ -1253,6 +1325,8 @@ function App({ onThemeChange }: AppProps) {
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [identityModalOpen, setIdentityModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [contactToDelete, setContactToDelete] = useState<NostlingContact | null>(null);
+  const [deletingContact, setDeletingContact] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>('chat');
   const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('dark');
 
@@ -1292,6 +1366,32 @@ function App({ onThemeChange }: AppProps) {
     } catch (error) {
       console.error('Failed to update theme:', error);
       throw error; // Let ThemeSelector handle the error display
+    }
+  };
+
+  const handleRequestDeleteContact = (contact: NostlingContact) => {
+    setContactToDelete(contact);
+  };
+
+  const handleCloseDeleteContact = () => {
+    if (!deletingContact) {
+      setContactToDelete(null);
+    }
+  };
+
+  const handleConfirmDeleteContact = async () => {
+    if (!contactToDelete) return;
+    setDeletingContact(true);
+    try {
+      const success = await nostling.removeContact(contactToDelete.id, contactToDelete.identityId);
+      if (success && selectedContactId === contactToDelete.id) {
+        setSelectedContactId(null);
+      }
+      if (success) {
+        setContactToDelete(null);
+      }
+    } finally {
+      setDeletingContact(false);
     }
   };
 
@@ -1492,6 +1592,7 @@ function App({ onThemeChange }: AppProps) {
           onSelectContact={setSelectedContactId}
           onOpenIdentityModal={() => setIdentityModalOpen(true)}
           onOpenContactModal={() => setContactModalOpen(true)}
+          onRequestDeleteContact={handleRequestDeleteContact}
         />
         <Box as="main" flex="1" p="4" overflowY="auto">
           {currentView === 'chat' ? (
@@ -1560,6 +1661,13 @@ function App({ onThemeChange }: AppProps) {
         onSubmit={handleAddContact}
         identities={nostling.identities}
         defaultIdentityId={selectedIdentityId}
+      />
+      <DeleteContactDialog
+        contact={contactToDelete}
+        isOpen={contactToDelete !== null}
+        onClose={handleCloseDeleteContact}
+        onConfirm={handleConfirmDeleteContact}
+        loading={deletingContact}
       />
       <RelayConflictModal
         isOpen={conflictModalOpen}

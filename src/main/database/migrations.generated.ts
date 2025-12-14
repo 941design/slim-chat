@@ -11,6 +11,7 @@ import * as migration1 from './migrations/20251212100000_create_nostling_tables'
 import * as migration2 from './migrations/20251213000000_add_theme_to_identities';
 import * as migration3 from './migrations/20251213120000_add_event_id_unique_constraint';
 import * as migration4 from './migrations/20251213130000_add_contacts_unique_constraint';
+import * as migration5 from './migrations/20251214100000_add_contact_deleted_at';
 
 export interface Migration {
   up: (knex: any) => Promise<void>;
@@ -23,6 +24,7 @@ export const MIGRATIONS_MAP: Record<string, Migration> = {
   '20251213000000_add_theme_to_identities': migration2,
   '20251213120000_add_event_id_unique_constraint': migration3,
   '20251213130000_add_contacts_unique_constraint': migration4,
+  '20251214100000_add_contact_deleted_at': migration5,
 };
 
 export const MIGRATION_NAMES: string[] = [
@@ -31,4 +33,5 @@ export const MIGRATION_NAMES: string[] = [
   '20251213000000_add_theme_to_identities',
   '20251213120000_add_event_id_unique_constraint',
   '20251213130000_add_contacts_unique_constraint',
+  '20251214100000_add_contact_deleted_at',
 ];

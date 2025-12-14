@@ -151,6 +151,7 @@ export interface NostlingContact {
   state: NostlingContactState;
   createdAt: string;
   lastMessageAt?: string;
+  deletedAt?: string;
 }
 
 export interface NostlingMessage {

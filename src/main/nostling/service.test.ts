@@ -128,6 +128,35 @@ describe('NostlingService', () => {
     expect((log as jest.Mock).mock.calls.some((call) => `${call[1]}`.includes('decryption failure'))).toBe(true);
   });
 
+  it('marks contacts as deleted while removing them from the active list', async () => {
+    const identity = await service.createIdentity({ label: 'Owner', nsec: 'secret', npub: 'npub-owner' });
+    const contact = await service.addContact({ identityId: identity.id, npub: 'npub-contact', alias: 'Friend' });
+
+    await service.removeContact(contact.id);
+
+    const contacts = await service.listContacts(identity.id);
+    expect(contacts).toHaveLength(0);
+
+    const stmt = database.prepare('SELECT deleted_at FROM nostr_contacts WHERE id = ? LIMIT 1');
+    stmt.bind([contact.id]);
+    expect(stmt.step()).toBe(true);
+    const deletedAt = stmt.getAsObject().deleted_at as string | null;
+    stmt.free();
+
+    expect(deletedAt).not.toBeNull();
+  });
+
+  it('allows recreating a contact npub after a soft delete', async () => {
+    const identity = await service.createIdentity({ label: 'Owner', nsec: 'secret', npub: 'npub-owner' });
+    const first = await service.addContact({ identityId: identity.id, npub: 'npub-reuse', alias: 'First' });
+
+    await service.removeContact(first.id);
+
+    const second = await service.addContact({ identityId: identity.id, npub: 'npub-reuse', alias: 'Second' });
+    expect(second.id).not.toBe(first.id);
+    expect(second.alias).toBe('Second');
+  });
+
   it('exposes the outgoing queue with status helpers', async () => {
     const identity = await service.createIdentity({ label: 'Sender', nsec: 'secret', npub: 'npub1' });
     const contact = await service.addContact({ identityId: identity.id, npub: 'npub2' });

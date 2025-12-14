@@ -49,6 +49,7 @@ interface ContactRow {
   state: NostlingContactState;
   created_at: string;
   last_message_at: string | null;
+  deleted_at: string | null;
 }
 
 interface MessageRow {
@@ -190,7 +191,7 @@ export class NostlingService {
 
   async listContacts(identityId: string): Promise<NostlingContact[]> {
     const stmt = this.database.prepare(
-      'SELECT id, identity_id, npub, alias, state, created_at, last_message_at FROM nostr_contacts WHERE identity_id = ? ORDER BY created_at ASC'
+      'SELECT id, identity_id, npub, alias, state, created_at, last_message_at, deleted_at FROM nostr_contacts WHERE identity_id = ? AND deleted_at IS NULL ORDER BY created_at ASC'
     );
     stmt.bind([identityId]);
 
@@ -208,7 +209,7 @@ export class NostlingService {
 
       // Check for existing contact with same identity_id and npub
       const existingStmt = this.database.prepare(
-        'SELECT id FROM nostr_contacts WHERE identity_id = ? AND npub = ?'
+        'SELECT id FROM nostr_contacts WHERE identity_id = ? AND npub = ? AND deleted_at IS NULL'
       );
       existingStmt.bind([request.identityId, request.npub]);
       if (existingStmt.step()) {
@@ -250,8 +251,15 @@ export class NostlingService {
   }
 
   async removeContact(contactId: string): Promise<void> {
+    const contact = this.getContact(contactId, { includeDeleted: true });
+    if (contact.deletedAt) {
+      log('info', `Contact ${contactId} already marked as deleted`);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    this.database.run('UPDATE nostr_contacts SET deleted_at = ?, last_message_at = NULL WHERE id = ?', [now, contactId]);
     this.database.run('DELETE FROM nostr_messages WHERE contact_id = ?', [contactId]);
-    this.database.run('DELETE FROM nostr_contacts WHERE id = ?', [contactId]);
     log('info', `Removed nostling contact ${contactId}`);
   }
 
@@ -949,6 +957,7 @@ export class NostlingService {
       state: row.state,
       createdAt: this.toIso(row.created_at),
       lastMessageAt: row.last_message_at ? this.toIso(row.last_message_at) : undefined,
+      deletedAt: row.deleted_at ? this.toIso(row.deleted_at) : undefined,
     };
   }
 
@@ -992,9 +1001,9 @@ export class NostlingService {
     return result;
   }
 
-  private getContact(contactId: string): NostlingContact {
+  private getContact(contactId: string, options?: { includeDeleted?: boolean }): NostlingContact {
     const stmt = this.database.prepare(
-      'SELECT id, identity_id, npub, alias, state, created_at, last_message_at FROM nostr_contacts WHERE id = ? LIMIT 1'
+      'SELECT id, identity_id, npub, alias, state, created_at, last_message_at, deleted_at FROM nostr_contacts WHERE id = ? LIMIT 1'
     );
     stmt.bind([contactId]);
     const hasRow = stmt.step();
@@ -1005,12 +1014,17 @@ export class NostlingService {
       throw new Error(`Contact not found: ${contactId}`);
     }
 
-    return this.mapContactRow(result);
+    const contact = this.mapContactRow(result);
+    if (!options?.includeDeleted && contact.deletedAt) {
+      throw new Error(`Contact not found: ${contactId}`);
+    }
+
+    return contact;
   }
 
   private findContactByNpub(identityId: string, npub: string): NostlingContact | null {
     const stmt = this.database.prepare(
-      'SELECT id, identity_id, npub, alias, state, created_at, last_message_at FROM nostr_contacts WHERE identity_id = ? AND npub = ? LIMIT 1'
+      'SELECT id, identity_id, npub, alias, state, created_at, last_message_at, deleted_at FROM nostr_contacts WHERE identity_id = ? AND npub = ? AND deleted_at IS NULL LIMIT 1'
     );
     stmt.bind([identityId, npub]);
     const hasRow = stmt.step();
