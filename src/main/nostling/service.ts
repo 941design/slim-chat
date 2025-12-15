@@ -30,6 +30,10 @@ import {
   NostrEvent
 } from './crypto';
 import { RelayPool, RelayEndpoint, Filter, PublishResult, RelayStatus } from './relay-pool';
+import {
+  resolveDisplayNameForContact,
+  resolveDisplayNameForIdentity
+} from './display-name-resolver';
 
 interface IdentityRow {
   id: string;
@@ -107,7 +111,20 @@ export class NostlingService {
 
     const identities: NostlingIdentity[] = [];
     while (stmt.step()) {
-      identities.push(this.mapIdentityRow(stmt.getAsObject() as unknown as IdentityRow));
+      const identity = this.mapIdentityRow(stmt.getAsObject() as unknown as IdentityRow);
+
+      let profileName: string;
+      try {
+        const resolution = resolveDisplayNameForIdentity(identity.id, this.database);
+        profileName = resolution.displayName;
+      } catch (error) {
+        profileName = identity.label;
+      }
+
+      identities.push({
+        ...identity,
+        profileName
+      });
     }
     stmt.free();
     return identities;
@@ -223,7 +240,20 @@ export class NostlingService {
 
     const contacts: NostlingContact[] = [];
     while (stmt.step()) {
-      contacts.push(this.mapContactRow(stmt.getAsObject() as unknown as ContactRow));
+      const contact = this.mapContactRow(stmt.getAsObject() as unknown as ContactRow);
+
+      let profileName: string;
+      try {
+        const resolution = resolveDisplayNameForContact(contact.id, this.database);
+        profileName = resolution.displayName;
+      } catch (error) {
+        profileName = contact.alias;
+      }
+
+      contacts.push({
+        ...contact,
+        profileName
+      });
     }
     stmt.free();
     return contacts;

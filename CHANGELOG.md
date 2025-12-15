@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Private Profile Sharing via NIP-59**: Share profile information privately with contacts using encrypted messages
+  - Private profiles shared per-contact via NIP-59 gift-wrapped messages
+  - Automatic profile distribution on contact addition
+  - Automatic broadcast to all contacts when profile is updated
+  - Profile reception and storage from contacts
+  - Display name precedence: alias > private profile > public profile > npub
+  - Hourly public profile discovery from configured relays
+  - Public profile existence indicators in UI
+  - Per-contact send state tracking to prevent redundant sends
+  - Database schema: nostr_profiles, nostr_profile_send_state, nostr_public_profile_presence tables
+  - 6 components implemented: profile-event-builder, profile-sender, profile-receiver, profile-persistence, profile-service-integration, profile-discovery
+  - Comprehensive test coverage: 121 tests (109 unit + 12 integration)
+  - All critical issues fixed: signature validation clarified, display precedence fixed, race conditions resolved
+  - Zero regressions vs baseline test suite
 - **QR Code Contact Management**: Scan QR codes to add contacts or display identity npub as scannable QR code
   - Camera-based QR code scanning integrated into contact modal with camera icon button
   - QR code display for identities accessible from identity list

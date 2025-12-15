@@ -8,6 +8,7 @@ A desktop messaging application built on the Nostr protocol with secure auto-upd
 - **Identity management** - Create/import identities from nsec keys
 - **Contact whitelist** - Only receive messages from known contacts
 - **QR code contact management** - Scan QR codes via camera to add contacts or display identity npub as scannable QR code
+- **Private profile sharing** - Share profile information privately with contacts via NIP-59 encrypted messages
 - **Relay connectivity** - WebSocket connections to Nostr relays with auto-reconnection
 - **Relay management** - Compact table with drag-and-drop reordering, per-relay read/write policies, and live connection status
 - **Offline support** - Queue messages when offline, publish when connectivity restored
@@ -53,6 +54,30 @@ Each identity can have its own visual theme, allowing you to distinguish identit
 4. Your theme choice is saved per-identity in the database
 
 Themes are applied instantly when selected and persist across application restarts. If you switch to a different identity, the app will display that identity's saved theme.
+
+### Private Profile Sharing
+
+Share your profile information privately with contacts using NIP-59 encrypted messages, without publishing to public relays.
+
+**How it works:**
+- Your private profile (name, about, picture, etc.) is shared only with your contacts via encrypted messages
+- When you add a contact, they automatically receive your current private profile
+- When you update your private profile, all your contacts receive the update automatically
+- Contacts' profiles are received and stored privately for display
+
+**Display name precedence:**
+- Alias (if you set a custom alias for a contact) takes highest priority
+- Private profile (received from the contact via encrypted message)
+- Public profile (discovered from relays as kind:0 metadata)
+- npub fallback (shortened npub if no profile available)
+
+**To manage your private profile:**
+1. Open your identity settings
+2. Edit your profile information (name, about, picture, etc.)
+3. Save - your profile is automatically sent to all contacts
+4. No data is published to public relays by this app
+
+**Note:** This app never publishes kind:0 public profile events. Your private profile is shared only with contacts you explicitly add via NIP-59 encrypted messages.
 
 ### QR Code Contact Management
 

@@ -315,6 +315,7 @@ function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, i
                 <Menu.Separator borderColor={colors.borderSubtle} />
                 <Menu.Item
                   value="about"
+                  data-value="about"
                   onClick={onShowAbout}
                   px="3"
                   py="2"
