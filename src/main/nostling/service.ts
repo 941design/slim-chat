@@ -38,7 +38,8 @@ import {
   enhanceIdentitiesWithProfilesSqlJs,
   enhanceContactsWithProfilesSqlJs
 } from './service-profile-status';
-import { schedulePublicProfileDiscovery } from './public-profile-discovery';
+import { schedulePublicProfileDiscovery, discoverPublicProfile } from './public-profile-discovery';
+import { handleReceivedWrappedEvent } from './profile-receiver';
 
 interface IdentityRow {
   id: string;
@@ -79,6 +80,11 @@ interface NostrKind4Filter extends Filter {
   kinds: [4];
   authors?: string[];
   '#p'?: string[];
+}
+
+interface NostrKind1059Filter extends Filter {
+  kinds: [1059];
+  '#p': string[];
 }
 
 export interface NostlingServiceOptions {
@@ -193,6 +199,10 @@ export class NostlingService {
       }
 
       log('info', `Created nostling identity ${id}`);
+
+      // Start subscription for the new identity
+      await this.startSubscription(id);
+
       return {
         id,
         npub: npubToStore,
@@ -292,7 +302,9 @@ export class NostlingService {
 
       const id = randomUUID();
       const now = new Date().toISOString();
-      const alias = request.alias?.trim() || request.npub;
+      // Store alias as provided (empty string if not set) - don't default to npub
+      // This allows profile name to take precedence when no alias is set
+      const alias = request.alias?.trim() || '';
 
       this.database.run(
         'INSERT INTO nostr_contacts (id, identity_id, npub, alias, state, created_at) VALUES (?, ?, ?, ?, ?, ?)',
@@ -310,14 +322,40 @@ export class NostlingService {
         plaintext: this.welcomeMessage,
       });
 
-      return {
+      // Trigger public profile discovery for the new contact
+      // Await completion so the returned contact has profile name populated
+      if (this.relayPool) {
+        try {
+          const pubkeyHex = npubToHex(request.npub);
+          await discoverPublicProfile(pubkeyHex, this.relayPool, this.database);
+        } catch (err) {
+          log('warn', `Failed to discover profile for new contact ${request.npub}: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+
+      // Re-resolve display name after profile discovery
+      let profileName: string;
+      try {
+        const resolution = resolveDisplayNameForContact(id, this.database);
+        profileName = resolution.displayName;
+      } catch {
+        profileName = alias || '';
+      }
+
+      // Create base contact and enhance with profile status
+      const baseContact: NostlingContact = {
         id,
         identityId: request.identityId,
         npub: request.npub,
         alias,
+        profileName,
         state: 'pending',
         createdAt: now,
       };
+
+      // Enhance with profileSource and picture
+      const [enhanced] = enhanceContactsWithProfilesSqlJs(this.database, [baseContact]);
+      return enhanced;
     });
   }
 
@@ -599,13 +637,9 @@ export class NostlingService {
     return retriedMessages;
   }
 
-  async getKind4Filters(identityId: string): Promise<NostrKind4Filter[]> {
+  async getSubscriptionFilters(identityId: string): Promise<Filter[]> {
     const identityNpub = this.getIdentityNpub(identityId);
     const contacts = await this.listContacts(identityId);
-
-    if (contacts.length === 0) {
-      return [];
-    }
 
     // Convert npubs to hex pubkeys for relay filters (Nostr protocol requirement)
     // Falls back to npub for test mode with placeholder values
@@ -613,20 +647,42 @@ export class NostlingService {
       isValidNpub(npub) ? npubToHex(npub) : npub;
 
     const identityPubkey = toHexOrPassthrough(identityNpub);
-    const contactPubkeys = contacts.map((contact) => toHexOrPassthrough(contact.npub));
 
-    return [
-      {
+    const filters: Filter[] = [];
+
+    // Kind 1059: NIP-59 gift wrap events (private profiles, etc.)
+    // These are received from ANY sender, addressed to our identity
+    const kind1059Filter: NostrKind1059Filter = {
+      kinds: [1059],
+      '#p': [identityPubkey],
+    };
+    filters.push(kind1059Filter);
+    log('info', `[getSubscriptionFilters] Kind 1059 filter for pubkey: ${identityPubkey}`);
+
+    // Kind 4: Direct messages (only if we have contacts)
+    if (contacts.length > 0) {
+      const contactPubkeys = contacts.map((contact) => toHexOrPassthrough(contact.npub));
+
+      const kind4FilterIncoming: NostrKind4Filter = {
         kinds: [4],
         authors: contactPubkeys,
         '#p': [identityPubkey],
-      },
-      {
+      };
+      const kind4FilterOutgoing: NostrKind4Filter = {
         kinds: [4],
         authors: [identityPubkey],
         '#p': contactPubkeys,
-      },
-    ];
+      };
+      filters.push(kind4FilterIncoming, kind4FilterOutgoing);
+    }
+
+    return filters;
+  }
+
+  // Backward compatibility alias (used in tests and polling)
+  async getKind4Filters(identityId: string): Promise<NostrKind4Filter[]> {
+    const filters = await this.getSubscriptionFilters(identityId);
+    return filters.filter((f): f is NostrKind4Filter => f.kinds?.includes(4)) as NostrKind4Filter[];
   }
 
   async getRelaysForIdentity(identityId: string): Promise<NostlingRelayEndpoint[]> {
@@ -662,8 +718,14 @@ export class NostlingService {
     await this.relayConfigManager.migrateFromDatabase(this.database, identities);
 
     // Load relays for the first identity (if exists)
+    // When NOSTLING_DEV_RELAY is set, always use it (even with no identities)
     let relays: NostlingRelayEndpoint[] = [];
-    if (identities.length > 0) {
+    const devRelayUrl = process.env.NOSTLING_DEV_RELAY;
+    if (devRelayUrl) {
+      // Dev/test mode: use only the dev relay
+      log('info', `Using dev relay for initialization: ${devRelayUrl}`);
+      relays = [{ url: devRelayUrl, read: true, write: true, order: 0 }];
+    } else if (identities.length > 0) {
       relays = await this.relayConfigManager.loadRelays(identities[0].id);
     } else {
       relays = DEFAULT_RELAYS;
@@ -872,12 +934,8 @@ export class NostlingService {
       existingDiscovery();
     }
 
-    // Build filters for this identity
-    const filters = await this.getKind4Filters(identityId);
-    if (filters.length === 0) {
-      log('info', `No filters for identity ${identityId} (no contacts yet)`);
-      return;
-    }
+    // Build filters for this identity (kind 4 DMs and kind 1059 gift wraps)
+    const filters = await this.getSubscriptionFilters(identityId);
 
     // Subscribe to relay pool
     const subscription = this.relayPool.subscribe(filters, (event) => {
@@ -903,9 +961,12 @@ export class NostlingService {
   }
 
   private handleIncomingEvent(identityId: string, event: NostrEvent): void {
+    log('debug', `[subscription] Received event kind ${event.kind} id ${event.id?.slice(0, 8)}... for identity ${identityId.slice(0, 8)}...`);
+
     // Deduplicate events per-identity (same event may be received by multiple identity subscriptions)
     const dedupeKey = `${identityId}:${event.id}`;
     if (this.seenEventIds.has(dedupeKey)) {
+      log('debug', `[subscription] Duplicate event ${event.id?.slice(0, 8)}..., skipping`);
       return;
     }
     this.seenEventIds.add(dedupeKey);
@@ -917,6 +978,14 @@ export class NostlingService {
   }
 
   private async processIncomingEvent(identityId: string, event: NostrEvent): Promise<void> {
+    // Route based on event kind
+    if (event.kind === 1059) {
+      // NIP-59 gift wrap: handle private profile or other wrapped content
+      await this.processGiftWrapEvent(identityId, event);
+      return;
+    }
+
+    // Kind 4: Direct message
     // Extract sender pubkey
     const senderPubkeyHex = event.pubkey;
     const senderNpub = hexToNpub(senderPubkeyHex);
@@ -951,6 +1020,27 @@ export class NostlingService {
       eventId: event.id,
       timestamp: new Date(event.created_at * 1000).toISOString()
     });
+  }
+
+  private async processGiftWrapEvent(identityId: string, event: NostrEvent): Promise<void> {
+    const recipientSecretKey = await this.loadSecretKey(identityId);
+
+    try {
+      const profileRecord = await handleReceivedWrappedEvent(event, recipientSecretKey, this.database);
+
+      if (profileRecord) {
+        log('info', `Received private profile from ${profileRecord.ownerPubkey.slice(0, 8)}...`);
+
+        // Notify all registered callbacks about profile update
+        for (const callback of this.profileUpdateCallbacks) {
+          callback(identityId);
+        }
+      }
+      // If profileRecord is null, the wrapped event wasn't a private profile (e.g., different kind)
+      // This is expected and not an error
+    } catch (error) {
+      log('warn', `Failed to process gift wrap event ${event.id}: ${this.toErrorMessage(error)}`);
+    }
   }
 
   private async loadSecretKey(identityId: string): Promise<Uint8Array> {

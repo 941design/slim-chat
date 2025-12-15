@@ -11,11 +11,12 @@
  * NOTE: Private profile handling tests may need additional integration work.
  */
 
-import { test, expect } from './fixtures';
+import { test, expect, Page } from './fixtures';
 import { waitForAppReady, ensureIdentityExists } from './helpers';
 import WebSocket from 'ws';
 import { generateSecretKey, getPublicKey, finalizeEvent } from 'nostr-tools/pure';
 import * as nip19 from 'nostr-tools/nip19';
+import { wrapEvent } from 'nostr-tools/nip59';
 
 // Relay URL - uses NOSTLING_DEV_RELAY from docker-compose.e2e.yml
 const RELAY_URL = process.env.NOSTLING_DEV_RELAY || 'ws://localhost:8080';
@@ -24,23 +25,37 @@ const RELAY_URL = process.env.NOSTLING_DEV_RELAY || 'ws://localhost:8080';
  * Send a nostr event directly to the relay via WebSocket
  */
 async function sendEventToRelay(event: any): Promise<void> {
+  console.log(`[sendEventToRelay] Sending event kind ${event.kind} id ${event.id?.slice(0, 8)}... to ${RELAY_URL}`);
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(RELAY_URL);
     const timeout = setTimeout(() => {
+      console.log('[sendEventToRelay] Timeout waiting for relay response');
       ws.close();
       reject(new Error('Timeout sending event to relay'));
     }, 5000);
 
     ws.on('open', () => {
+      console.log('[sendEventToRelay] WebSocket connected, sending event...');
       ws.send(JSON.stringify(['EVENT', event]));
+    });
+
+    ws.on('error', (err) => {
+      console.log('[sendEventToRelay] WebSocket error:', err.message);
     });
 
     ws.on('message', (data) => {
       const msg = JSON.parse(data.toString());
+      console.log('[sendEventToRelay] Relay response:', JSON.stringify(msg));
       if (msg[0] === 'OK' && msg[1] === event.id) {
         clearTimeout(timeout);
         ws.close();
-        resolve();
+        if (msg[2]) {
+          console.log('[sendEventToRelay] Event accepted by relay');
+          resolve();
+        } else {
+          console.log('[sendEventToRelay] Event REJECTED by relay:', msg[3]);
+          reject(new Error(`Relay rejected event: ${msg[3]}`));
+        }
       } else if (msg[0] === 'OK' && !msg[2]) {
         clearTimeout(timeout);
         ws.close();
@@ -83,6 +98,76 @@ function generateTestKeypair(): { secretKey: Uint8Array; pubkey: string; npub: s
   return { secretKey, pubkey, npub };
 }
 
+/**
+ * Get the identity's npub from the app UI
+ */
+async function getIdentityNpub(page: Page): Promise<string> {
+  const identityItem = page.locator('[data-testid^="identity-item-"]').first();
+  const npub = await identityItem.getAttribute('data-npub');
+  if (!npub) {
+    throw new Error('Could not get identity npub from UI');
+  }
+  return npub;
+}
+
+/**
+ * Private profile kind (NIP-78 application-specific data)
+ */
+const PRIVATE_PROFILE_KIND = 30078;
+
+/**
+ * Create a private profile event (kind 30078)
+ * This is the inner event that gets wrapped with NIP-59
+ */
+function createPrivateProfileEvent(
+  secretKey: Uint8Array,
+  profile: { name?: string; picture?: string; about?: string }
+): any {
+  const pubkey = getPublicKey(secretKey);
+  const event = {
+    kind: PRIVATE_PROFILE_KIND,
+    pubkey,
+    created_at: Math.floor(Date.now() / 1000),
+    tags: [['d', 'profile']],
+    content: JSON.stringify(profile),
+  };
+  // Note: For NIP-59 rumor, we create an unsigned event (no id/sig)
+  // The wrapEvent function expects an unsigned event template
+  return {
+    kind: event.kind,
+    pubkey: event.pubkey,
+    created_at: event.created_at,
+    tags: event.tags,
+    content: event.content,
+  };
+}
+
+/**
+ * Create and send a NIP-59 wrapped private profile event to the relay
+ */
+async function sendPrivateProfileToRelay(
+  senderSecretKey: Uint8Array,
+  recipientPubkey: string,
+  profile: { name?: string; picture?: string; about?: string }
+): Promise<void> {
+  // Create the inner profile event
+  const profileEvent = createPrivateProfileEvent(senderSecretKey, profile);
+  console.log('[NIP-59 TEST] Inner profile event:', JSON.stringify(profileEvent, null, 2));
+
+  // Wrap with NIP-59
+  const wrappedEvent = wrapEvent(profileEvent, senderSecretKey, recipientPubkey);
+  console.log('[NIP-59 TEST] Wrapped event kind:', wrappedEvent.kind);
+  console.log('[NIP-59 TEST] Wrapped event id:', wrappedEvent.id);
+  const pTag = wrappedEvent.tags?.find((t: string[]) => t[0] === 'p');
+  console.log('[NIP-59 TEST] Wrapped event p-tag:', pTag);
+  console.log('[NIP-59 TEST] Expected recipient:', recipientPubkey);
+
+  // Send to relay
+  console.log('[NIP-59 TEST] Sending wrapped event to relay...');
+  await sendEventToRelay(wrappedEvent);
+  console.log('[NIP-59 TEST] Wrapped event sent successfully');
+}
+
 test.describe('Profile Avatars - Public Profile Discovery', () => {
   test('should display public profile avatar for contact with kind:0 event', async ({ page }) => {
     await waitForAppReady(page);
@@ -99,19 +184,19 @@ test.describe('Profile Avatars - Public Profile Discovery', () => {
     });
     await sendEventToRelay(profileEvent);
 
-    // Add the contact to the app
+    // Add the contact to the app WITHOUT an alias to test profile name discovery
     await page.locator('button[aria-label="Add contact"]').click();
     await page.waitForSelector('text=Add Contact', { timeout: 5000 });
-    await page.locator('input[placeholder*="npub"]').fill(contact.npub);
-    await page.locator('input[placeholder*="Alias"]').fill('PublicProfileContact');
+    await page.locator('input[placeholder="npub..."]').fill(contact.npub);
+    // Leave alias blank to test profile name takes effect
     await page.locator('button:has-text("Save")').click();
     await page.waitForSelector('text=Add Contact', { state: 'hidden', timeout: 5000 });
 
-    // Wait for profile discovery to run (may need to trigger manually)
+    // Wait for profile discovery to run
     await page.waitForTimeout(3000);
 
-    // Verify contact appears in sidebar with avatar
-    const contactItem = page.locator('.contact-item').filter({ hasText: 'Test Contact' });
+    // Verify contact appears in sidebar with profile name from kind:0 event
+    const contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'Test Contact' });
     await expect(contactItem).toBeVisible({ timeout: 10000 });
 
     // Verify avatar shows public_discovered badge (green shield)
@@ -129,13 +214,13 @@ test.describe('Profile Avatars - Public Profile Discovery', () => {
     // Add the contact to the app
     await page.locator('button[aria-label="Add contact"]').click();
     await page.waitForSelector('text=Add Contact', { timeout: 5000 });
-    await page.locator('input[placeholder*="npub"]').fill(contact.npub);
-    await page.locator('input[placeholder*="Alias"]').fill('NoProfileContact');
+    await page.locator('input[placeholder="npub..."]').fill(contact.npub);
+    await page.locator('input[placeholder="Friend"]').fill('NoProfileContact');
     await page.locator('button:has-text("Save")').click();
     await page.waitForSelector('text=Add Contact', { state: 'hidden', timeout: 5000 });
 
     // Verify contact appears in sidebar
-    const contactItem = page.locator('.contact-item').filter({ hasText: 'NoProfileContact' });
+    const contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'NoProfileContact' });
     await expect(contactItem).toBeVisible({ timeout: 5000 });
 
     // Verify avatar shows letter (N for NoProfileContact) with no-profile badge
@@ -145,19 +230,42 @@ test.describe('Profile Avatars - Public Profile Discovery', () => {
 });
 
 test.describe('Profile Avatars - Private Profile Reception', () => {
-  test.skip('should display private profile avatar when received via NIP-59', async ({ page }) => {
-    // FAILING TEST: Private profile handling needs integration
+  test('should display private profile avatar when received via NIP-59', async ({ page }) => {
     await waitForAppReady(page);
     await ensureIdentityExists(page);
 
-    // This test requires:
-    // 1. Getting the identity's pubkey from the app
-    // 2. Creating a NIP-59 wrapped profile event
-    // 3. Sending it to the relay
-    // 4. Verifying the profile appears with private_received badge
+    // Generate a contact keypair (who will send us their private profile)
+    const contact = generateTestKeypair();
 
-    // For now, mark as failing - needs NIP-59 wrapping implementation in test
-    expect(true).toBe(false);
+    // Get the identity's npub and convert to hex pubkey for NIP-59 wrapping
+    const identityNpub = await getIdentityNpub(page);
+    const identityPubkey = nip19.decode(identityNpub).data as string;
+
+    // Add the contact first (so the app can associate the incoming profile)
+    await page.locator('button[aria-label="Add contact"]').click();
+    await page.waitForSelector('text=Add Contact', { timeout: 5000 });
+    await page.locator('input[placeholder="npub..."]').fill(contact.npub);
+    // Leave alias blank to test profile name takes effect
+    await page.locator('button:has-text("Save")').click();
+    await page.waitForSelector('text=Add Contact', { state: 'hidden', timeout: 5000 });
+
+    // Send a NIP-59 wrapped private profile from the contact to the identity
+    await sendPrivateProfileToRelay(contact.secretKey, identityPubkey, {
+      name: 'Private Profile Contact',
+      picture: 'https://example.com/private-avatar.jpg',
+      about: 'This is a private profile sent via NIP-59',
+    });
+
+    // Wait for profile to be received and processed
+    await page.waitForTimeout(3000);
+
+    // Verify contact appears with private profile name
+    const contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'Private Profile Contact' });
+    await expect(contactItem).toBeVisible({ timeout: 10000 });
+
+    // Verify avatar shows private_received badge (blue shield)
+    const privateBadge = contactItem.locator('[data-testid="profile-badge-private"]');
+    await expect(privateBadge).toBeVisible();
   });
 });
 
@@ -180,37 +288,59 @@ test.describe('Profile Avatars - Precedence Rules', () => {
     await expect(privateBadge).toBeVisible();
   });
 
-  test.skip('should prefer private_received over public_discovered for contacts', async ({ page }) => {
-    // FAILING TEST: Need both profile types
+  test('should prefer private_received over public_discovered for contacts', async ({ page }) => {
     await waitForAppReady(page);
     await ensureIdentityExists(page);
 
     // Generate a contact keypair
     const contact = generateTestKeypair();
 
-    // Send public profile
+    // Get the identity's pubkey for NIP-59 wrapping
+    const identityNpub = await getIdentityNpub(page);
+    const identityPubkey = nip19.decode(identityNpub).data as string;
+
+    // Send public profile first
     const publicProfile = createProfileEvent(contact.secretKey, {
       name: 'Public Name',
       picture: 'https://example.com/public.jpg',
     });
     await sendEventToRelay(publicProfile);
 
-    // TODO: Send private profile (NIP-59 wrapped) with different name
-    // const privateProfile = ... (needs NIP-59 implementation)
-
-    // Add contact
+    // Add contact (this will trigger public profile discovery)
     await page.locator('button[aria-label="Add contact"]').click();
     await page.waitForSelector('text=Add Contact', { timeout: 5000 });
-    await page.locator('input[placeholder*="npub"]').fill(contact.npub);
+    await page.locator('input[placeholder="npub..."]').fill(contact.npub);
+    // Leave alias blank to test profile name takes effect
     await page.locator('button:has-text("Save")').click();
     await page.waitForSelector('text=Add Contact', { state: 'hidden', timeout: 5000 });
 
-    // Wait for profile discovery
+    // Wait for public profile discovery
+    await page.waitForTimeout(2000);
+
+    // Verify public profile is initially shown
+    let contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'Public Name' });
+    await expect(contactItem).toBeVisible({ timeout: 10000 });
+
+    // Now send a private profile (should take precedence)
+    await sendPrivateProfileToRelay(contact.secretKey, identityPubkey, {
+      name: 'Private Name',
+      picture: 'https://example.com/private.jpg',
+    });
+
+    // Wait for private profile to be received and processed
     await page.waitForTimeout(3000);
 
     // Verify private_received takes precedence (should show Private Name, not Public Name)
-    // This test is expected to fail until NIP-59 private profile sending is implemented
-    expect(true).toBe(false);
+    contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'Private Name' });
+    await expect(contactItem).toBeVisible({ timeout: 10000 });
+
+    // Verify avatar shows private_received badge (not public)
+    const privateBadge = contactItem.locator('[data-testid="profile-badge-private"]');
+    await expect(privateBadge).toBeVisible();
+
+    // Verify public name is no longer shown
+    const publicContactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'Public Name' });
+    await expect(publicContactItem).not.toBeVisible();
   });
 });
 
@@ -233,8 +363,8 @@ test.describe('Profile Avatars - Profile vs Alias Precedence', () => {
     // Add contact with an alias
     await page.locator('button[aria-label="Add contact"]').click();
     await page.waitForSelector('text=Add Contact', { timeout: 5000 });
-    await page.locator('input[placeholder*="npub"]').fill(contact.npub);
-    await page.locator('input[placeholder*="Alias"]').fill('AliasName');
+    await page.locator('input[placeholder="npub..."]').fill(contact.npub);
+    await page.locator('input[placeholder="Friend"]').fill('AliasName');
     await page.locator('button:has-text("Save")').click();
     await page.waitForSelector('text=Add Contact', { state: 'hidden', timeout: 5000 });
 
@@ -242,11 +372,11 @@ test.describe('Profile Avatars - Profile vs Alias Precedence', () => {
     await page.waitForTimeout(3000);
 
     // Verify profile name is shown (ProfileDisplayName), not alias (AliasName)
-    const contactItem = page.locator('.contact-item').filter({ hasText: 'ProfileDisplayName' });
+    const contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'ProfileDisplayName' });
     await expect(contactItem).toBeVisible({ timeout: 10000 });
 
     // Verify alias is NOT shown as primary name
-    const aliasItem = page.locator('.contact-item').filter({ hasText: 'AliasName' });
+    const aliasItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'AliasName' });
     await expect(aliasItem).not.toBeVisible();
   });
 
@@ -261,13 +391,13 @@ test.describe('Profile Avatars - Profile vs Alias Precedence', () => {
     // Add contact with an alias
     await page.locator('button[aria-label="Add contact"]').click();
     await page.waitForSelector('text=Add Contact', { timeout: 5000 });
-    await page.locator('input[placeholder*="npub"]').fill(contact.npub);
-    await page.locator('input[placeholder*="Alias"]').fill('OnlyAlias');
+    await page.locator('input[placeholder="npub..."]').fill(contact.npub);
+    await page.locator('input[placeholder="Friend"]').fill('OnlyAlias');
     await page.locator('button:has-text("Save")').click();
     await page.waitForSelector('text=Add Contact', { state: 'hidden', timeout: 5000 });
 
     // Verify alias is shown (since no profile exists)
-    const contactItem = page.locator('.contact-item').filter({ hasText: 'OnlyAlias' });
+    const contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'OnlyAlias' });
     await expect(contactItem).toBeVisible({ timeout: 5000 });
   });
 });
@@ -291,7 +421,7 @@ test.describe('Profile Avatars - Profile Updates', () => {
     // Add contact
     await page.locator('button[aria-label="Add contact"]').click();
     await page.waitForSelector('text=Add Contact', { timeout: 5000 });
-    await page.locator('input[placeholder*="npub"]').fill(contact.npub);
+    await page.locator('input[placeholder="npub..."]').fill(contact.npub);
     await page.locator('button:has-text("Save")').click();
     await page.waitForSelector('text=Add Contact', { state: 'hidden', timeout: 5000 });
 
@@ -299,7 +429,7 @@ test.describe('Profile Avatars - Profile Updates', () => {
     await page.waitForTimeout(3000);
 
     // Verify initial name is shown
-    const initialItem = page.locator('.contact-item').filter({ hasText: 'InitialName' });
+    const initialItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'InitialName' });
     await expect(initialItem).toBeVisible({ timeout: 10000 });
 
     // Create and send updated profile event (newer timestamp)
@@ -314,7 +444,7 @@ test.describe('Profile Avatars - Profile Updates', () => {
     await page.waitForTimeout(5000);
 
     // Verify updated name is shown
-    const updatedItem = page.locator('.contact-item').filter({ hasText: 'UpdatedName' });
+    const updatedItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'UpdatedName' });
     await expect(updatedItem).toBeVisible({ timeout: 10000 });
 
     // Verify old name is no longer shown

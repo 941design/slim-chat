@@ -1,5 +1,7 @@
 import { test as base, _electron as electron, ElectronApplication, Page } from '@playwright/test';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 
 type ElectronFixtures = {
   electronApp: ElectronApplication;
@@ -7,7 +9,15 @@ type ElectronFixtures = {
 };
 
 export const test = base.extend<ElectronFixtures>({
-  electronApp: async ({}, use) => {
+  electronApp: async ({}, use, testInfo) => {
+    // Create a unique data directory for this test to ensure isolation
+    // This prevents identity/subscription accumulation across tests
+    const testDataDir = path.join(
+      process.env.NOSTLING_DATA_DIR || path.join(os.tmpdir(), 'nostling-e2e-data'),
+      `test-${testInfo.testId}-${Date.now()}`
+    );
+    fs.mkdirSync(testDataDir, { recursive: true });
+
     const launchArgs = [path.join(__dirname, '../dist/main/index.js')];
 
     // Add flags for Linux CI to handle headless environment
@@ -25,14 +35,21 @@ export const test = base.extend<ElectronFixtures>({
         ...process.env,
         NODE_ENV: 'test',
         ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
-        // Pass through env vars for dev/e2e environment isolation
-        ...(process.env.NOSTLING_DATA_DIR && { NOSTLING_DATA_DIR: process.env.NOSTLING_DATA_DIR }),
+        // Use isolated data directory for this test
+        NOSTLING_DATA_DIR: testDataDir,
         ...(process.env.NOSTLING_DEV_RELAY && { NOSTLING_DEV_RELAY: process.env.NOSTLING_DEV_RELAY }),
       },
     });
 
     await use(electronApp);
     await electronApp.close();
+
+    // Clean up test data directory after test completes
+    try {
+      fs.rmSync(testDataDir, { recursive: true, force: true });
+    } catch {
+      // Ignore cleanup errors
+    }
   },
 
   page: async ({ electronApp }, use) => {
@@ -46,4 +63,4 @@ export const test = base.extend<ElectronFixtures>({
   },
 });
 
-export { expect } from '@playwright/test';
+export { expect, Page } from '@playwright/test';

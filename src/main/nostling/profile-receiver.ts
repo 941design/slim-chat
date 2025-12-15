@@ -13,6 +13,7 @@ import { NostrEvent } from './crypto';
 import { unwrapEvent } from 'nostr-tools/nip59';
 import { verifyEvent } from 'nostr-tools/pure';
 import { randomUUID } from 'crypto';
+import { log } from '../logging';
 
 // ============================================================================
 // STUB: handleReceivedWrappedEvent
@@ -74,18 +75,22 @@ export async function handleReceivedWrappedEvent(
   recipientSecretKey: Uint8Array,
   database: Database
 ): Promise<ProfileRecord | null> {
+  log('debug', `[profile-receiver] handleReceivedWrappedEvent called for event ${wrappedEvent.id?.slice(0, 8)}...`);
   let rumor: any;
 
   try {
     rumor = await unwrapEvent(wrappedEvent, recipientSecretKey);
+    log('debug', `[profile-receiver] Successfully unwrapped event, inner kind: ${rumor.kind}`);
   } catch (error) {
-    console.warn('Failed to unwrap NIP-59 event:', error instanceof Error ? error.message : 'unknown error');
+    log('warn', `[profile-receiver] Failed to unwrap NIP-59 event: ${error instanceof Error ? error.message : 'unknown error'}`);
     return null;
   }
 
   if (rumor.kind !== PRIVATE_PROFILE_KIND) {
+    log('debug', `[profile-receiver] Ignoring non-profile event with kind ${rumor.kind} (expected ${PRIVATE_PROFILE_KIND})`);
     return null;
   }
+  log('debug', `[profile-receiver] Processing private profile from ${rumor.pubkey?.slice(0, 8)}...`);
 
   // NIP-59 rumors are unsigned by design - authentication comes from successful unwrapping
   // If unwrapEvent succeeded, the rumor is authentic (outer gift wrap was properly signed/decrypted)

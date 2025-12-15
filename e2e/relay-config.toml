@@ -1,0 +1,23 @@
+# nostr-rs-relay configuration for e2e tests
+# https://sr.ht/~gheartsfield/nostr-rs-relay/
+
+[info]
+relay_url = "ws://localhost:8080"
+name = "Nostling E2E Test Relay"
+description = "Test relay for Nostling e2e tests"
+
+[network]
+port = 8080
+address = "0.0.0.0"
+
+[limits]
+# Increase subscription limits for e2e tests (multiple identities/tests)
+max_subs_per_connection = 100
+max_connections = 256
+max_event_bytes = 131072
+max_ws_message_bytes = 131072
+max_ws_frame_bytes = 131072
+
+[database]
+engine = "sqlite"
+data_directory = "/tmp/nostr-data"

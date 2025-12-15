@@ -109,11 +109,11 @@ export class RelayPool {
   constructor() {
     // Pass WebSocket implementation directly to SimplePool for Node.js/Electron environment
     // The websocketImplementation option is supported at runtime but not in TypeScript types
-    // enablePing: keeps connections alive by sending periodic pings (prevents idle disconnections)
-     
+    // Note: enablePing was disabled due to compatibility issues with some relays that
+    // interpret WebSocket ping frames as nostr commands
+
     this.pool = new SimplePool({
       enableReconnect: true,
-      enablePing: true,
       websocketImplementation: WebSocket
     } as any);
     this.endpoints = new Map();
@@ -223,7 +223,8 @@ export class RelayPool {
     };
 
     try {
-      const sub = this.pool.subscribeMany(connectedRelays, keepaliveFilter, {
+      // Use pool.subscribe (not subscribeMany) to avoid nostr-tools bug
+      const sub = this.pool.subscribe(connectedRelays, keepaliveFilter, {
         onevent: () => {
           // This should never be called since filter won't match
         }
@@ -315,32 +316,55 @@ export class RelayPool {
     }
 
     const seenEvents = new Set<string>();
-    const subId = Math.random().toString(36).substring(2, 15);
+    const groupId = Math.random().toString(36).substring(2, 15);
 
-    const filterToUse = filters.length > 0 ? filters[0] : {};
+    // WORKAROUND: nostr-tools has a bug where passing an array of filters to pool.subscribe
+    // results in malformed REQ commands like ["REQ", "sub:1", [filter1, filter2]] instead of
+    // ["REQ", "sub:1", filter1, filter2]. To work around this, we create separate subscriptions
+    // for each filter and manage them as a group.
+    const filtersToUse = filters.length > 0 ? filters : [{}];
+    const subscriptions: SubCloser[] = [];
 
-    const sub = this.pool.subscribeMany(
-      readableRelays,
-      filterToUse,
-      {
-        onevent: (event: Event) => {
-          const nostrEvent = event as unknown as NostrEvent;
-          if (!seenEvents.has(nostrEvent.id)) {
-            seenEvents.add(nostrEvent.id);
-            onEvent(nostrEvent);
+    log('info', `[subscribe] Creating subscription group ${groupId} with ${filtersToUse.length} filter(s) on ${readableRelays.length} relay(s): ${readableRelays.join(', ')}`);
+    log('debug', `[subscribe] Filters: ${JSON.stringify(filtersToUse)}`);
+
+    // Create a separate subscription for each filter (passing single filter, not array)
+    for (const filter of filtersToUse) {
+      const sub = this.pool.subscribe(
+        readableRelays,
+        filter,  // Pass single filter object, NOT an array
+        {
+          onevent: (event: Event) => {
+            log('debug', `[subscribe] Received event kind ${event.kind} id ${event.id?.slice(0, 8)}...`);
+            const nostrEvent = event as unknown as NostrEvent;
+            if (!seenEvents.has(nostrEvent.id)) {
+              seenEvents.add(nostrEvent.id);
+              onEvent(nostrEvent);
+            }
           }
         }
-      }
-    );
+      );
+      subscriptions.push(sub);
+    }
 
-    this.activeSubscriptions.set(subId, { sub, seenEvents });
+    // Store subscription group for tracking
+    this.activeSubscriptions.set(groupId, {
+      sub: {
+        close: () => {
+          for (const sub of subscriptions) {
+            sub.close();
+          }
+        }
+      },
+      seenEvents
+    });
 
     return {
       close: () => {
-        const subscription = this.activeSubscriptions.get(subId);
+        const subscription = this.activeSubscriptions.get(groupId);
         if (subscription) {
           subscription.sub.close();
-          this.activeSubscriptions.delete(subId);
+          this.activeSubscriptions.delete(groupId);
         }
       }
     };

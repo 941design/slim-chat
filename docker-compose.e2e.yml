@@ -4,6 +4,8 @@ services:
     container_name: nostling-e2e-relay
     ports:
       - "8080:8080"
+    volumes:
+      - ./e2e/relay-config.toml:/usr/src/app/config.toml:ro
 
   e2e-test:
     build:

@@ -4,14 +4,13 @@
 + when hovering over icons, show purpose in footer
 + view and edit profiles
   + send profile info as wrapped NIP-59 kind:0 event
+  + create unit test to test fan out to all contacts in one wrapped event
 
 ** [#A]
 
 + amethyst: `[//]: # (nip18)`
   + developer mode
     + message meta data
-+ wrap profile messages in kind:4 messages
-  + fan out to all contacts
 + fetch profile name and picture if available
   + if no profile is available, show alias together with abbreviated npub
   + exchange profiles wrapped in kind:4 messages

@@ -661,6 +661,7 @@ function IdentityList({
               _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
               onClick={() => onSelect(identity.id)}
               data-testid={`identity-item-${identity.id}`}
+              data-npub={identity.npub}
               className={`group ${animationClass}`}
               position="relative"
             >
