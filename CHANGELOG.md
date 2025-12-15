@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Profile Avatars with Status Badges**: Visual profile representation with status indicators
+  - Avatar component displays profile pictures or letter circles based on display name
+  - Status badge overlay shows profile type: shield check (private), shield warning (public), shield off (none)
+  - Integrated in identity lists, contact lists, and conversation views
+  - XSS protection for profile picture URLs through sanitization
+  - WCAG AA compliant badge contrast with enhanced visibility (border and shadow)
+  - Backend profile enhancement with batch SQL queries for efficient loading
+  - Automatic fallback to letter circle when image fails to load
+  - Property-based integration tests: 28 tests covering avatar rendering, badge logic, and theme compatibility
+  - Total test suite: 1278 tests, all passing with zero regressions
 - **Private Profile Sharing via NIP-59**: Share profile information privately with contacts using encrypted messages
   - Private profiles shared per-contact via NIP-59 gift-wrapped messages
   - Automatic profile distribution on contact addition

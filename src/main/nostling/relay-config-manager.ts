@@ -175,6 +175,13 @@ export class RelayConfigManager {
     const configPath = this.getIdentityConfigPath(identityId);
     const configDir = path.dirname(configPath);
 
+    // When NOSTLING_DEV_RELAY is set, always use dev relay (overrides config file)
+    const devRelayUrl = process.env.NOSTLING_DEV_RELAY;
+    if (devRelayUrl) {
+      log('info', `[relay-config] Dev mode: using only dev relay ${devRelayUrl} (suppressing production relays)`);
+      return [{ url: devRelayUrl, read: true, write: true, order: 0 }];
+    }
+
     try {
       await this.ensureDirectoryExists(configDir);
 
@@ -193,7 +200,7 @@ export class RelayConfigManager {
         return relays;
       } catch (error: any) {
         if (error.code === 'ENOENT') {
-          // No config file - use default relays (may be dev relay if env var set)
+          // No config file - use default relays
           const defaultRelays = this.getDefaultRelays();
           const content = JSON.stringify(defaultRelays, null, 2);
           await fs.writeFile(configPath, content, { encoding: 'utf-8', mode: 0o600 });

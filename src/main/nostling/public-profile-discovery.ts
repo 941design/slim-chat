@@ -78,6 +78,7 @@ export async function discoverPublicProfile(
   relayPool: RelayPool,
   database: Database
 ): Promise<PublicProfilePresence> {
+  log('debug', `[public-profile-discovery] discoverPublicProfile called for pubkey: ${pubkey.slice(0, 8)}...`);
   const now = new Date().toISOString();
   const filter: Filter = { kinds: [0], authors: [pubkey], limit: 1 };
 
@@ -86,7 +87,9 @@ export async function discoverPublicProfile(
   let lastSeenEventId: string | null = null;
 
   try {
+    log('debug', `[public-profile-discovery] Querying relay pool with filter: ${JSON.stringify(filter)}`);
     const events = await relayPool.querySync([filter], { maxWait: 5000 });
+    log('debug', `[public-profile-discovery] Relay query returned ${events.length} events for pubkey ${pubkey.slice(0, 8)}...`);
 
     if (events.length === 0) {
       lastCheckSuccess = true;
@@ -121,12 +124,13 @@ export async function discoverPublicProfile(
           ]);
           stmt.free();
           database.run('COMMIT');
+          log('debug', `[public-profile-discovery] Stored public profile for pubkey ${pubkey.slice(0, 8)}... with event id ${event.id.slice(0, 8)}...`);
         } catch (dbError) {
           database.run('ROLLBACK');
           throw dbError;
         }
       } catch (parseError) {
-        log('warn', `Failed to parse kind:0 content for ${pubkey}: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+        log('warn', `[public-profile-discovery] Failed to parse kind:0 content for ${pubkey}: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
         exists = false;
         lastSeenEventId = null;
       }
@@ -233,6 +237,7 @@ export async function discoverPublicProfilesForIdentityAndContacts(
   relayPool: RelayPool,
   database: Database
 ): Promise<PublicProfilePresence[]> {
+  log('debug', `[public-profile-discovery] discoverPublicProfilesForIdentityAndContacts called for identity: ${identityId}`);
   const identityStmt = database.prepare('SELECT npub FROM nostr_identities WHERE id = ? LIMIT 1');
   identityStmt.bind([identityId]);
   const hasIdentity = identityStmt.step();
@@ -258,6 +263,7 @@ export async function discoverPublicProfilesForIdentityAndContacts(
   contactsStmt.free();
 
   const allPubkeys = [identityPubkey, ...contactPubkeys];
+  log('debug', `[public-profile-discovery] Discovering profiles for ${allPubkeys.length} pubkeys (1 identity + ${contactPubkeys.length} contacts)`);
   const results: PublicProfilePresence[] = [];
 
   for (const pubkey of allPubkeys) {
@@ -319,21 +325,32 @@ export async function discoverPublicProfilesForIdentityAndContacts(
 export function schedulePublicProfileDiscovery(
   identityId: string,
   relayPool: RelayPool,
-  database: Database
+  database: Database,
+  onProfilesUpdated?: (identityId: string, profilesFound: number) => void
 ): () => void {
+  log('info', `[public-profile-discovery] schedulePublicProfileDiscovery called for identity: ${identityId}`);
   const runDiscovery = async () => {
+    log('debug', `[public-profile-discovery] Running scheduled profile discovery for identity: ${identityId}`);
     try {
-      await discoverPublicProfilesForIdentityAndContacts(identityId, relayPool, database);
+      const results = await discoverPublicProfilesForIdentityAndContacts(identityId, relayPool, database);
+      const found = results.filter(r => r.exists).length;
+      log('info', `[public-profile-discovery] Scheduled discovery completed: ${found}/${results.length} profiles found`);
+      // Notify listeners that profiles may have been updated
+      if (onProfilesUpdated && found > 0) {
+        onProfilesUpdated(identityId, found);
+      }
     } catch (error) {
-      log('error', `Scheduled profile discovery failed: ${error instanceof Error ? error.message : String(error)}`);
+      log('error', `[public-profile-discovery] Scheduled profile discovery failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
   runDiscovery();
 
   const intervalId = setInterval(runDiscovery, 3600000);
+  log('debug', `[public-profile-discovery] Scheduled hourly profile discovery (interval id: ${intervalId})`);
 
   return () => {
+    log('debug', `[public-profile-discovery] Stopping scheduled profile discovery (interval id: ${intervalId})`);
     clearInterval(intervalId);
   };
 }

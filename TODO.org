@@ -2,7 +2,8 @@
 
 + clickable links
 + when hovering over icons, show purpose in footer
-+ send profile info as wrapped NIP-59 kind:0 event
++ view and edit profiles
+  + send profile info as wrapped NIP-59 kind:0 event
 
 ** [#A]
 

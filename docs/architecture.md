@@ -92,6 +92,9 @@ src/
 │   ├── main.tsx    # React root
 │   ├── index.html  # HTML entry
 │   ├── components/ # UI components
+│   │   ├── Avatar.tsx            # Base avatar with image/letter
+│   │   ├── AvatarWithBadge.tsx   # Avatar + status badge
+│   │   ├── avatar-icons.tsx      # Shield icon variants
 │   │   ├── RelayManager.tsx      # Relay configuration UI
 │   │   ├── ThemeSelector.tsx     # Theme selection UI
 │   │   ├── QrCodeScanner.tsx     # Camera-based QR scanning
@@ -102,7 +105,8 @@ src/
 │   └── utils/      # Utilities
 │       ├── themed-messages.ts    # Theme configuration
 │       ├── utils.themed.ts       # Update status theming
-│       └── state.themed.ts       # Nostling queue theming
+│       ├── state.themed.ts       # Nostling queue theming
+│       └── url-sanitizer.ts      # XSS protection for URLs
 └── shared/         # Shared types
     └── types.ts    # TypeScript definitions
 ```
@@ -526,6 +530,74 @@ The application provides camera-based QR code scanning for adding contacts and Q
 - **Data integrity**: Database constraints prevent duplicates
 - **User control**: Scanner activation explicit via button click
 - **Testability**: Property-based tests verify scanner lifecycle, display, theme adaptation
+
+## Profile Avatars with Status Badges
+
+The application displays visual profile representations with status indicators throughout the UI.
+
+### Architecture
+
+**Avatar Components:**
+
+1. **Avatar.tsx**: Base avatar component
+   - Displays profile picture from URL when available
+   - Falls back to letter circle (first letter of display name)
+   - XSS protection through URL sanitization
+   - Image error handling with automatic fallback
+   - Circular cropping and aspect ratio preservation
+
+2. **AvatarWithBadge.tsx**: Avatar with profile status overlay
+   - Combines base avatar with badge overlay
+   - Badge positioned at top-right corner
+   - Status determination based on ProfileSource
+   - WCAG AA compliant contrast (4.5:1)
+   - Enhanced visibility with border and shadow
+
+3. **avatar-icons.tsx**: Status badge icon components
+   - ShieldCheckIcon: Private profile (private_authored, private_received)
+   - ShieldWarningIcon: Public profile (public_discovered)
+   - ShieldOffIcon: No profile data (alias/npub fallback)
+   - Custom SVG components following project pattern
+
+4. **url-sanitizer.ts**: XSS protection utility
+   - Validates and sanitizes profile picture URLs
+   - Allows only http/https protocols
+   - Prevents javascript: and data: URL attacks
+   - Returns null for invalid URLs
+
+5. **service-profile-status.ts**: Backend profile enhancement
+   - Batch SQL queries for efficient profile loading
+   - Enriches identity and contact records with profileSource and picture
+   - Single query per list (no N+1 query problem)
+   - Integration with existing list handlers
+
+### Integration Points
+
+**Identity List:**
+- Avatar displays identity's own profile picture
+- Badge shows private_authored (private profile) or public_discovered status
+- 32px avatar size for list items
+
+**Contact List:**
+- Avatar displays contact's shared profile picture
+- Badge shows private_received (private profile) or public_discovered status
+- Same visual treatment as identity list for consistency
+
+**Profile Data Flow:**
+1. Frontend requests identity/contact list
+2. Backend queries profiles table with batch SQL
+3. Backend enriches records with profileSource and picture fields
+4. Frontend receives complete data for rendering
+5. Avatar component handles URL sanitization and fallback logic
+
+### Design Principles
+
+- **Security-first**: All profile picture URLs sanitized to prevent XSS
+- **Graceful degradation**: Image load failures fall back to letter circle
+- **Performance**: Batch queries avoid N+1 problem
+- **Accessibility**: WCAG AA contrast, semantic icons, proper alt text
+- **Consistency**: Same avatar treatment across all UI locations
+- **Theme compatibility**: Works with all 10 theme variants
 
 ## Private Profile Sharing
 

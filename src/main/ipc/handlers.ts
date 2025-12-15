@@ -39,6 +39,7 @@ interface NostlingIpcDependencies {
   reloadRelaysForIdentity: (identityId: string) => Promise<any>;
   getRelayStatus: () => Promise<Record<string, string>>;
   onRelayStatusChange: (callback: (url: string, status: string) => void) => void;
+  onProfileUpdated: (callback: (identityId: string) => void) => void;
 }
 
 /**
@@ -218,6 +219,11 @@ export function registerHandlers(dependencies: {
     ipcMain.on('nostling:relays:onStatusChange', (event, callback: (url: string, status: string) => void) => {
       dependencies.nostling!.onRelayStatusChange((url: string, status: string) => {
         event.sender.send('nostling:relay-status-changed', url, status);
+      });
+    });
+    ipcMain.on('nostling:profiles:onUpdated', (event) => {
+      dependencies.nostling!.onProfileUpdated((identityId: string) => {
+        event.sender.send('nostling:profile-updated', identityId);
       });
     });
   }

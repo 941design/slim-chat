@@ -71,6 +71,15 @@ Share your profile information privately with contacts using NIP-59 encrypted me
 - Public profile (discovered from relays as kind:0 metadata)
 - npub fallback (shortened npub if no profile available)
 
+**Profile avatars:**
+- Avatar displays profile picture when available, or first letter of display name
+- Status badge overlay indicates profile type:
+  - Shield check icon (private profile available)
+  - Shield warning icon (public profile discovered)
+  - Shield off icon (no profile data, using alias/npub)
+- Avatars appear in identity lists, contact lists, and conversation views
+- Profile pictures protected against XSS attacks through URL sanitization
+
 **To manage your private profile:**
 1. Open your identity settings
 2. Edit your profile information (name, about, picture, etc.)

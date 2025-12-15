@@ -34,6 +34,11 @@ import {
   resolveDisplayNameForContact,
   resolveDisplayNameForIdentity
 } from './display-name-resolver';
+import {
+  enhanceIdentitiesWithProfilesSqlJs,
+  enhanceContactsWithProfilesSqlJs
+} from './service-profile-status';
+import { schedulePublicProfileDiscovery } from './public-profile-discovery';
 
 interface IdentityRow {
   id: string;
@@ -93,6 +98,8 @@ export class NostlingService {
   private readonly welcomeMessage: string;
   private relayPool: RelayPool | null = null;
   private subscriptions: Map<string, { close: () => void }> = new Map();
+  private profileDiscoveryCleanups: Map<string, () => void> = new Map();
+  private profileUpdateCallbacks: Set<(identityId: string) => void> = new Set();
   private seenEventIds: Set<string> = new Set();
   private relayConfigManager: RelayConfigManager;
   private pollingTimer: NodeJS.Timeout | null = null;
@@ -126,8 +133,12 @@ export class NostlingService {
         profileName
       });
     }
+
+    // Enhance with profile status before freeing statement
+    const enhancedIdentities = enhanceIdentitiesWithProfilesSqlJs(this.database, identities);
+
     stmt.free();
-    return identities;
+    return enhancedIdentities;
   }
 
   async createIdentity(request: CreateIdentityRequest): Promise<NostlingIdentity> {
@@ -255,8 +266,12 @@ export class NostlingService {
         profileName
       });
     }
+
+    // Enhance with profile status before freeing statement
+    const enhancedContacts = enhanceContactsWithProfilesSqlJs(this.database, contacts);
+
     stmt.free();
-    return contacts;
+    return enhancedContacts;
   }
 
   async addContact(request: AddContactRequest): Promise<NostlingContact> {
@@ -698,6 +713,13 @@ export class NostlingService {
     }
     this.subscriptions.clear();
 
+    // Stop all profile discovery schedulers
+    for (const [identityId, cleanup] of this.profileDiscoveryCleanups.entries()) {
+      cleanup();
+      log('info', `Stopped profile discovery for identity ${identityId}`);
+    }
+    this.profileDiscoveryCleanups.clear();
+
     // Disconnect relay pool
     if (this.relayPool) {
       this.relayPool.disconnect();
@@ -824,6 +846,14 @@ export class NostlingService {
     }
   }
 
+  /**
+   * Register a callback to be notified when profile data is updated.
+   * This is called when public profile discovery finds new/updated profiles.
+   */
+  onProfileUpdated(callback: (identityId: string) => void): void {
+    this.profileUpdateCallbacks.add(callback);
+  }
+
   private async startSubscription(identityId: string): Promise<void> {
     if (!this.relayPool) {
       log('warn', `Cannot start subscription for identity ${identityId}: relay pool not initialized`);
@@ -834,6 +864,12 @@ export class NostlingService {
     const existing = this.subscriptions.get(identityId);
     if (existing) {
       existing.close();
+    }
+
+    // Stop existing profile discovery if any
+    const existingDiscovery = this.profileDiscoveryCleanups.get(identityId);
+    if (existingDiscovery) {
+      existingDiscovery();
     }
 
     // Build filters for this identity
@@ -850,6 +886,20 @@ export class NostlingService {
 
     this.subscriptions.set(identityId, subscription);
     log('info', `Started subscription for identity ${identityId}`);
+
+    // Schedule public profile discovery for this identity and its contacts
+    const discoveryCleanup = schedulePublicProfileDiscovery(
+      identityId,
+      this.relayPool,
+      this.database,
+      (updatedIdentityId) => {
+        // Notify all registered callbacks when profiles are updated
+        for (const callback of this.profileUpdateCallbacks) {
+          callback(updatedIdentityId);
+        }
+      }
+    );
+    this.profileDiscoveryCleanups.set(identityId, discoveryCleanup);
   }
 
   private handleIncomingEvent(identityId: string, event: NostrEvent): void {

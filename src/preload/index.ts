@@ -166,6 +166,15 @@ const api: RendererApi = {
         return () => ipcRenderer.removeListener('nostling:relay-status-changed', listener);
       },
     },
+    profiles: {
+      onUpdated(callback: (identityId: string) => void) {
+        // Register listener with main process
+        ipcRenderer.send('nostling:profiles:onUpdated');
+        const listener = (_: any, identityId: string) => callback(identityId);
+        ipcRenderer.on('nostling:profile-updated', listener);
+        return () => ipcRenderer.removeListener('nostling:profile-updated', listener);
+      },
+    },
   },
 };
 

@@ -45,6 +45,7 @@ import type { ThemeId } from './themes/definitions';
 import { QrCodeScannerModal } from './components/QrCodeScannerModal';
 import { QrCodeDisplayModal } from './components/QrCodeDisplayModal';
 import { CameraIcon, QrCodeIcon } from './components/qr-icons';
+import { AvatarWithBadge } from './components/AvatarWithBadge';
 import { getPreferredDisplayName } from './utils/sidebar';
 
 // Simple refresh icon component
@@ -705,6 +706,14 @@ function IdentityList({
                   </HStack>
                 ) : (
                   <HStack flex="1" gap="2">
+                    <AvatarWithBadge
+                      displayName={displayName}
+                      pictureUrl={identity.picture}
+                      profileSource={identity.profileSource}
+                      size={32}
+                      badgeBackgroundColor={colors.surfaceBg}
+                      badgeIconColor={colors.text}
+                    />
                     <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
                       {displayName}
                     </Text>
@@ -956,6 +965,14 @@ function ContactList({
                   </HStack>
                 ) : (
                   <HStack flex="1" gap="2">
+                    <AvatarWithBadge
+                      displayName={displayName}
+                      pictureUrl={contact.picture}
+                      profileSource={contact.profileSource}
+                      size={32}
+                      badgeBackgroundColor={colors.surfaceBg}
+                      badgeIconColor={colors.text}
+                    />
                     <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
                       {displayName}
                     </Text>

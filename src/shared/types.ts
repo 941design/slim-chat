@@ -140,6 +140,9 @@ export interface NostlingIdentity {
   relays?: string[];
   theme?: string; // Theme ID for per-identity theming
   createdAt: string;
+  // Profile avatar fields (populated from nostr_profiles table)
+  profileSource?: 'private_authored' | 'public_discovered' | null;
+  picture?: string | null;
 }
 
 export interface NostlingContact {
@@ -152,6 +155,9 @@ export interface NostlingContact {
   createdAt: string;
   lastMessageAt?: string;
   deletedAt?: string;
+  // Profile avatar fields (populated from nostr_profiles table)
+  profileSource?: 'private_received' | 'public_discovered' | null;
+  picture?: string | null;
 }
 
 export interface NostlingMessage {
@@ -242,5 +248,8 @@ export interface NostlingApi {
     reload(identityId: string): Promise<NostlingRelayEndpoint[]>;
     getStatus(): Promise<Record<string, 'connected' | 'connecting' | 'disconnected' | 'error'>>;
     onStatusChange(callback: (url: string, status: string) => void): () => void;
+  };
+  profiles: {
+    onUpdated(callback: (identityId: string) => void): () => void;
   };
 }

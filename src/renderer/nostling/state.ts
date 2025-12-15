@@ -497,6 +497,20 @@ export function useNostlingState() {
     hydrateAll();
   }, [hydrateAll]);
 
+  // Subscribe to profile updates from main process
+  useEffect(() => {
+    if (!hasBridge || !window.api.nostling?.profiles) return;
+
+    const unsubscribe = window.api.nostling.profiles.onUpdated((identityId: string) => {
+      // Refresh contacts for the identity whose profiles were updated
+      refreshContacts(identityId);
+      // Also refresh identities in case the identity's own profile was updated
+      refreshIdentities();
+    });
+
+    return unsubscribe;
+  }, [hasBridge, refreshContacts, refreshIdentities]);
+
   const queueSummary = useMemo(() => deriveQueueSummary(messages), [messages]);
 
   /**

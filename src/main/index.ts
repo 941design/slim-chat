@@ -526,6 +526,9 @@ app.on('ready', async () => {
       onRelayStatusChange: (callback) => {
         getNostlingService().onRelayStatusChange(callback);
       },
+      onProfileUpdated: (callback) => {
+        getNostlingService().onProfileUpdated(callback);
+      },
       retryFailedMessages: (identityId) => getNostlingService().retryFailedMessages(identityId),
     },
   });
