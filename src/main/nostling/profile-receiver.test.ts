@@ -4,7 +4,7 @@
  * Tests verify NIP-59 unwrapping, signature validation, and profile storage.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import fc from 'fast-check';
 import initSqlJs, { Database } from 'sql.js';
 import { handleReceivedWrappedEvent, getProfileForPubkey, getAllProfilesForPubkey } from './profile-receiver';
@@ -197,7 +197,10 @@ describe('Profile Receiver', () => {
       };
 
       const wrappedEvent = wrapEvent(innerEventTemplate, senderSK, recipientPK);
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       const result = await handleReceivedWrappedEvent(wrappedEvent as NostrEvent, recipientSK, db);
+      consoleSpy.mockRestore();
 
       expect(result).toBeNull();
     });

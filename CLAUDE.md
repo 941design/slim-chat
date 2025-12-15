@@ -4,6 +4,7 @@
 - ALL implementation guides you create MUST be optimized for/addressed at AI coding agents.
 - When asked for an opinion, always provide a critical, balanced assessment looking at both pros and cons.
 - Never rewrite git history.
+- When running e2e tests, never run the entire suite. use the `test-e2e-file` make target to run only a single test file.
 
 ## Documentation Guidelines
 

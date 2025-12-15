@@ -234,27 +234,24 @@ test.describe('Theme Components', () => {
   });
 
   test('should apply theme to nostling status card', async ({ page }) => {
+    // Switch to ocean theme BEFORE navigating to About
+    // (selectTheme uses Escape which can interfere with About view navigation)
+    await selectTheme(page, 'ocean');
+
+    // Now navigate to About view
     await navigateToAbout(page);
     const statusCard = page.locator('[data-testid="nostling-status-card"]');
 
-    // Verify status card exists
+    // Verify status card exists with ocean theme applied
     await expect(statusCard).toBeVisible();
 
-    // Get initial background
-    const initialBg = await statusCard.evaluate((el) =>
-      window.getComputedStyle(el).backgroundColor
-    );
-
-    // Switch to ocean theme
-    await selectTheme(page, 'ocean');
-
-    // The background should have changed
-    const newBg = await statusCard.evaluate((el) =>
+    // Get background color - should be themed (not transparent)
+    const bgColor = await statusCard.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
 
     // Backgrounds should not be fully transparent
-    expect(newBg).not.toBe('rgba(0, 0, 0, 0)');
+    expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
   });
 
   // Note: Theme persistence across reload is tested in theme-persistence.spec.ts

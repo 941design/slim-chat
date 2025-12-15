@@ -1,4 +1,4 @@
-.PHONY: help clean install build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-native test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks run-prod run-dev dev-relay-start dev-relay-stop dev-relay-logs dev-relay-clean dev-main dev-preload dev-renderer
+.PHONY: help clean install build test lint lint-fix lint-all package release sign-manifest test-e2e test-e2e-file test-e2e-native test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-clean test-all dev-update-release dev-update-prerelease dev-update-local local-release local-release-clean test-version-upgrade version-patch version-minor version-major install-hooks run-prod run-dev dev-relay-start dev-relay-stop dev-relay-logs dev-relay-clean dev-main dev-preload dev-renderer
 
 .DEFAULT_GOAL := help
 
@@ -98,6 +98,16 @@ test-watch: ## Run unit tests in watch mode
 
 test-e2e: ## Run E2E tests in Docker (sandboxed, default)
 	npm run test:e2e:docker
+
+test-e2e-file: ## Run single E2E test file in Docker (FILE=e2e/foo.spec.ts)
+	@if [ -z "$(FILE)" ]; then \
+		echo "Usage: make test-e2e-file FILE=e2e/profile-avatars.spec.ts"; \
+		echo ""; \
+		echo "Available test files:"; \
+		ls -1 e2e/*.spec.ts 2>/dev/null || echo "  (none found)"; \
+		exit 1; \
+	fi
+	TEST_FILE=$(FILE) docker-compose -f docker-compose.e2e.yml up --build --abort-on-container-exit
 
 test-e2e-native: ## Run E2E tests directly (no container)
 	npm run test:e2e

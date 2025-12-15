@@ -197,9 +197,15 @@ describe('Theme Definitions', () => {
     });
 
     it('should return dark theme for invalid IDs', () => {
-      expect(getTheme('invalid')).toEqual(THEME_REGISTRY.dark);
-      expect(getTheme('unknown-theme')).toEqual(THEME_REGISTRY.dark);
-      expect(getTheme('Light')).toEqual(THEME_REGISTRY.dark); // Case sensitive
+      const originalWarn = console.warn;
+      console.warn = () => {}; // Suppress expected warnings during test
+      try {
+        expect(getTheme('invalid')).toEqual(THEME_REGISTRY.dark);
+        expect(getTheme('unknown-theme')).toEqual(THEME_REGISTRY.dark);
+        expect(getTheme('Light')).toEqual(THEME_REGISTRY.dark); // Case sensitive
+      } finally {
+        console.warn = originalWarn;
+      }
     });
 
     it('should return dark theme for null and undefined', () => {

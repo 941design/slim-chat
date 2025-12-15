@@ -39,9 +39,6 @@ describe('Bug: Manifest missing artifacts', () => {
     );
 
     expect(manifestInBuild).toBe(false);
-    console.log('\n=== BUILD JOB VERIFICATION ===');
-    console.log('Manifest generation in build job:', manifestInBuild ? 'YES (BUG!)' : 'NO (CORRECT)');
-    console.log('Fix: Manifest generation removed from per-platform build job');
 
     // VERIFY FIX PART 2: Create-release job should generate manifest
     const releaseSteps = createReleaseJob.steps.map((step: { name: string }) => step.name);
@@ -50,8 +47,6 @@ describe('Bug: Manifest missing artifacts', () => {
     );
 
     expect(manifestInRelease).toBe(true);
-    console.log('\n=== CREATE-RELEASE JOB VERIFICATION ===');
-    console.log('Manifest generation in create-release job:', manifestInRelease ? 'YES (CORRECT)' : 'NO (BUG!)');
 
     // VERIFY FIX PART 3: Manifest step comes AFTER artifact download
     const downloadIndex = releaseSteps.indexOf('Download all artifacts');
@@ -64,25 +59,9 @@ describe('Bug: Manifest missing artifacts', () => {
     expect(consolidateIndex).toBeGreaterThan(downloadIndex);
     expect(manifestIndex).toBeGreaterThan(consolidateIndex);
 
-    console.log('\n=== STEP ORDER VERIFICATION ===');
-    console.log(`Step ${downloadIndex + 1}: Download all artifacts`);
-    console.log(`Step ${consolidateIndex + 1}: Consolidate artifacts for manifest generation`);
-    console.log(`Step ${manifestIndex + 1}: Generate manifest with all platform artifacts`);
-    console.log('Order correct: Download → Consolidate → Generate Manifest');
-
     // VERIFY FIX PART 4: NOSTLING_RSA_PRIVATE_KEY available in create-release job
     expect(createReleaseJob.env).toBeDefined();
     expect(createReleaseJob.env.NOSTLING_RSA_PRIVATE_KEY).toBeDefined();
-    console.log('\n=== ENVIRONMENT VERIFICATION ===');
-    console.log('NOSTLING_RSA_PRIVATE_KEY configured:', createReleaseJob.env.NOSTLING_RSA_PRIVATE_KEY ? 'YES' : 'NO');
-
-    console.log('\n=== FIX SUMMARY ===');
-    console.log('✓ Manifest generation moved from build job to create-release job');
-    console.log('✓ Manifest generated AFTER all platform artifacts downloaded');
-    console.log('✓ All artifacts consolidated before manifest generation');
-    console.log('✓ RSA private key available for signing');
-    console.log('\nBug report: bug-reports/manifest-missing-artifacts-report.md');
-    console.log('Fixed: 2025-12-07');
   });
 
   it('verifies consolidation step copies artifacts from all platforms', () => {
@@ -115,13 +94,6 @@ describe('Bug: Manifest missing artifacts', () => {
     // Verify it uses recursive pattern to find artifacts from all platform subdirectories
     expect(script).toContain('release-artifacts/**/*.dmg');
     expect(script).toContain('release-artifacts/**/*.AppImage');
-
-    console.log('\n=== CONSOLIDATION SCRIPT VERIFICATION ===');
-    console.log('Creates dist directory: ✓');
-    console.log('Copies macOS artifacts (*.dmg): ✓');
-    console.log('Copies Linux artifacts (*.AppImage): ✓');
-    console.log('Uses recursive glob (release-artifacts/**/*): ✓');
-    console.log('\nScript ensures all platform artifacts available for manifest generation');
   });
 
   it('verifies manifest is moved to release-artifacts for upload', () => {
@@ -146,69 +118,6 @@ describe('Bug: Manifest missing artifacts', () => {
     // Verify manifest is moved from dist/ to release-artifacts/
     expect(script).toContain('dist/manifest.json');
     expect(script).toContain('release-artifacts/');
-
-    console.log('\n=== MANIFEST MOVE VERIFICATION ===');
-    console.log('Moves manifest.json from dist/ to release-artifacts/: ✓');
-    console.log('\nEnsures upload step can find manifest at release-artifacts/manifest.json');
   });
 
-  it('documents the execution flow: matrix builds → download → consolidate → generate', () => {
-    // DOCUMENTATION:
-    // This test documents the complete flow from matrix builds to manifest generation
-
-    console.log('\n=== COMPLETE EXECUTION FLOW ===');
-    console.log('\n1. BUILD JOB (matrix: ubuntu-latest, macos-13):');
-    console.log('   ubuntu-latest:');
-    console.log('     - Build → Creates Nostling-x.y.z-x86_64.AppImage in dist/');
-    console.log('     - Upload artifacts from dist/ to nostling-ubuntu-latest/');
-    console.log('   macos-13:');
-    console.log('     - Build → Creates Nostling-x.y.z.dmg in dist/');
-    console.log('     - Upload artifacts from dist/ to nostling-macos-13/');
-    console.log('\n2. CREATE-RELEASE JOB (runs on ubuntu-latest):');
-    console.log('   - Download artifacts → release-artifacts/nostling-ubuntu-latest/dist/');
-    console.log('                        → release-artifacts/nostling-macos-13/dist/');
-    console.log('   - Consolidate artifacts:');
-    console.log('     cp release-artifacts/**/*.dmg dist/');
-    console.log('     cp release-artifacts/**/*.AppImage dist/');
-    console.log('     Result: dist/ now contains .dmg AND .AppImage');
-    console.log('   - Generate manifest:');
-    console.log('     npm run sign:manifest (scans dist/ for all artifacts)');
-    console.log('     Result: manifest.json includes BOTH platforms');
-    console.log('   - Move manifest:');
-    console.log('     mv dist/manifest.json release-artifacts/');
-    console.log('   - Upload all files to GitHub release');
-    console.log('\n=== KEY INSIGHT ===');
-    console.log('Manifest generation sees ALL artifacts because:');
-    console.log('1. It runs AFTER download-artifact@v4 completes');
-    console.log('2. Consolidation step copies artifacts from ALL platform subdirectories');
-    console.log('3. sign:manifest script scans dist/ which now contains everything');
-    console.log('\nBug report: bug-reports/manifest-missing-artifacts-report.md');
-  });
-
-  it('reproduces the original bug: manifest generated per-platform', () => {
-    // BUG REPRODUCTION:
-    // This test documents what the original bug looked like
-
-    console.log('\n=== ORIGINAL BUG (BEFORE FIX) ===');
-    console.log('\nProblem: Manifest generated in build job on ubuntu-latest only');
-    console.log('\nExecution flow:');
-    console.log('1. ubuntu-latest build:');
-    console.log('   - Creates Nostling-x.y.z-x86_64.AppImage in dist/');
-    console.log('   - Generates manifest (ONLY sees .AppImage in dist/)');
-    console.log('   - Manifest contains only Linux artifact');
-    console.log('   - Uploads dist/ including incomplete manifest');
-    console.log('\n2. macos-13 build (parallel):');
-    console.log('   - Creates Nostling-x.y.z.dmg in dist/');
-    console.log('   - NO manifest generation (skipped by if: matrix.os == ubuntu-latest)');
-    console.log('   - Uploads dist/ without manifest');
-    console.log('\n3. create-release job:');
-    console.log('   - Downloads artifacts');
-    console.log('   - Uploads to GitHub release');
-    console.log('   - Result: Manifest missing .dmg artifact!');
-    console.log('\nRoot cause: Manifest generated before macOS artifacts available');
-    console.log('Impact: macOS users cannot auto-update (no update path in manifest)');
-
-    // The fix moves manifest generation to create-release job after all downloads
-    expect(true).toBe(true); // Test documents the bug, assertion is symbolic
-  });
 });

@@ -61,10 +61,7 @@ describe('Regression: WebSocket implementation in Node.js environment', () => {
     // Accept both 'connected' (success) and 'error' (network issue)
     // But 'error' should NOT be due to "WebSocket is not defined"
     expect(['connected', 'error']).toContain(finalStatus);
-
-    console.log('Connection status =', finalStatus);
-    console.log('Status changes:', statusChanges);
-  });
+  }, 15000); // Network test needs more time
 
   it('should have WebSocket implementation configured', () => {
     // Verify that ws package provides WebSocket functionality

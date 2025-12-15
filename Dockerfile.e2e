@@ -71,6 +71,7 @@ ENV CI=true
 ENV NODE_ENV=test
 
 # Create a startup script for better output visibility
+# Supports TEST_FILE env var for running a single test file
 RUN echo '#!/bin/bash\n\
 set -e\n\
 echo ""\n\
@@ -81,6 +82,9 @@ echo ""\n\
 echo "Environment:"\n\
 echo "  - Node.js: $(node --version)"\n\
 echo "  - Platform: $(uname -s) $(uname -m)"\n\
+if [ -n "$TEST_FILE" ]; then\n\
+  echo "  - Test file: $TEST_FILE"\n\
+fi\n\
 echo ""\n\
 echo "Starting virtual display (Xvfb)..."\n\
 Xvfb :99 -screen 0 1280x960x24 -ac -nolisten tcp -nolisten unix &\n\
@@ -88,7 +92,11 @@ XVFB_PID=$!\n\
 export DISPLAY=:99\n\
 sleep 2\n\
 echo ""\n\
-npm run test:e2e\n\
+if [ -n "$TEST_FILE" ]; then\n\
+  npx playwright test "$TEST_FILE"\n\
+else\n\
+  npm run test:e2e\n\
+fi\n\
 TEST_EXIT=$?\n\
 echo ""\n\
 kill $XVFB_PID 2>/dev/null || true\n\

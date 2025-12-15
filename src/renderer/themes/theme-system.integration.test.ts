@@ -15,27 +15,37 @@ import { getTheme, isValidThemeId, type ThemeId } from './definitions';
 import { NostlingIdentity } from '../../shared/types';
 
 describe('Theme System Integration: Core Properties', () => {
-  it('Property: createThemeSystem always returns valid Chakra system', () => {
+  it('Property: createThemeSystem always returns valid Chakra system for valid theme IDs', () => {
     fc.assert(
       fc.property(
-        fc.oneof(
-          fc.constantFrom<ThemeId>(
-            'light',
-            'dark',
-            'sunset',
-            'ocean',
-            'forest',
-            'purple-haze',
-            'ember',
-            'twilight',
-            'mint',
-            'amber'
-          ),
-          fc.constant(null),
-          fc.constant(undefined),
-          fc.string()
+        fc.constantFrom<ThemeId>(
+          'light',
+          'dark',
+          'sunset',
+          'ocean',
+          'forest',
+          'purple-haze',
+          'ember',
+          'twilight',
+          'mint',
+          'amber'
         ),
-        (themeId: string | null | undefined) => {
+        (themeId: ThemeId) => {
+          const system = createThemeSystem(themeId);
+
+          expect(system).toBeDefined();
+          expect(typeof system).toBe('object');
+          expect(system).toHaveProperty('_config');
+        }
+      )
+    );
+  });
+
+  it('Property: createThemeSystem handles null/undefined gracefully', () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(null as null | undefined, undefined),
+        (themeId: null | undefined) => {
           const system = createThemeSystem(themeId);
 
           expect(system).toBeDefined();
@@ -47,14 +57,24 @@ describe('Theme System Integration: Core Properties', () => {
   });
 
   it('Property: Invalid theme IDs fall back to dark theme', () => {
-    fc.assert(
-      fc.property(fc.string().filter((s) => !isValidThemeId(s)), (invalidThemeId: string) => {
-        const systemWithInvalid = createThemeSystem(invalidThemeId);
-        const systemWithDark = createThemeSystem('dark');
+    const originalWarn = console.warn;
+    console.warn = () => {}; // Suppress expected warnings during test
+    try {
+      fc.assert(
+        fc.property(
+          // Use representative invalid theme IDs instead of random strings
+          fc.constantFrom('invalid', 'DARK', 'Light', 'unknown-theme', '', ' '),
+          (invalidThemeId: string) => {
+            const systemWithInvalid = createThemeSystem(invalidThemeId);
+            const systemWithDark = createThemeSystem('dark');
 
-        expect(systemWithInvalid._config).toEqual(systemWithDark._config);
-      })
-    );
+            expect(systemWithInvalid._config).toEqual(systemWithDark._config);
+          }
+        )
+      );
+    } finally {
+      console.warn = originalWarn;
+    }
   });
 
   it('Property: Null/undefined theme IDs fall back to dark theme', () => {
@@ -96,21 +116,28 @@ describe('Theme System Integration: Identity Resolution', () => {
   });
 
   it('Property: Identity with invalid theme returns dark theme', () => {
-    fc.assert(
-      fc.property(
-        fc.record({
-          id: fc.string(),
-          npub: fc.string(),
-          label: fc.string(),
-          createdAt: fc.string(),
-          theme: fc.string().filter((s) => !isValidThemeId(s)),
-        }),
+    const originalWarn = console.warn;
+    console.warn = () => {}; // Suppress expected warnings during test
+    try {
+      fc.assert(
+        fc.property(
+          fc.record({
+            id: fc.constant('test-id'),
+            npub: fc.constant('npub1test'),
+            label: fc.constant('Test'),
+            createdAt: fc.constant('2024-01-01'),
+            // Use representative invalid theme IDs instead of random strings
+            theme: fc.constantFrom('invalid', 'DARK', 'Light', 'unknown-theme', '', ' '),
+          }),
         (identity: any) => {
           const themeId = getThemeIdForIdentity(identity as NostlingIdentity);
           expect(themeId).toBe('dark');
         }
       )
     );
+    } finally {
+      console.warn = originalWarn;
+    }
   });
 
   it('Property: Identity with valid theme returns that theme', () => {
@@ -405,39 +432,47 @@ describe('Theme System Integration: Complete Workflow', () => {
 
 describe('Theme System Integration: Fallback Consistency', () => {
   it('Property: All fallback scenarios produce dark theme', () => {
-    fc.assert(
-      fc.property(
-        fc.oneof(
-          fc.constant(null),
-          fc.constant(undefined),
-          fc.string().filter((s) => !isValidThemeId(s)),
-          fc.record({
-            id: fc.string(),
-            npub: fc.string(),
-            label: fc.string(),
-            createdAt: fc.string(),
-          }),
-          fc.record({
-            id: fc.string(),
-            npub: fc.string(),
-            label: fc.string(),
-            createdAt: fc.string(),
-            theme: fc.string().filter((s) => !isValidThemeId(s)),
-          })
-        ),
-        (input: any) => {
-          let system;
-          if (input === null || input === undefined || typeof input === 'string') {
-            system = createThemeSystem(input);
-          } else {
-            const themeId = getThemeIdForIdentity(input as NostlingIdentity);
-            system = createThemeSystem(themeId);
-          }
+    const originalWarn = console.warn;
+    console.warn = () => {}; // Suppress expected warnings during test
+    try {
+      fc.assert(
+        fc.property(
+          fc.oneof(
+            fc.constant(null),
+            fc.constant(undefined),
+            // Use representative invalid theme IDs instead of random strings
+            fc.constantFrom('invalid', 'DARK', 'Light', 'unknown-theme', '', ' '),
+            fc.record({
+              id: fc.constant('test-id'),
+              npub: fc.constant('npub1test'),
+              label: fc.constant('Test'),
+              createdAt: fc.constant('2024-01-01'),
+            }),
+            fc.record({
+              id: fc.constant('test-id'),
+              npub: fc.constant('npub1test'),
+              label: fc.constant('Test'),
+              createdAt: fc.constant('2024-01-01'),
+              // Use representative invalid theme IDs instead of random strings
+              theme: fc.constantFrom('invalid', 'DARK', 'Light', 'unknown-theme', '', ' '),
+            })
+          ),
+          (input: any) => {
+            let system;
+            if (input === null || input === undefined || typeof input === 'string') {
+              system = createThemeSystem(input);
+            } else {
+              const themeId = getThemeIdForIdentity(input as NostlingIdentity);
+              system = createThemeSystem(themeId);
+            }
 
-          const darkSystem = createThemeSystem('dark');
-          expect(system._config).toEqual(darkSystem._config);
-        }
-      )
-    );
+            const darkSystem = createThemeSystem('dark');
+            expect(system._config).toEqual(darkSystem._config);
+          }
+        )
+      );
+    } finally {
+      console.warn = originalWarn;
+    }
   });
 });

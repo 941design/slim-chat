@@ -6,6 +6,7 @@ services:
       - "8080:8080"
     volumes:
       - ./e2e/relay-config.toml:/usr/src/app/config.toml:ro
+    restart: unless-stopped
 
   e2e-test:
     build:
@@ -24,6 +25,7 @@ services:
       - FORCE_COLOR=1
       - NOSTLING_DATA_DIR=/tmp/nostling-e2e-data
       - NOSTLING_DEV_RELAY=ws://nostr-relay:8080
+      - TEST_FILE=${TEST_FILE:-}
     # Allocate sufficient shared memory for Chromium
     shm_size: '2gb'
     # Show output in real-time

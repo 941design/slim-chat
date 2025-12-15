@@ -87,13 +87,11 @@ describe('Bug: Duplicate release assets upload', () => {
     // Verify the fix prevents duplicates
     expect(ymlPattern).toBe('release-artifacts/**/latest-*.yml');
 
-    // Document the fix
-    console.log('\n=== BUG FIX VERIFICATION ===');
-    console.log('Fixed pattern:', ymlPattern);
-    console.log('Files uploaded:', requiredFiles);
-    console.log('Files excluded (prevented duplicates):', excludedFiles);
-    console.log('\nFix prevents duplicate uploads and allows release to publish.');
-    console.log('Bug report: bug-reports/duplicate-release-assets-upload-report.md');
+    // Verify required files would be uploaded and excluded files are prevented
+    expect(requiredFiles).toContain('latest-mac.yml');
+    expect(requiredFiles).toContain('latest-linux.yml');
+    expect(excludedFiles).toContain('builder-debug.yml');
+    expect(excludedFiles).toContain('app-update.yml');
   });
 
   it('detects duplicate basenames that would cause upload conflicts', () => {
@@ -128,11 +126,6 @@ describe('Bug: Duplicate release assets upload', () => {
     expect(duplicates.length).toBeGreaterThan(0);
     expect(duplicates).toContain('builder-debug.yml');
     expect(duplicates).toContain('app-update.yml');
-
-    // These files have duplicate basenames and will cause the upload to fail
-    console.log('\n=== DUPLICATE BASENAMES DETECTED ===');
-    console.log('Duplicates:', [...new Set(duplicates)]);
-    console.log('This proves the bug: multiple files with same basename will conflict.');
   });
 
   it('verifies that only latest-*.yml files are needed for electron-updater', () => {
@@ -153,10 +146,5 @@ describe('Bug: Duplicate release assets upload', () => {
     // Only latest-*.yml files should be uploaded to releases
     expect(Object.keys(needed).length).toBe(2);
     expect(Object.keys(notNeeded).length).toBe(2);
-
-    console.log('\n=== FILES ANALYSIS ===');
-    console.log('Needed for releases:', needed);
-    console.log('NOT needed (causing duplicates):', notNeeded);
-    console.log('\nFix: Upload only latest-*.yml files, exclude builder-debug.yml and app-update.yml');
   });
 });
