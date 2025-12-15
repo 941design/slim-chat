@@ -1,7 +1,10 @@
 * TODO
 
-+ clickable links
++ use a config file format that can be commented
 + when hovering over icons, show purpose in footer
++ sidebar width adjustable
++ profile view in main panel (three dots)
++ avatar next to each message
 + view and edit profiles
   + send profile info as wrapped NIP-59 kind:0 event
   + create unit test to test fan out to all contacts in one wrapped event
@@ -14,6 +17,10 @@
 + fetch profile name and picture if available
   + if no profile is available, show alias together with abbreviated npub
   + exchange profiles wrapped in kind:4 messages
+
+** Profiles
+
++ new main panel
 
 ** TODO [#A] Themes
 
@@ -106,6 +113,7 @@
 
 ** Features
 
++ clickable links
 + html/markdown messages
 + search
 + threads

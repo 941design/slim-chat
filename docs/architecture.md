@@ -96,7 +96,12 @@ src/
 │   │   ├── AvatarWithBadge.tsx   # Avatar + status badge
 │   │   ├── avatar-icons.tsx      # Shield icon variants
 │   │   ├── RelayManager.tsx      # Relay configuration UI
-│   │   ├── ThemeSelector.tsx     # Theme selection UI
+│   │   ├── ThemeSelectionPanel/  # Theme selection panel
+│   │   │   ├── ThemeSelectionPanel.tsx  # Panel container
+│   │   │   ├── ThemeCarousel.tsx # Theme preview carousel
+│   │   │   ├── ThemePreview.tsx  # Live theme preview
+│   │   │   ├── ThemeFilters.tsx  # Brightness/color filters
+│   │   │   └── ThemeInfo.tsx     # Theme metadata display
 │   │   ├── QrCodeScanner.tsx     # Camera-based QR scanning
 │   │   └── QrCodeDisplay.tsx     # QR code display modal
 │   ├── themes/     # Theme system
@@ -386,11 +391,12 @@ The application provides per-identity theme customization with 10 distinctive co
    - `useTheme` hook manages theme state and identity-based resolution
    - Theme changes trigger immediate UI re-render
 
-3. **Theme Selector** (`src/renderer/components/ThemeSelector.tsx`):
-   - Integrated into hamburger menu
-   - Visual color swatches for each theme
+3. **Theme Selection Panel** (`src/renderer/components/ThemeSelectionPanel/`):
+   - Full-panel theme selection (replaces modal)
+   - Live preview with composed UI elements
+   - Carousel navigation with keyboard support
+   - Brightness and color family filters
    - Disabled when no identity selected
-   - Immediate persistence on theme selection
 
 ### Theme Definitions
 

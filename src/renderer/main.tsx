@@ -38,7 +38,7 @@ import { shouldSubmitOnKeyDown } from './utils/keyboard-submit';
 import { useNostlingState } from './nostling/state';
 import { RelayTable } from './components/RelayTable';
 import { RelayConflictModal } from './components/RelayConflictModal';
-import { ThemeSelector } from './components/ThemeSelector';
+import { ThemeSelectionPanel } from './components/ThemeSelectionPanel';
 import { createThemeSystem, getThemeIdForIdentity } from './themes/useTheme';
 import { ThemeProvider, useThemeColors } from './themes/ThemeContext';
 import type { ThemeId } from './themes/definitions';
@@ -250,9 +250,10 @@ interface HeaderProps {
   currentTheme: ThemeId;
   onThemeChange: (themeId: ThemeId) => Promise<void>;
   identityId: string | null;
+  onShowThemeSelection: () => void;
 }
 
-function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, identityId }: HeaderProps) {
+function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, identityId, onShowThemeSelection }: HeaderProps) {
   const colors = useThemeColors();
   return (
     <Box
@@ -306,13 +307,20 @@ function Header({ onShowAbout, onShowRelayConfig, currentTheme, onThemeChange, i
                   </HStack>
                 </Menu.Item>
                 <Menu.Separator borderColor={colors.borderSubtle} />
-                <Box px="3" py="2">
-                  <ThemeSelector
-                    currentTheme={currentTheme}
-                    onThemeChange={onThemeChange}
-                    identityId={identityId}
-                  />
-                </Box>
+                <Menu.Item
+                  value="theme"
+                  onClick={onShowThemeSelection}
+                  disabled={!identityId}
+                  data-testid="theme-panel-trigger"
+                  px="3"
+                  py="2"
+                  cursor={identityId ? 'pointer' : 'not-allowed'}
+                  _hover={identityId ? { bg: colors.surfaceBgSubtle } : undefined}
+                >
+                  <HStack gap="2">
+                    <Text color={colors.text} fontSize="sm">Select Theme</Text>
+                  </HStack>
+                </Menu.Item>
                 <Menu.Separator borderColor={colors.borderSubtle} />
                 <Menu.Item
                   value="about"
@@ -1703,7 +1711,7 @@ function Sidebar({
   );
 }
 
-type AppView = 'chat' | 'relay-config' | 'about';
+type AppView = 'chat' | 'relay-config' | 'about' | 'themeSelection';
 
 interface AppProps {
   onThemeChange: (themeId: ThemeId) => void;
@@ -1761,7 +1769,7 @@ function App({ onThemeChange }: AppProps) {
       await nostling.refreshIdentities();
     } catch (error) {
       console.error('Failed to update theme:', error);
-      throw error; // Let ThemeSelector handle the error display
+      throw error; // Let ThemeSelectionPanel handle the error display
     }
   };
 
@@ -1966,12 +1974,16 @@ function App({ onThemeChange }: AppProps) {
     setCurrentView('about');
   };
 
+  const handleShowThemeSelection = () => {
+    setCurrentView('themeSelection');
+  };
+
   const handleReturnToChat = () => {
     setCurrentView('chat');
   };
 
   useEffect(() => {
-    if (currentView !== 'about') return;
+    if (currentView !== 'about' && currentView !== 'themeSelection') return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -2060,6 +2072,7 @@ function App({ onThemeChange }: AppProps) {
         currentTheme={currentThemeId}
         onThemeChange={handleThemeChange}
         identityId={selectedIdentityId}
+        onShowThemeSelection={handleShowThemeSelection}
       />
       <Flex flex="1" overflow="hidden">
         <Sidebar
@@ -2126,6 +2139,15 @@ function App({ onThemeChange }: AppProps) {
               ) : (
                 <Text color={colors.textSubtle}>Select an identity to configure relays.</Text>
               )}
+            </Box>
+          ) : currentView === 'themeSelection' ? (
+            <Box p="4" data-testid="theme-selection-view">
+              <ThemeSelectionPanel
+                currentTheme={currentThemeId}
+                identityId={selectedIdentityId}
+                onThemeApply={handleThemeChange}
+                onCancel={handleReturnToChat}
+              />
             </Box>
           ) : (
             <AboutView
