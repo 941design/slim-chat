@@ -43,7 +43,7 @@ import { SubPanel } from './components/SubPanel';
 import { createThemeSystem, getThemeIdForIdentity } from './themes/useTheme';
 import { ThemeGenerator, type ThemeGeneratorInput } from './themes/generator';
 import type { ThemeSemanticColors } from './themes/useTheme';
-import { ThemeProvider, useThemeColors } from './themes/ThemeContext';
+import { ThemeProvider, ColorProvider, useThemeColors } from './themes/ThemeContext';
 import type { ThemeId, ThemeMetadata } from './themes/definitions';
 import { getAllThemes } from './themes/definitions';
 import { QrCodeScannerModal } from './components/QrCodeScannerModal';
@@ -1741,7 +1741,7 @@ function Sidebar({
 type AppView = 'chat' | 'relay-config' | 'about' | 'themeSelection';
 
 interface AppProps {
-  onThemeChange: (themeId: ThemeId) => void;
+  onThemeChange: (themeId: ThemeId, customColors?: ThemeSemanticColors | null) => void;
 }
 
 function App({ onThemeChange }: AppProps) {
@@ -1759,6 +1759,12 @@ function App({ onThemeChange }: AppProps) {
 
   // Theme slider state (managed here so sliders in sidebar can communicate with main panel)
   const [themeCustomColors, setThemeCustomColors] = useState<ThemeSemanticColors | null>(null);
+
+  // Preview typography state (only applied to ThemePreview, not the whole app)
+  const [previewTypography, setPreviewTypography] = useState<{
+    fonts?: { body: string; heading: string; mono: string };
+    fontSizes?: Record<string, string>;
+  } | null>(null);
 
   // Staged theme for sidebar display (tracks the theme being previewed in carousel)
   const [stagedThemeId, setStagedThemeId] = useState<ThemeId | null>(null);
@@ -1783,7 +1789,7 @@ function App({ onThemeChange }: AppProps) {
   useEffect(() => {
     const themeId = getThemeIdForIdentity(selectedIdentity);
     setCurrentThemeId(themeId);
-    onThemeChange(themeId); // Propagate to Root for ChakraProvider
+    onThemeChange(themeId, null); // Propagate to Root for ChakraProvider, no custom colors
   }, [selectedIdentity, onThemeChange]);
 
   // Theme change handler - persists to database
@@ -1794,10 +1800,13 @@ function App({ onThemeChange }: AppProps) {
     }
 
     try {
-      await window.api.nostling?.identities.updateTheme(selectedIdentityId, themeId);
+      // If custom colors exist, treat this as a custom theme application
+      const effectiveThemeId = themeCustomColors ? 'custom' as ThemeId : themeId;
+      await window.api.nostling?.identities.updateTheme(selectedIdentityId, effectiveThemeId);
       // Update local state immediately for responsive UI
-      setCurrentThemeId(themeId);
-      onThemeChange(themeId); // Propagate to Root for ChakraProvider
+      setCurrentThemeId(effectiveThemeId);
+      // Pass custom colors to Root when applying a custom theme
+      onThemeChange(effectiveThemeId, themeCustomColors);
       // Force refresh of identity list to get updated theme from DB
       await nostling.refreshIdentities();
     } catch (error) {
@@ -2014,9 +2023,11 @@ function App({ onThemeChange }: AppProps) {
   const handleReturnToChat = () => {
     setCurrentView('chat');
     setThemeCustomColors(null); // Clear custom colors when leaving theme selection
+    setPreviewTypography(null); // Clear preview typography when leaving theme selection
   };
 
   // Handle theme slider changes - generate custom theme colors
+  // Typography changes are stored in previewTypography state (preview only, not applied globally)
   const handleThemeSliderChange = useCallback((input: ThemeGeneratorInput) => {
     try {
       const generated = ThemeGenerator.generate(input, false);
@@ -2027,17 +2038,12 @@ function App({ onThemeChange }: AppProps) {
       const semanticColors = generated.semantic as ThemeSemanticColors;
       setThemeCustomColors(semanticColors);
 
-      // Apply typography CSS variables directly
-      const root = document.documentElement;
-      if (resolved.typography?.fontSizes) {
-        for (const [key, value] of Object.entries(resolved.typography.fontSizes)) {
-          root.style.setProperty(`--app-font-size-${key}`, value);
-        }
-      }
-      if (resolved.typography?.fonts) {
-        for (const [key, value] of Object.entries(resolved.typography.fonts)) {
-          root.style.setProperty(`--app-font-${key}`, value);
-        }
+      // Store typography for preview only (NOT applied globally until Apply is clicked)
+      if (resolved.typography) {
+        setPreviewTypography({
+          fonts: resolved.typography.fonts,
+          fontSizes: resolved.typography.fontSizes,
+        });
       }
 
       console.log('Generated theme:', generated);
@@ -2046,9 +2052,10 @@ function App({ onThemeChange }: AppProps) {
     }
   }, []);
 
-  // Handle staged theme change from carousel - clear custom colors and update staged theme
+  // Handle staged theme change from carousel - clear custom colors/typography and update staged theme
   const handleStagedThemeChange = useCallback((themeId: ThemeId) => {
     setThemeCustomColors(null);
+    setPreviewTypography(null);
     setStagedThemeId(themeId);
   }, []);
 
@@ -2259,6 +2266,7 @@ function App({ onThemeChange }: AppProps) {
               onThemeApply={handleThemeChange}
               onCancel={handleReturnToChat}
               customColors={themeCustomColors}
+              previewTypography={previewTypography}
               onStagedThemeChange={handleStagedThemeChange}
             />
           ) : (
@@ -2321,13 +2329,31 @@ function Root() {
   // Create theme system based on current state
   // Start with obsidian theme as default, App will update based on identity
   const [themeId, setThemeId] = useState<ThemeId>('obsidian');
-  const system = useMemo(() => createThemeSystem(themeId), [themeId]);
+  const [customColors, setCustomColors] = useState<ThemeSemanticColors | null>(null);
+  // For custom themes, use 'obsidian' as base for Chakra system (semantic colors come from ColorProvider)
+  const chakraThemeId = customColors ? 'obsidian' : themeId;
+  const system = useMemo(() => createThemeSystem(chakraThemeId), [chakraThemeId]);
+
+  // Handle theme changes with optional custom colors
+  const handleThemeChange = useCallback((newThemeId: ThemeId, newCustomColors?: ThemeSemanticColors | null) => {
+    setThemeId(newThemeId);
+    setCustomColors(newCustomColors ?? null);
+  }, []);
+
+  // Use ColorProvider for custom themes, ThemeProvider for built-in themes
+  const themeProvider = customColors ? (
+    <ColorProvider colors={customColors}>
+      <App onThemeChange={handleThemeChange} />
+    </ColorProvider>
+  ) : (
+    <ThemeProvider themeId={themeId}>
+      <App onThemeChange={handleThemeChange} />
+    </ThemeProvider>
+  );
 
   return (
     <ChakraProvider value={system}>
-      <ThemeProvider themeId={themeId}>
-        <App onThemeChange={setThemeId} />
-      </ThemeProvider>
+      {themeProvider}
     </ChakraProvider>
   );
 }

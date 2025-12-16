@@ -5,12 +5,25 @@
  * Uses isolated ThemeProvider to prevent affecting the main app.
  */
 
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 import { Box, VStack, HStack, Text, Button, Textarea } from '@chakra-ui/react';
 import { ThemeId } from '../../themes/definitions';
 import { ThemeProvider, ColorProvider, useThemeColors } from '../../themes/ThemeContext';
 import type { ThemeSemanticColors } from '../../themes/useTheme';
 import { AvatarWithBadge } from '../AvatarWithBadge';
+import type { PreviewTypography } from './ThemeSelectionPanel';
+
+/**
+ * Context for preview typography (scoped to preview container only)
+ */
+const PreviewTypographyContext = createContext<PreviewTypography | undefined>(undefined);
+
+/**
+ * Hook to get preview typography if available
+ */
+function usePreviewTypography(): PreviewTypography | undefined {
+  return useContext(PreviewTypographyContext);
+}
 
 export interface ThemePreviewProps {
   /**
@@ -23,6 +36,12 @@ export interface ThemePreviewProps {
    * When provided, themeId is ignored and these colors are used directly
    */
   customColors?: ThemeSemanticColors;
+
+  /**
+   * Optional preview typography from slider generation
+   * When provided, fonts are scoped to this preview container only
+   */
+  previewTypography?: PreviewTypography;
 }
 
 /**
@@ -31,6 +50,9 @@ export interface ThemePreviewProps {
  */
 function MockHeaderSection(): React.ReactElement {
   const colors = useThemeColors();
+  const typography = usePreviewTypography();
+  const headingFont = typography?.fonts?.heading;
+
   return (
     <HStack
       data-testid="mock-header-section"
@@ -42,10 +64,19 @@ function MockHeaderSection(): React.ReactElement {
       borderColor={colors.border}
       borderRadius="md"
     >
-      <Text fontSize="lg" fontWeight="semibold" color="brand.400">
+      <Text
+        fontSize="lg"
+        fontWeight="semibold"
+        color={colors.buttonPrimaryBg}
+        style={headingFont ? { fontFamily: headingFont } : undefined}
+      >
         Nostling
       </Text>
-      <Text fontSize="lg" color={colors.textMuted}>
+      <Text
+        fontSize="lg"
+        color={colors.textMuted}
+        style={headingFont ? { fontFamily: headingFont } : undefined}
+      >
         ☰
       </Text>
     </HStack>
@@ -58,6 +89,9 @@ function MockHeaderSection(): React.ReactElement {
  */
 function MockAvatarSection(): React.ReactElement {
   const colors = useThemeColors();
+  const typography = usePreviewTypography();
+  const bodyFont = typography?.fonts?.body;
+
   return (
     <Box
       data-testid="mock-avatar-section"
@@ -85,7 +119,12 @@ function MockAvatarSection(): React.ReactElement {
               badgeBackgroundColor={colors.surfaceBg}
               badgeIconColor={colors.text}
             />
-            <Text fontSize="md" fontWeight="semibold" color={colors.text} fontFamily="body">
+            <Text
+              fontSize="md"
+              fontWeight="semibold"
+              color={colors.text}
+              style={bodyFont ? { fontFamily: bodyFont } : undefined}
+            >
               Alice
             </Text>
           </HStack>
@@ -108,6 +147,10 @@ function MockAvatarSection(): React.ReactElement {
  */
 function MockConversationSection(): React.ReactElement {
   const colors = useThemeColors();
+  const typography = usePreviewTypography();
+  const bodyFont = typography?.fonts?.body;
+  const fontStyle = bodyFont ? { fontFamily: bodyFont } : undefined;
+
   return (
     <Box
       data-testid="mock-conversation-section"
@@ -126,7 +169,7 @@ function MockConversationSection(): React.ReactElement {
             borderRadius="md"
             fontSize="md"
             maxW="70%"
-            fontFamily="body"
+            style={fontStyle}
           >
             Hey there! How are you?
           </Box>
@@ -142,7 +185,7 @@ function MockConversationSection(): React.ReactElement {
             borderRadius="md"
             fontSize="md"
             maxW="70%"
-            fontFamily="body"
+            style={fontStyle}
           >
             Doing great, thanks for asking!
           </Box>
@@ -154,6 +197,7 @@ function MockConversationSection(): React.ReactElement {
           bg={colors.surfaceBg}
           borderColor={colors.border}
           rows={2}
+          style={fontStyle}
         />
       </VStack>
     </Box>
@@ -280,8 +324,37 @@ function PreviewContent(): React.ReactElement {
   );
 }
 
-function ThemePreviewComponent({ themeId, customColors }: ThemePreviewProps): React.ReactElement {
+function ThemePreviewComponent({ themeId, customColors, previewTypography }: ThemePreviewProps): React.ReactElement {
   const colors = useThemeColors();
+
+  // Build inline styles for scoped typography (fonts and font sizes)
+  const typographyStyle: React.CSSProperties = {
+    ...(previewTypography?.fonts ? { fontFamily: previewTypography.fonts.body } : {}),
+    // Inject font-size CSS variables so Chakra components in preview can use them
+    ...(previewTypography?.fontSizes
+      ? Object.fromEntries(
+          Object.entries(previewTypography.fontSizes).map(([key, value]) => [
+            `--app-font-size-${key}`,
+            value,
+          ])
+        )
+      : {}),
+  } as React.CSSProperties;
+
+  const content = customColors ? (
+    <ColorProvider colors={customColors}>
+      <PreviewTypographyContext.Provider value={previewTypography}>
+        <PreviewContent />
+      </PreviewTypographyContext.Provider>
+    </ColorProvider>
+  ) : (
+    <ThemeProvider themeId={themeId}>
+      <PreviewTypographyContext.Provider value={previewTypography}>
+        <PreviewContent />
+      </PreviewTypographyContext.Provider>
+    </ThemeProvider>
+  );
+
   return (
     <Box
       data-testid="theme-preview"
@@ -293,16 +366,9 @@ function ThemePreviewComponent({ themeId, customColors }: ThemePreviewProps): Re
       borderColor={colors.border}
       bg={colors.appBg}
       p={4}
+      style={typographyStyle}
     >
-      {customColors ? (
-        <ColorProvider colors={customColors}>
-          <PreviewContent />
-        </ColorProvider>
-      ) : (
-        <ThemeProvider themeId={themeId}>
-          <PreviewContent />
-        </ThemeProvider>
-      )}
+      {content}
     </Box>
   );
 }
@@ -311,7 +377,8 @@ export const ThemePreview = React.memo(
   ThemePreviewComponent,
   (prevProps, nextProps) =>
     prevProps.themeId === nextProps.themeId &&
-    prevProps.customColors === nextProps.customColors
+    prevProps.customColors === nextProps.customColors &&
+    prevProps.previewTypography === nextProps.previewTypography
 );
 
 ThemePreview.displayName = 'ThemePreview';

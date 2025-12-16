@@ -3,7 +3,7 @@
  */
 
 export { ThemeSelectionPanel } from './ThemeSelectionPanel';
-export type { ThemeSelectionPanelProps } from './ThemeSelectionPanel';
+export type { ThemeSelectionPanelProps, PreviewTypography } from './ThemeSelectionPanel';
 export { ThemeVariableSliders } from './ThemeVariableSliders';
 export type { ThemeVariableSlidersProps } from './ThemeVariableSliders';
 export { ThemeInfo } from './ThemeInfo';

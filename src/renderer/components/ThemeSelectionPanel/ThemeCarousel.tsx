@@ -10,6 +10,7 @@ import { ThemeMetadata, ThemeId } from '../../themes/definitions';
 import { ThemePreview } from './ThemePreview';
 import { useThemeColors } from '../../themes/ThemeContext';
 import type { ThemeSemanticColors } from '../../themes/useTheme';
+import type { PreviewTypography } from './ThemeSelectionPanel';
 
 export interface ThemeCarouselProps {
   /**
@@ -38,6 +39,12 @@ export interface ThemeCarouselProps {
    * When provided, the preview shows these colors instead of currentTheme
    */
   customColors?: ThemeSemanticColors;
+
+  /**
+   * Optional preview typography from slider generation
+   * When provided, the preview shows these fonts scoped to the preview container
+   */
+  previewTypography?: PreviewTypography;
 }
 
 /**
@@ -112,6 +119,7 @@ function ThemeCarouselComponent({
   onThemeChange,
   disabled = false,
   customColors,
+  previewTypography,
 }: ThemeCarouselProps): React.ReactElement {
   const colors = useThemeColors();
 
@@ -160,7 +168,7 @@ function ThemeCarouselComponent({
       >
         <ChevronLeftIcon />
       </IconButton>
-      <ThemePreview themeId={currentTheme} customColors={customColors} />
+      <ThemePreview themeId={currentTheme} customColors={customColors} previewTypography={previewTypography} />
       <IconButton
         aria-label="Next theme"
         onClick={handleNavigateNext}
@@ -184,7 +192,8 @@ export const ThemeCarousel = React.memo(
       prevProps.currentTheme === nextProps.currentTheme &&
       prevProps.availableThemes === nextProps.availableThemes &&
       prevProps.disabled === nextProps.disabled &&
-      prevProps.customColors === nextProps.customColors
+      prevProps.customColors === nextProps.customColors &&
+      prevProps.previewTypography === nextProps.previewTypography
     );
   }
 );

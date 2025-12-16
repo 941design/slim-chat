@@ -16,6 +16,14 @@ import { ThemeCarousel } from './ThemeCarousel';
 import { SubPanel } from '../SubPanel';
 import type { ThemeSemanticColors } from '../../themes/useTheme';
 
+/**
+ * Preview typography from slider generation
+ */
+export interface PreviewTypography {
+  fonts?: { body: string; heading: string; mono: string };
+  fontSizes?: Record<string, string>;
+}
+
 export interface ThemeSelectionPanelProps {
   /**
    * Currently active theme in main app
@@ -44,6 +52,11 @@ export interface ThemeSelectionPanelProps {
   customColors?: ThemeSemanticColors | null;
 
   /**
+   * Preview typography from slider generation (only applied to preview, not global)
+   */
+  previewTypography?: PreviewTypography | null;
+
+  /**
    * Callback when staged theme changes (for parent to track)
    */
   onStagedThemeChange?: (themeId: ThemeId) => void;
@@ -62,6 +75,7 @@ export function ThemeSelectionPanel({
   onThemeApply,
   onCancel,
   customColors,
+  previewTypography,
   onStagedThemeChange,
 }: ThemeSelectionPanelProps): React.ReactElement {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -91,36 +105,53 @@ export function ThemeSelectionPanel({
   }, [currentTheme]);
 
   // Handle carousel navigation - notify parent of theme change
+  // Typography is NOT applied globally here; preview shows the preset theme's fonts
   const handleThemeChange = useCallback((themeId: ThemeId) => {
     setStagedTheme(themeId);
     onStagedThemeChange?.(themeId);
-
-    // Reset typography to the preset theme's values
-    const theme = resolveTheme(themeId);
-    const root = document.documentElement;
-    if (theme.typography?.fontSizes) {
-      for (const [key, value] of Object.entries(theme.typography.fontSizes)) {
-        root.style.setProperty(`--app-font-size-${key}`, value);
-      }
-    }
-    if (theme.typography?.fonts) {
-      for (const [key, value] of Object.entries(theme.typography.fonts)) {
-        root.style.setProperty(`--app-font-${key}`, value);
-      }
-    }
   }, [onStagedThemeChange]);
 
-  // Handle Apply click
+  // Handle Apply click - apply typography globally then persist theme
   const handleApply = useCallback(async () => {
     setIsApplying(true);
     try {
+      // Apply typography CSS variables globally
+      const root = document.documentElement;
+
+      if (previewTypography) {
+        // User customized typography via sliders - apply their choices
+        if (previewTypography.fontSizes) {
+          for (const [key, value] of Object.entries(previewTypography.fontSizes)) {
+            root.style.setProperty(`--app-font-size-${key}`, value);
+          }
+        }
+        if (previewTypography.fonts) {
+          for (const [key, value] of Object.entries(previewTypography.fonts)) {
+            root.style.setProperty(`--app-font-${key}`, value);
+          }
+        }
+      } else {
+        // No custom typography - apply the staged theme's default typography
+        const theme = resolveTheme(stagedTheme);
+        if (theme.typography?.fontSizes) {
+          for (const [key, value] of Object.entries(theme.typography.fontSizes)) {
+            root.style.setProperty(`--app-font-size-${key}`, value);
+          }
+        }
+        if (theme.typography?.fonts) {
+          for (const [key, value] of Object.entries(theme.typography.fonts)) {
+            root.style.setProperty(`--app-font-${key}`, value);
+          }
+        }
+      }
+
       await onThemeApply(stagedTheme);
       onCancel();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to apply theme');
       setIsApplying(false);
     }
-  }, [stagedTheme, onThemeApply, onCancel]);
+  }, [stagedTheme, previewTypography, onThemeApply, onCancel]);
 
   // Handle keyboard navigation (Escape, ArrowLeft, ArrowRight)
   useEffect(() => {
@@ -212,6 +243,7 @@ export function ThemeSelectionPanel({
             onThemeChange={handleThemeChange}
             disabled={isApplying}
             customColors={customColors ?? undefined}
+            previewTypography={previewTypography ?? undefined}
           />
         )}
 
