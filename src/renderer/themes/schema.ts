@@ -6,30 +6,34 @@
  */
 
 /**
- * Theme identifier - all available themes
+ * Theme identifier - all available themes (algorithmically generated)
  */
 export type ThemeId =
-  | 'default'
-  | 'light'
-  | 'dark'
-  | 'sunset'
+  // Light themes
+  | 'mist'
+  | 'dawn'
+  | 'cloud'
+  | 'blossom'
+  | 'meadow'
+  // Dark themes - blues/cyans
+  | 'obsidian'
+  | 'sapphire'
   | 'ocean'
-  | 'forest'
-  | 'purple-haze'
-  | 'ember'
-  | 'twilight'
-  | 'mint'
-  | 'amber'
-  | 'slate'
-  | 'rose'
-  | 'neon'
-  | 'sandstone'
   | 'arctic'
+  | 'storm'
+  // Dark themes - greens
+  | 'forest'
+  | 'jade'
+  | 'matrix'
+  // Dark themes - warm
+  | 'ember'
+  | 'copper'
+  | 'sunset'
   | 'mocha'
-  | 'sakura'
-  | 'midnight'
-  | 'lavender'
-  | 'copper';
+  // Dark themes - purple/pink
+  | 'amethyst'
+  | 'twilight'
+  | 'rose';
 
 /**
  * Color family for theme filtering
@@ -40,6 +44,11 @@ export type ColorFamily = 'blues' | 'greens' | 'warm' | 'purple' | 'pink' | 'neu
  * Theme brightness for filtering
  */
 export type ThemeBrightness = 'light' | 'dark';
+
+/**
+ * Available font families for themes
+ */
+export type FontFamily = 'system' | 'inter' | 'roboto' | 'source-sans' | 'jetbrains-mono' | 'fira-code';
 
 /**
  * Theme metadata for UI display and filtering

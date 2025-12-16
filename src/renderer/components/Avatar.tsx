@@ -98,7 +98,7 @@ export const Avatar: React.FC<AvatarProps> = ({
           }}
         />
       ) : (
-        <Box fontSize={`${size * 0.5}px`} fontWeight="bold" lineHeight="1">
+        <Box fontSize={`${size * 0.5}px`} fontWeight="bold" lineHeight="1" fontFamily="body">
           {letter}
         </Box>
       )}

@@ -25,16 +25,16 @@ import { ThemeId } from '../../themes/definitions';
  */
 function getValidThemeIds(): ThemeId[] {
   return [
-    'light',
-    'dark',
+    'mist',
+    'obsidian',
     'sunset',
     'ocean',
     'forest',
-    'purple-haze',
+    'amethyst',
     'ember',
     'twilight',
-    'mint',
-    'amber',
+    'jade',
+    'ember',
   ];
 }
 
@@ -105,7 +105,7 @@ describe('ThemePreview - Property-Based Tests', () => {
     expect(typeof ThemePreview).toBe('object');
     expect(ThemePreview).toHaveProperty('$$typeof');
 
-    const element = React.createElement(ThemePreview, { themeId: 'dark' });
+    const element = React.createElement(ThemePreview, { themeId: 'obsidian' });
     expect(React.isValidElement(element)).toBe(true);
   });
 
@@ -134,8 +134,8 @@ describe('ThemePreview - Property-Based Tests', () => {
   // ============================================================================
 
   it('P005: Different theme IDs produce different elements with correct props', () => {
-    const theme1: ThemeId = 'light';
-    const theme2: ThemeId = 'dark';
+    const theme1: ThemeId = 'mist';
+    const theme2: ThemeId = 'obsidian';
 
     const element1 = React.createElement(ThemePreview, { themeId: theme1 });
     const element2 = React.createElement(ThemePreview, { themeId: theme2 });
@@ -258,9 +258,9 @@ describe('ThemePreview - Property-Based Tests', () => {
 
   it('P011: Multiple component instances maintain independent props', () => {
     const themePairs = [
-      ['light', 'dark'],
+      ['mist', 'obsidian'],
       ['ocean', 'forest'],
-      ['sunset', 'amber'],
+      ['sunset', 'ember'],
     ] as const;
 
     themePairs.forEach(([theme1, theme2]) => {
@@ -287,13 +287,13 @@ describe('ThemePreview - Property-Based Tests', () => {
 
   it('P013: ThemePreviewProps interface enforces themeId property', () => {
     const validProps: ThemePreviewProps = {
-      themeId: 'dark',
+      themeId: 'obsidian',
     };
 
     const element = React.createElement(ThemePreview, validProps);
 
     expect(element.props.themeId).toBeDefined();
-    expect(element.props.themeId).toBe('dark');
+    expect(element.props.themeId).toBe('obsidian');
   });
 
   // ============================================================================
@@ -319,8 +319,8 @@ describe('ThemePreview - Property-Based Tests', () => {
   // ============================================================================
 
   it('P015: Each element creation results in fresh props object', () => {
-    const element1 = React.createElement(ThemePreview, { themeId: 'light' });
-    const element2 = React.createElement(ThemePreview, { themeId: 'light' });
+    const element1 = React.createElement(ThemePreview, { themeId: 'mist' });
+    const element2 = React.createElement(ThemePreview, { themeId: 'mist' });
 
     expect(element1.props).not.toBe(element2.props);
     expect(element1.props.themeId).toBe(element2.props.themeId);
@@ -348,7 +348,7 @@ describe('ThemePreview - Property-Based Tests', () => {
   // ============================================================================
 
   it('P017: Component creation is pure (no side effects)', () => {
-    const themeId: ThemeId = 'dark';
+    const themeId: ThemeId = 'obsidian';
 
     const element1 = React.createElement(ThemePreview, { themeId });
     const element2 = React.createElement(ThemePreview, { themeId });
@@ -362,7 +362,7 @@ describe('ThemePreview - Property-Based Tests', () => {
   // ============================================================================
 
   it('P018: Component does not modify provided props object', () => {
-    const props: ThemePreviewProps = { themeId: 'light' };
+    const props: ThemePreviewProps = { themeId: 'mist' };
     const originalThemeId = props.themeId;
 
     React.createElement(ThemePreview, props);
@@ -375,10 +375,10 @@ describe('ThemePreview - Property-Based Tests', () => {
   // ============================================================================
 
   it('P019: Created element is immutable', () => {
-    const element = React.createElement(ThemePreview, { themeId: 'dark' });
+    const element = React.createElement(ThemePreview, { themeId: 'obsidian' });
 
     expect(() => {
-      (element as any).props.themeId = 'light';
+      (element as any).props.themeId = 'mist';
     }).toThrow();
   });
 
@@ -408,10 +408,10 @@ describe('ThemePreview - Example-Based Tests', () => {
   // ============================================================================
 
   it('E001: Light theme preview element is created successfully', () => {
-    const element = React.createElement(ThemePreview, { themeId: 'light' });
+    const element = React.createElement(ThemePreview, { themeId: 'mist' });
 
     expect(React.isValidElement(element)).toBe(true);
-    expect(element.props.themeId).toBe('light');
+    expect(element.props.themeId).toBe('mist');
     expect(element.type).toBe(ThemePreview);
   });
 
@@ -420,10 +420,10 @@ describe('ThemePreview - Example-Based Tests', () => {
   // ============================================================================
 
   it('E002: Dark theme preview element is created successfully', () => {
-    const element = React.createElement(ThemePreview, { themeId: 'dark' });
+    const element = React.createElement(ThemePreview, { themeId: 'obsidian' });
 
     expect(React.isValidElement(element)).toBe(true);
-    expect(element.props.themeId).toBe('dark');
+    expect(element.props.themeId).toBe('obsidian');
   });
 
   // ============================================================================
@@ -464,10 +464,10 @@ describe('ThemePreview - Example-Based Tests', () => {
   // ============================================================================
 
   it('E006: Purple-haze theme preview element is created successfully', () => {
-    const element = React.createElement(ThemePreview, { themeId: 'purple-haze' });
+    const element = React.createElement(ThemePreview, { themeId: 'amethyst' });
 
     expect(React.isValidElement(element)).toBe(true);
-    expect(element.props.themeId).toBe('purple-haze');
+    expect(element.props.themeId).toBe('amethyst');
   });
 
   // ============================================================================
@@ -497,10 +497,10 @@ describe('ThemePreview - Example-Based Tests', () => {
   // ============================================================================
 
   it('E009: Mint theme preview element is created successfully', () => {
-    const element = React.createElement(ThemePreview, { themeId: 'mint' });
+    const element = React.createElement(ThemePreview, { themeId: 'jade' });
 
     expect(React.isValidElement(element)).toBe(true);
-    expect(element.props.themeId).toBe('mint');
+    expect(element.props.themeId).toBe('jade');
   });
 
   // ============================================================================
@@ -508,10 +508,10 @@ describe('ThemePreview - Example-Based Tests', () => {
   // ============================================================================
 
   it('E010: Amber theme preview element is created successfully', () => {
-    const element = React.createElement(ThemePreview, { themeId: 'amber' });
+    const element = React.createElement(ThemePreview, { themeId: 'ember' });
 
     expect(React.isValidElement(element)).toBe(true);
-    expect(element.props.themeId).toBe('amber');
+    expect(element.props.themeId).toBe('ember');
   });
 
   // ============================================================================
@@ -519,7 +519,7 @@ describe('ThemePreview - Example-Based Tests', () => {
   // ============================================================================
 
   it('E011: Component maintains theme ID across multiple instances', () => {
-    const themes: ThemeId[] = ['light', 'dark', 'ocean', 'forest'];
+    const themes: ThemeId[] = ['mist', 'obsidian', 'ocean', 'forest'];
 
     themes.forEach((theme) => {
       const element = React.createElement(ThemePreview, { themeId: theme });
@@ -533,16 +533,16 @@ describe('ThemePreview - Example-Based Tests', () => {
 
   it('E012: All 10 theme variants can be created as independent elements', () => {
     const allThemes: ThemeId[] = [
-      'light',
-      'dark',
+      'mist',
+      'obsidian',
       'sunset',
       'ocean',
       'forest',
-      'purple-haze',
+      'amethyst',
       'ember',
       'twilight',
-      'mint',
-      'amber',
+      'jade',
+      'ember',
     ];
 
     const elements = allThemes.map((theme) =>
@@ -562,7 +562,7 @@ describe('ThemePreview - Example-Based Tests', () => {
 
   it('E013: ThemePreviewProps interface can be used directly', () => {
     const validProps: ThemePreviewProps = {
-      themeId: 'dark',
+      themeId: 'obsidian',
     };
 
     const element = React.createElement(ThemePreview, validProps);
@@ -576,14 +576,14 @@ describe('ThemePreview - Example-Based Tests', () => {
   it('E014: Component creates elements consistently across multiple calls', () => {
     const calls = [];
     for (let i = 0; i < 5; i++) {
-      const element = React.createElement(ThemePreview, { themeId: 'dark' });
+      const element = React.createElement(ThemePreview, { themeId: 'obsidian' });
       calls.push(element);
     }
 
     expect(calls).toHaveLength(5);
     calls.forEach((element) => {
       expect(React.isValidElement(element)).toBe(true);
-      expect(element.props.themeId).toBe('dark');
+      expect(element.props.themeId).toBe('obsidian');
     });
   });
 

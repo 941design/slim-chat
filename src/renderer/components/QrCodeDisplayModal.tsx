@@ -2,6 +2,7 @@ import React from 'react';
 import { Dialog, Button, VStack, Text, Box } from '@chakra-ui/react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useThemeContext } from '../themes/ThemeContext';
+import { getTheme } from '../themes/definitions';
 
 /**
  * QR Code Display Modal Component
@@ -68,9 +69,10 @@ export function QrCodeDisplayModal({
   const { themeId } = useThemeContext();
 
   // Theme-aware QR code colors
-  // dark theme uses white QR on dark background for readability
-  // all other themes use black QR on white background (standard QR code appearance)
-  const isDark = themeId === 'dark';
+  // dark themes use white QR on dark background for readability
+  // light themes use black QR on white background (standard QR code appearance)
+  const theme = getTheme(themeId);
+  const isDark = theme.metadata.brightness === 'dark';
   const fgColor = isDark ? '#ffffff' : '#000000';
   const bgColor = isDark ? '#1a202c' : '#ffffff';
 

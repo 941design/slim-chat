@@ -2,50 +2,33 @@
  * Theme Selection Panel Integration Tests
  *
  * Property-based tests verifying complete ThemeSelectionPanel workflows:
- * - Filter combinations reduce theme lists correctly
  * - Carousel navigation maintains correct theme ordering
  * - Staging state management (current vs staged theme)
- * - Component composition (filters + carousel + preview + info work together)
- * - Theme application workflow (browse → filter → apply/cancel)
+ * - Component composition (carousel + preview + sliders + info work together)
+ * - Theme application workflow (browse → apply/cancel)
  * - End-to-end integration of all sub-components
  */
 
 import { describe, it, expect } from '@jest/globals';
 import fc from 'fast-check';
 import { getAllThemes, type ThemeId } from '../../themes/definitions';
-import { filterThemes } from './filterThemes';
-import type { BrightnessFilter, ColorFamilyFilter, ThemeFilters } from './types';
 
 // Reduced iterations for complex integration tests
 const fcOptions = { numRuns: 20 };
 
 // Arbitrary generators
 const themeIdArb = fc.constantFrom<ThemeId>(
-  'light',
-  'dark',
+  'mist',
+  'obsidian',
   'sunset',
   'ocean',
   'forest',
-  'purple-haze',
+  'amethyst',
   'ember',
   'twilight',
-  'mint',
-  'amber'
+  'jade',
+  'ember'
 );
-
-const brightnessFilterArb = fc.constantFrom<BrightnessFilter>('all', 'light', 'dark');
-const colorFamilyFilterArb = fc.constantFrom<ColorFamilyFilter>(
-  'all',
-  'blues',
-  'greens',
-  'warm',
-  'purple'
-);
-
-const filtersArb = fc.record({
-  brightness: brightnessFilterArb,
-  colorFamily: colorFamilyFilterArb,
-});
 
 // ============================================================================
 // HELPER: Simulate Panel State
@@ -57,7 +40,6 @@ const filtersArb = fc.record({
 interface PanelState {
   originalTheme: ThemeId;
   stagedTheme: ThemeId;
-  filters: ThemeFilters;
   availableThemes: ReturnType<typeof getAllThemes>;
   isApplying: boolean;
   error: string | null;
@@ -68,31 +50,9 @@ function initializePanelState(currentTheme: ThemeId): PanelState {
   return {
     originalTheme: currentTheme,
     stagedTheme: currentTheme,
-    filters: { brightness: 'all', colorFamily: 'all' },
     availableThemes: allThemes,
     isApplying: false,
     error: null,
-  };
-}
-
-function applyFilter(state: PanelState, newFilters: ThemeFilters): PanelState {
-  const allThemes = getAllThemes();
-  const filtered = filterThemes(allThemes, newFilters);
-
-  // If staged theme not in filtered list, switch to first available
-  let newStagedTheme = state.stagedTheme;
-  if (filtered.length > 0) {
-    const stagedInFiltered = filtered.find((t) => t.id === state.stagedTheme);
-    if (!stagedInFiltered) {
-      newStagedTheme = filtered[0].id;
-    }
-  }
-
-  return {
-    ...state,
-    filters: newFilters,
-    availableThemes: filtered,
-    stagedTheme: newStagedTheme,
   };
 }
 
@@ -130,7 +90,7 @@ function cancelPanel(state: PanelState): { reverted: boolean; originalTheme: The
 // ============================================================================
 
 describe('Theme Selection Panel Integration: Staging Workflow', () => {
-  it('Property: Opening panel initializes with current theme and default filters', () => {
+  it('Property: Opening panel initializes with current theme and all themes available', () => {
     fc.assert(
       fc.property(themeIdArb, (currentTheme) => {
         const state = initializePanelState(currentTheme);
@@ -138,10 +98,6 @@ describe('Theme Selection Panel Integration: Staging Workflow', () => {
         // Original theme and staged theme should both be current theme
         expect(state.originalTheme).toBe(currentTheme);
         expect(state.stagedTheme).toBe(currentTheme);
-
-        // Filters should be reset to 'all'
-        expect(state.filters.brightness).toBe('all');
-        expect(state.filters.colorFamily).toBe('all');
 
         // Available themes should include all themes
         const allThemes = getAllThemes();
@@ -254,160 +210,6 @@ describe('Theme Selection Panel Integration: Staging Workflow', () => {
 });
 
 // ============================================================================
-// INTEGRATION TESTS: Filtering Workflow
-// ============================================================================
-
-describe('Theme Selection Panel Integration: Filtering Workflow', () => {
-  it('Property: Filter combinations produce correct intersections', () => {
-    fc.assert(
-      fc.property(themeIdArb, filtersArb, (currentTheme, filters) => {
-        // Initialize panel
-        let state = initializePanelState(currentTheme);
-
-        // Apply filters
-        state = applyFilter(state, filters);
-
-        // Verify filtered themes match filterThemes logic
-        const allThemes = getAllThemes();
-        const expectedFiltered = filterThemes(allThemes, filters);
-
-        expect(state.availableThemes.length).toBe(expectedFiltered.length);
-        expect(state.availableThemes.map((t) => t.id)).toEqual(expectedFiltered.map((t) => t.id));
-
-        // If filter excludes staged theme, should switch to first available
-        const stagedInFiltered = expectedFiltered.find((t) => t.id === state.stagedTheme);
-        if (expectedFiltered.length > 0 && !stagedInFiltered) {
-          expect(state.stagedTheme).toBe(expectedFiltered[0].id);
-        }
-      }),
-      fcOptions
-    );
-  });
-
-  it('Property: Brightness filter reduces theme count correctly', () => {
-    fc.assert(
-      fc.property(themeIdArb, brightnessFilterArb, (currentTheme, brightness) => {
-        let state = initializePanelState(currentTheme);
-
-        // Apply brightness filter
-        state = applyFilter(state, { brightness, colorFamily: 'all' });
-
-        const allThemes = getAllThemes();
-        const expectedCount = filterThemes(allThemes, { brightness, colorFamily: 'all' }).length;
-
-        expect(state.availableThemes.length).toBe(expectedCount);
-
-        // Verify specific themes exist in filtered results
-        if (brightness === 'light') {
-          // Should include light theme and other light themes
-          expect(state.availableThemes.some((t) => t.id === 'light')).toBe(true);
-          expect(state.availableThemes.length).toBeGreaterThan(0);
-        } else if (brightness === 'dark') {
-          // Should include dark theme and other dark themes
-          expect(state.availableThemes.some((t) => t.id === 'dark')).toBe(true);
-          expect(state.availableThemes.length).toBeGreaterThan(0);
-        } else {
-          expect(state.availableThemes.length).toBe(20); // all themes
-        }
-      }),
-      fcOptions
-    );
-  });
-
-  it('Property: Color family filter reduces theme count correctly', () => {
-    fc.assert(
-      fc.property(themeIdArb, colorFamilyFilterArb, (currentTheme, colorFamily) => {
-        let state = initializePanelState(currentTheme);
-
-        // Apply color family filter
-        state = applyFilter(state, { brightness: 'all', colorFamily });
-
-        const allThemes = getAllThemes();
-        const expectedFiltered = filterThemes(allThemes, { brightness: 'all', colorFamily });
-
-        expect(state.availableThemes.length).toBe(expectedFiltered.length);
-
-        // Verify specific color families
-        if (colorFamily === 'blues') {
-          // blues: light, dark, ocean, twilight
-          expect(state.availableThemes.some((t) => t.id === 'ocean')).toBe(true);
-        } else if (colorFamily === 'greens') {
-          // greens: forest, mint
-          expect(state.availableThemes.some((t) => t.id === 'forest')).toBe(true);
-        } else if (colorFamily === 'warm') {
-          // warm: sunset, ember, amber
-          expect(state.availableThemes.some((t) => t.id === 'sunset')).toBe(true);
-        } else if (colorFamily === 'purple') {
-          // purple: purple-haze, lavender, midnight
-          expect(state.availableThemes.some((t) => t.id === 'purple-haze')).toBe(true);
-        }
-      }),
-      fcOptions
-    );
-  });
-
-  it('Property: Combining filters produces intersection of individual filters', () => {
-    fc.assert(
-      fc.property(themeIdArb, filtersArb, (currentTheme, filters) => {
-        let state = initializePanelState(currentTheme);
-
-        // Apply combined filters
-        state = applyFilter(state, filters);
-
-        // Get individual filter results
-        const allThemes = getAllThemes();
-        const brightnessFiltered = filterThemes(allThemes, {
-          brightness: filters.brightness,
-          colorFamily: 'all',
-        });
-        const colorFiltered = filterThemes(allThemes, {
-          brightness: 'all',
-          colorFamily: filters.colorFamily,
-        });
-
-        // Combined result should be ≤ each individual filter
-        expect(state.availableThemes.length).toBeLessThanOrEqual(brightnessFiltered.length);
-        expect(state.availableThemes.length).toBeLessThanOrEqual(colorFiltered.length);
-
-        // Every theme in combined result must be in both individual results
-        state.availableThemes.forEach((theme) => {
-          expect(brightnessFiltered.map((t) => t.id)).toContain(theme.id);
-          expect(colorFiltered.map((t) => t.id)).toContain(theme.id);
-        });
-      }),
-      fcOptions
-    );
-  });
-
-  it('Property: Filter excludes staged theme → carousel switches to first available', () => {
-    fc.assert(
-      fc.property(themeIdArb, (currentTheme) => {
-        // Start with a warm theme, filter to blues (mutual exclusion)
-        const warmThemes: ThemeId[] = ['sunset', 'ember', 'amber'];
-        if (!warmThemes.includes(currentTheme)) return;
-
-        let state = initializePanelState(currentTheme);
-
-        // Current theme is warm, staged theme is warm
-        expect(state.stagedTheme).toBe(currentTheme);
-
-        // Apply blues filter (excludes warm themes)
-        state = applyFilter(state, { brightness: 'all', colorFamily: 'blues' });
-
-        const allThemes = getAllThemes();
-        const bluesFiltered = filterThemes(allThemes, { brightness: 'all', colorFamily: 'blues' });
-
-        // Staged theme should switch to first blues theme
-        expect(bluesFiltered.length).toBeGreaterThan(0);
-        expect(state.stagedTheme).toBe(bluesFiltered[0].id);
-        expect(state.stagedTheme).not.toBe(currentTheme);
-      }),
-      fcOptions
-    );
-  });
-});
-
-// ============================================================================
 // INTEGRATION TESTS: Carousel Navigation
 // ============================================================================
 
@@ -471,31 +273,28 @@ describe('Theme Selection Panel Integration: Carousel Navigation', () => {
     );
   });
 
-  it('Property: Carousel navigation respects filtered themes', () => {
+  it('Property: Carousel navigation visits all themes in full cycle', () => {
     fc.assert(
-      fc.property(themeIdArb, filtersArb, (currentTheme, filters) => {
+      fc.property(themeIdArb, (currentTheme) => {
         let state = initializePanelState(currentTheme);
 
-        // Apply filters
-        state = applyFilter(state, filters);
+        const themeCount = state.availableThemes.length;
+        if (themeCount === 0) return;
 
-        const filteredCount = state.availableThemes.length;
-        if (filteredCount === 0) return;
-
-        // Navigate forward through all filtered themes
+        // Navigate forward through all themes
         const visitedThemes: ThemeId[] = [state.stagedTheme];
-        for (let i = 0; i < filteredCount; i++) {
+        for (let i = 0; i < themeCount; i++) {
           state = navigateCarousel(state, 'next');
-          if (i < filteredCount - 1) {
+          if (i < themeCount - 1) {
             visitedThemes.push(state.stagedTheme);
           }
         }
 
-        // Should have visited exactly filteredCount unique themes
+        // Should have visited exactly themeCount unique themes
         const uniqueVisited = Array.from(new Set(visitedThemes));
-        expect(uniqueVisited.length).toBe(filteredCount);
+        expect(uniqueVisited.length).toBe(themeCount);
 
-        // All visited themes should be in filtered list
+        // All visited themes should be in the available list
         visitedThemes.forEach((themeId) => {
           expect(state.availableThemes.map((t) => t.id)).toContain(themeId);
         });
@@ -510,40 +309,37 @@ describe('Theme Selection Panel Integration: Carousel Navigation', () => {
 // ============================================================================
 
 describe('Theme Selection Panel Integration: End-to-End Workflow', () => {
-  it('Property: Complete workflow - open → filter → navigate → apply', () => {
+  it('Property: Complete workflow - open → navigate → apply', () => {
     fc.assert(
       fc.property(
         themeIdArb,
-        filtersArb,
         fc.integer({ min: 0, max: 5 }),
-        (currentTheme, filters, navigateSteps) => {
+        (currentTheme, navigateSteps) => {
           // 1. Open panel
           let state = initializePanelState(currentTheme);
           expect(state.originalTheme).toBe(currentTheme);
           expect(state.stagedTheme).toBe(currentTheme);
 
-          // 2. Apply filters
-          state = applyFilter(state, filters);
-          const filteredThemes = state.availableThemes;
-          if (filteredThemes.length === 0) return;
+          const allThemes = state.availableThemes;
+          if (allThemes.length === 0) return;
 
-          // 3. Navigate carousel
+          // 2. Navigate carousel
           for (let i = 0; i < navigateSteps; i++) {
             state = navigateCarousel(state, 'next');
           }
           const stagedTheme = state.stagedTheme;
 
-          // 4. Apply theme
+          // 3. Apply theme
           const result = applyTheme(state);
 
-          // 5. Verify applied theme is staged theme
+          // 4. Verify applied theme is staged theme
           expect(result.success).toBe(true);
           expect(result.appliedTheme).toBe(stagedTheme);
 
-          // 6. Verify applied theme is in filtered list
-          expect(filteredThemes.map((t) => t.id)).toContain(result.appliedTheme!);
+          // 5. Verify applied theme is in available list
+          expect(allThemes.map((t) => t.id)).toContain(result.appliedTheme!);
 
-          // 7. Original theme unchanged (staging isolation)
+          // 6. Original theme unchanged (staging isolation)
           expect(state.originalTheme).toBe(currentTheme);
         }
       ),
@@ -551,33 +347,28 @@ describe('Theme Selection Panel Integration: End-to-End Workflow', () => {
     );
   });
 
-  it('Property: Complete workflow - open → filter → navigate → cancel', () => {
+  it('Property: Complete workflow - open → navigate → cancel', () => {
     fc.assert(
       fc.property(
         themeIdArb,
-        filtersArb,
         fc.integer({ min: 1, max: 5 }),
-        (currentTheme, filters, navigateSteps) => {
+        (currentTheme, navigateSteps) => {
           // 1. Open panel
           let state = initializePanelState(currentTheme);
 
-          // 2. Apply filters
-          state = applyFilter(state, filters);
-          if (state.availableThemes.length === 0) return;
-
-          // 3. Navigate carousel
+          // 2. Navigate carousel
           for (let i = 0; i < navigateSteps; i++) {
             state = navigateCarousel(state, 'next');
           }
 
-          // 4. Cancel panel
+          // 3. Cancel panel
           const result = cancelPanel(state);
 
-          // 5. Verify reverted to original theme
+          // 4. Verify reverted to original theme
           expect(result.reverted).toBe(true);
           expect(result.originalTheme).toBe(currentTheme);
 
-          // 6. Staged theme is NOT applied
+          // 5. Staged theme is NOT applied
           expect(result.originalTheme).toBe(currentTheme);
         }
       ),
@@ -585,72 +376,30 @@ describe('Theme Selection Panel Integration: End-to-End Workflow', () => {
     );
   });
 
-  it('Property: Sequential filter changes maintain consistent state', () => {
+  it('Property: Multiple carousel navigations maintain consistent state', () => {
     fc.assert(
       fc.property(
         themeIdArb,
-        fc.array(filtersArb, { minLength: 2, maxLength: 5 }),
-        (currentTheme, filterSequence) => {
+        fc.array(fc.constantFrom('prev', 'next') as fc.Arbitrary<'prev' | 'next'>, {
+          minLength: 2,
+          maxLength: 10,
+        }),
+        (currentTheme, navigationSequence) => {
           let state = initializePanelState(currentTheme);
 
-          // Apply filters sequentially
-          filterSequence.forEach((filters) => {
-            state = applyFilter(state, filters);
+          // Apply navigation sequence
+          navigationSequence.forEach((direction) => {
+            state = navigateCarousel(state, direction);
 
-            // After each filter:
-            // 1. Available themes match filterThemes result
-            const allThemes = getAllThemes();
-            const expected = filterThemes(allThemes, filters);
-            expect(state.availableThemes.length).toBe(expected.length);
+            // After each navigation:
+            // 1. Staged theme is in available themes
+            expect(state.availableThemes.map((t) => t.id)).toContain(state.stagedTheme);
 
-            // 2. Staged theme is in available themes (or first if excluded)
-            if (state.availableThemes.length > 0) {
-              expect(state.availableThemes.map((t) => t.id)).toContain(state.stagedTheme);
-            }
-
-            // 3. Original theme unchanged
+            // 2. Original theme unchanged
             expect(state.originalTheme).toBe(currentTheme);
           });
         }
       ),
-      fcOptions
-    );
-  });
-
-  it('Property: Filter + navigate + filter maintains correct carousel position', () => {
-    fc.assert(
-      fc.property(themeIdArb, (currentTheme) => {
-        let state = initializePanelState(currentTheme);
-
-        // 1. Apply blues filter
-        state = applyFilter(state, { brightness: 'all', colorFamily: 'blues' });
-        const bluesThemes = state.availableThemes;
-        if (bluesThemes.length === 0) return;
-
-        // 2. Record current staged blues theme (may be first blues, not original if excluded)
-        const firstStagedBlues = state.stagedTheme;
-        expect(bluesThemes.map((t) => t.id)).toContain(firstStagedBlues);
-
-        // 3. Navigate to next blues theme (if possible)
-        if (bluesThemes.length > 1) {
-          state = navigateCarousel(state, 'next');
-          const secondBluesTheme = state.stagedTheme;
-
-          // Should be different from first
-          expect(secondBluesTheme).not.toBe(firstStagedBlues);
-          // Should be in blues list
-          expect(bluesThemes.map((t) => t.id)).toContain(secondBluesTheme);
-
-          // 4. Apply greens filter
-          state = applyFilter(state, { brightness: 'all', colorFamily: 'greens' });
-          const greensThemes = state.availableThemes;
-          if (greensThemes.length === 0) return;
-
-          // 5. Staged theme should be first greens theme (previous staged excluded)
-          expect(state.stagedTheme).toBe(greensThemes[0].id);
-          expect(state.stagedTheme).not.toBe(secondBluesTheme);
-        }
-      }),
       fcOptions
     );
   });
@@ -676,7 +425,7 @@ describe('Theme Selection Panel Integration: Loading State', () => {
         // Carousel should still display current theme even when applying
         expect(state.stagedTheme).toBe(currentTheme);
       }),
-      fcOptions,
+      fcOptions
     );
   });
 
@@ -704,9 +453,9 @@ describe('Theme Selection Panel Integration: Loading State', () => {
 
           // 5. isApplying flag prevents further navigation in UI
           expect(state.isApplying).toBe(true);
-        },
+        }
       ),
-      fcOptions,
+      fcOptions
     );
   });
 
@@ -738,9 +487,9 @@ describe('Theme Selection Panel Integration: Loading State', () => {
 
           // 6. isApplying would be reset by component after success
           // (In actual component: finally block sets to false after onClose)
-        },
+        }
       ),
-      fcOptions,
+      fcOptions
     );
   });
 
@@ -768,7 +517,7 @@ describe('Theme Selection Panel Integration: Loading State', () => {
         // 6. Modal remains open (onClose not called), so original theme still staged
         expect(state.stagedTheme).toBe(currentTheme);
       }),
-      fcOptions,
+      fcOptions
     );
   });
 
@@ -802,27 +551,26 @@ describe('Theme Selection Panel Integration: Loading State', () => {
 
         expect(state.stagedTheme).toBe(themeWhileApplying);
       }),
-      fcOptions,
+      fcOptions
     );
   });
 
-  it('Property: Filters disabled during application prevents filter changes', () => {
+  it('Property: Sliders disabled during application prevents changes', () => {
     fc.assert(
-      fc.property(themeIdArb, filtersArb, (currentTheme, newFilters) => {
+      fc.property(themeIdArb, (currentTheme) => {
         // 1. Open panel
         let state = initializePanelState(currentTheme);
 
         // 2. Start application
         state.isApplying = true;
 
-        // 3. Even if filter change is attempted, carousel is disabled
-        // (In real component, filter buttons would also be prevented)
+        // 3. Sliders would be disabled (disabled prop passed to ThemeVariableSliders)
         expect(state.isApplying).toBe(true);
 
-        // 4. isApplying prevents carousel from responding to any navigation
-        // This blocks race conditions: no carousel changes while theme applies
+        // 4. isApplying prevents carousel and sliders from responding to any changes
+        // This blocks race conditions: no changes while theme applies
       }),
-      fcOptions,
+      fcOptions
     );
   });
 });
@@ -859,9 +607,9 @@ describe('Theme Selection Panel Integration: Race Condition Prevention', () => {
           expect(state.isApplying).toBe(true);
 
           // 6. No race condition: only one theme application can queue
-        },
+        }
       ),
-      fcOptions,
+      fcOptions
     );
   });
 
@@ -888,9 +636,9 @@ describe('Theme Selection Panel Integration: Race Condition Prevention', () => {
 
           // Still at same theme
           expect(state.stagedTheme).toBe(stagedTheme);
-        },
+        }
       ),
-      fcOptions,
+      fcOptions
     );
   });
 
@@ -912,7 +660,7 @@ describe('Theme Selection Panel Integration: Race Condition Prevention', () => {
 
         // Modal would remain open
       }),
-      fcOptions,
+      fcOptions
     );
   });
 
@@ -940,7 +688,7 @@ describe('Theme Selection Panel Integration: Race Condition Prevention', () => {
         state = navigateCarousel(state, 'next');
         expect(state.stagedTheme).not.toBe(stagedTheme); // Successfully navigated
       }),
-      fcOptions,
+      fcOptions
     );
   });
 });

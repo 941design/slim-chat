@@ -54,25 +54,25 @@ export function createThemeSystem(themeId?: string | null): ReturnType<typeof cr
  *
  *   Invariants:
  *     - Always returns valid ThemeId (never null/undefined)
- *     - Null identity returns 'dark' (default)
- *     - Identity without theme field returns 'dark' (default)
- *     - Identity with invalid theme returns 'dark' (fallback)
+ *     - Null identity returns 'obsidian' (default)
+ *     - Identity without theme field returns 'obsidian' (default)
+ *     - Identity with invalid theme returns 'obsidian' (fallback)
  *     - Identity with valid theme returns that theme ID
  *
  *   Properties:
- *     - Default: getThemeIdForIdentity(null) equals 'dark'
+ *     - Default: getThemeIdForIdentity(null) equals 'obsidian'
  *     - Validation: output is always valid ThemeId per isValidThemeId()
  *     - Idempotent: multiple calls with same identity return same ID
  *
  *   Algorithm:
- *     1. If identity is null → return 'dark'
- *     2. If identity.theme is undefined/null → return 'dark'
- *     3. If identity.theme is invalid per isValidThemeId() → return 'dark'
+ *     1. If identity is null → return 'obsidian'
+ *     2. If identity.theme is undefined/null → return 'obsidian'
+ *     3. If identity.theme is invalid per isValidThemeId() → return 'obsidian'
  *     4. Otherwise → return identity.theme
  */
 export function getThemeIdForIdentity(identity: NostlingIdentity | null): ThemeId {
   if (!identity || !identity.theme) {
-    return 'dark';
+    return 'obsidian';
   }
   // Delegate validation to getTheme which handles fallback
   const theme = getTheme(identity.theme);

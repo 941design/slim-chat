@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import {
   ChakraProvider,
@@ -38,10 +38,14 @@ import { shouldSubmitOnKeyDown } from './utils/keyboard-submit';
 import { useNostlingState } from './nostling/state';
 import { RelayTable } from './components/RelayTable';
 import { RelayConflictModal } from './components/RelayConflictModal';
-import { ThemeSelectionPanel } from './components/ThemeSelectionPanel';
+import { ThemeSelectionPanel, ThemeVariableSliders, ThemeInfo } from './components/ThemeSelectionPanel';
+import { SubPanel } from './components/SubPanel';
 import { createThemeSystem, getThemeIdForIdentity } from './themes/useTheme';
+import { ThemeGenerator, type ThemeGeneratorInput } from './themes/generator';
+import type { ThemeSemanticColors } from './themes/useTheme';
 import { ThemeProvider, useThemeColors } from './themes/ThemeContext';
-import type { ThemeId } from './themes/definitions';
+import type { ThemeId, ThemeMetadata } from './themes/definitions';
+import { getAllThemes } from './themes/definitions';
 import { QrCodeScannerModal } from './components/QrCodeScannerModal';
 import { QrCodeDisplayModal } from './components/QrCodeDisplayModal';
 import { CameraIcon, QrCodeIcon } from './components/qr-icons';
@@ -723,7 +727,7 @@ function IdentityList({
                       badgeBackgroundColor={colors.surfaceBg}
                       badgeIconColor={colors.text}
                     />
-                    <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
+                    <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1" fontFamily="body">
                       {displayName}
                     </Text>
                     {hasUnread && (
@@ -982,7 +986,7 @@ function ContactList({
                       badgeBackgroundColor={colors.surfaceBg}
                       badgeIconColor={colors.text}
                     />
-                    <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1">
+                    <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1" fontFamily="body">
                       {displayName}
                     </Text>
                     {hasUnread && (
@@ -1120,7 +1124,7 @@ function MessageBubble({
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
       >
-        <Text color={isOwn ? colors.ownBubbleText : colors.text} whiteSpace="pre-wrap">
+        <Text color={isOwn ? colors.ownBubbleText : colors.text} whiteSpace="pre-wrap" fontFamily="body">
           {message.content}
         </Text>
       </Box>
@@ -1524,27 +1528,22 @@ function AboutView({
 }) {
   const colors = useThemeColors();
 
-  return (
-    <Box
-      p="4"
-      overflowY="auto"
-      data-testid="about-view"
-    >
-      <HStack justify="space-between" align="center" mb="4">
-        <Heading size="sm" color={colors.textMuted}>
-          About Nostling
-        </Heading>
-        <Button
-          size="sm"
-          variant="outline"
-          colorPalette="blue"
-          onClick={onReturn}
-          className="about-return-button"
-        >
-          Return
-        </Button>
-      </HStack>
+  const actions = [
+    {
+      label: 'Return',
+      onClick: onReturn,
+      variant: 'outline' as const,
+      colorPalette: 'blue' as const,
+      testId: 'about-return-button',
+    },
+  ];
 
+  return (
+    <SubPanel
+      title="About Nostling"
+      actions={actions}
+      testId="about-view"
+    >
       <Stack gap="4">
         <Box borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBg} p="4">
           <Heading size="sm" color={colors.text} mb="2">
@@ -1617,7 +1616,7 @@ function AboutView({
           </Text>
         </Box>
       </Stack>
-    </Box>
+    </SubPanel>
   );
 }
 
@@ -1637,6 +1636,8 @@ function Sidebar({
   newlyArrived,
   identityUnreadCounts,
   newlyArrivedIdentities,
+  themeSliders,
+  themeInfo,
 }: {
   identities: NostlingIdentity[];
   contacts: Record<string, NostlingContact[]>;
@@ -1653,11 +1654,16 @@ function Sidebar({
   newlyArrived?: Set<string>;
   identityUnreadCounts?: Record<string, number>;
   newlyArrivedIdentities?: Set<string>;
+  themeSliders?: React.ReactNode;
+  themeInfo?: { theme: ThemeMetadata; isCurrentTheme: boolean } | null;
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
   const [qrDisplayIdentity, setQrDisplayIdentity] = useState<NostlingIdentity | null>(null);
   const [qrDisplayContact, setQrDisplayContact] = useState<NostlingContact | null>(null);
+
+  // When themeSliders is provided, only show theme configuration (hide identity/contacts)
+  const isThemeMode = Boolean(themeSliders);
 
   return (
     <Box
@@ -1669,44 +1675,65 @@ function Sidebar({
       bg={colors.surfaceBg}
       p="4"
       data-testid="app-sidebar"
+      overflowY="auto"
     >
       <VStack align="stretch" gap="4">
-        <IdentityList
-          identities={identities}
-          selectedId={selectedIdentityId}
-          onSelect={onSelectIdentity}
-          onOpenCreate={onOpenIdentityModal}
-          onShowQr={setQrDisplayIdentity}
-          onRename={onRenameIdentity}
-          unreadCounts={identityUnreadCounts}
-          newlyArrived={newlyArrivedIdentities}
-        />
-        <Separator borderColor={colors.borderSubtle} />
-        <ContactList
-          contacts={currentContacts}
-          selectedId={selectedContactId}
-          onSelect={onSelectContact}
-          onOpenAdd={onOpenContactModal}
-          disabled={identities.length === 0}
-          onRequestDelete={onRequestDeleteContact}
-          onRename={onRenameContact}
-          onShowQr={setQrDisplayContact}
-          unreadCounts={unreadCounts}
-          newlyArrived={newlyArrived}
-        />
+        {isThemeMode ? (
+          // Theme mode: show theme info and sliders
+          <>
+            {themeInfo && (
+              <ThemeInfo
+                theme={themeInfo.theme}
+                isCurrentTheme={themeInfo.isCurrentTheme}
+              />
+            )}
+            {themeSliders}
+          </>
+        ) : (
+          // Normal mode: show identity and contact lists
+          <>
+            <IdentityList
+              identities={identities}
+              selectedId={selectedIdentityId}
+              onSelect={onSelectIdentity}
+              onOpenCreate={onOpenIdentityModal}
+              onShowQr={setQrDisplayIdentity}
+              onRename={onRenameIdentity}
+              unreadCounts={identityUnreadCounts}
+              newlyArrived={newlyArrivedIdentities}
+            />
+            <Separator borderColor={colors.borderSubtle} />
+            <ContactList
+              contacts={currentContacts}
+              selectedId={selectedContactId}
+              onSelect={onSelectContact}
+              onOpenAdd={onOpenContactModal}
+              disabled={identities.length === 0}
+              onRequestDelete={onRequestDeleteContact}
+              onRename={onRenameContact}
+              onShowQr={setQrDisplayContact}
+              unreadCounts={unreadCounts}
+              newlyArrived={newlyArrived}
+            />
+          </>
+        )}
       </VStack>
-      <QrCodeDisplayModal
-        isOpen={qrDisplayIdentity !== null}
-        onClose={() => setQrDisplayIdentity(null)}
-        npub={qrDisplayIdentity?.npub || ''}
-        label={qrDisplayIdentity?.label}
-      />
-      <QrCodeDisplayModal
-        isOpen={qrDisplayContact !== null}
-        onClose={() => setQrDisplayContact(null)}
-        npub={qrDisplayContact?.npub || ''}
-        label={qrDisplayContact?.alias}
-      />
+      {!isThemeMode && (
+        <>
+          <QrCodeDisplayModal
+            isOpen={qrDisplayIdentity !== null}
+            onClose={() => setQrDisplayIdentity(null)}
+            npub={qrDisplayIdentity?.npub || ''}
+            label={qrDisplayIdentity?.label}
+          />
+          <QrCodeDisplayModal
+            isOpen={qrDisplayContact !== null}
+            onClose={() => setQrDisplayContact(null)}
+            npub={qrDisplayContact?.npub || ''}
+            label={qrDisplayContact?.alias}
+          />
+        </>
+      )}
     </Box>
   );
 }
@@ -1728,7 +1755,13 @@ function App({ onThemeChange }: AppProps) {
   const [contactToDelete, setContactToDelete] = useState<NostlingContact | null>(null);
   const [deletingContact, setDeletingContact] = useState(false);
   const [currentView, setCurrentView] = useState<AppView>('chat');
-  const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('dark');
+  const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('obsidian');
+
+  // Theme slider state (managed here so sliders in sidebar can communicate with main panel)
+  const [themeCustomColors, setThemeCustomColors] = useState<ThemeSemanticColors | null>(null);
+
+  // Staged theme for sidebar display (tracks the theme being previewed in carousel)
+  const [stagedThemeId, setStagedThemeId] = useState<ThemeId | null>(null);
 
   // Track last selected contact per identity to restore when switching back
   const lastContactPerIdentityRef = useRef<Record<string, string>>({});
@@ -1980,7 +2013,44 @@ function App({ onThemeChange }: AppProps) {
 
   const handleReturnToChat = () => {
     setCurrentView('chat');
+    setThemeCustomColors(null); // Clear custom colors when leaving theme selection
   };
+
+  // Handle theme slider changes - generate custom theme colors
+  const handleThemeSliderChange = useCallback((input: ThemeGeneratorInput) => {
+    try {
+      const generated = ThemeGenerator.generate(input, false);
+      // Convert to resolved theme to get typography
+      const resolved = ThemeGenerator.toResolvedTheme(generated);
+
+      // Convert AllSemanticTokens to ThemeSemanticColors
+      const semanticColors = generated.semantic as ThemeSemanticColors;
+      setThemeCustomColors(semanticColors);
+
+      // Apply typography CSS variables directly
+      const root = document.documentElement;
+      if (resolved.typography?.fontSizes) {
+        for (const [key, value] of Object.entries(resolved.typography.fontSizes)) {
+          root.style.setProperty(`--app-font-size-${key}`, value);
+        }
+      }
+      if (resolved.typography?.fonts) {
+        for (const [key, value] of Object.entries(resolved.typography.fonts)) {
+          root.style.setProperty(`--app-font-${key}`, value);
+        }
+      }
+
+      console.log('Generated theme:', generated);
+    } catch (err) {
+      console.error('Theme generation failed:', err);
+    }
+  }, []);
+
+  // Handle staged theme change from carousel - clear custom colors and update staged theme
+  const handleStagedThemeChange = useCallback((themeId: ThemeId) => {
+    setThemeCustomColors(null);
+    setStagedThemeId(themeId);
+  }, []);
 
   useEffect(() => {
     if (currentView !== 'about' && currentView !== 'themeSelection') return;
@@ -1994,6 +2064,29 @@ function App({ onThemeChange }: AppProps) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentView]);
+
+  // Initialize staged theme when entering theme selection mode
+  useEffect(() => {
+    if (currentView === 'themeSelection') {
+      setStagedThemeId(currentThemeId);
+    } else {
+      setStagedThemeId(null);
+    }
+  }, [currentView, currentThemeId]);
+
+  // Get theme metadata for sidebar display
+  const stagedThemeMetadata = useMemo((): ThemeMetadata | null => {
+    if (themeCustomColors) {
+      return {
+        id: 'custom' as ThemeId,
+        name: 'Custom Theme',
+        description: 'A custom theme created with sliders',
+        previewColors: { primary: '#000', background: '#fff', text: '#000' },
+      };
+    }
+    if (!stagedThemeId) return null;
+    return getAllThemes().find((t) => t.id === stagedThemeId) || null;
+  }, [themeCustomColors, stagedThemeId]);
 
   // Relay management methods
   const loadRelaysForIdentity = async (identityId: string) => {
@@ -2097,6 +2190,22 @@ function App({ onThemeChange }: AppProps) {
           newlyArrived={selectedIdentityId ? nostling.newlyArrived[selectedIdentityId] : undefined}
           identityUnreadCounts={unreadConversationCounts}
           newlyArrivedIdentities={newlyArrivedIdentities}
+          themeSliders={
+            currentView === 'themeSelection' ? (
+              <ThemeVariableSliders
+                onChange={handleThemeSliderChange}
+                disabled={false}
+              />
+            ) : undefined
+          }
+          themeInfo={
+            currentView === 'themeSelection' && stagedThemeMetadata
+              ? {
+                  theme: stagedThemeMetadata,
+                  isCurrentTheme: stagedThemeId === currentThemeId && !themeCustomColors,
+                }
+              : null
+          }
         />
         <Flex as="main" direction="column" flex="1" overflow="hidden" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle}>
           {currentView === 'chat' ? (
@@ -2108,16 +2217,19 @@ function App({ onThemeChange }: AppProps) {
               onMessageHover={setMessageHoverInfo}
             />
           ) : currentView === 'relay-config' ? (
-            <Box p="4" data-testid="relay-config-view">
-              <HStack justify="space-between" mb="4">
-                <Heading size="sm" color={colors.textMuted}>
-                  Relay Configuration
-                </Heading>
-                <Button size="sm" variant="outline" onClick={handleReturnToChat} className="relay-config-done-button">
-                  Done
-                </Button>
-              </HStack>
-
+            <SubPanel
+              title="Relay Configuration"
+              actions={[
+                {
+                  label: 'Done',
+                  onClick: handleReturnToChat,
+                  variant: 'outline',
+                  colorPalette: 'blue',
+                  testId: 'relay-config-done-button',
+                },
+              ]}
+              testId="relay-config-view"
+            >
               {selectedIdentity ? (
                 <RelayTable
                   identityId={selectedIdentity.id}
@@ -2139,16 +2251,16 @@ function App({ onThemeChange }: AppProps) {
               ) : (
                 <Text color={colors.textSubtle}>Select an identity to configure relays.</Text>
               )}
-            </Box>
+            </SubPanel>
           ) : currentView === 'themeSelection' ? (
-            <Box p="4" data-testid="theme-selection-view">
-              <ThemeSelectionPanel
-                currentTheme={currentThemeId}
-                identityId={selectedIdentityId}
-                onThemeApply={handleThemeChange}
-                onCancel={handleReturnToChat}
-              />
-            </Box>
+            <ThemeSelectionPanel
+              currentTheme={currentThemeId}
+              identityId={selectedIdentityId}
+              onThemeApply={handleThemeChange}
+              onCancel={handleReturnToChat}
+              customColors={themeCustomColors}
+              onStagedThemeChange={handleStagedThemeChange}
+            />
           ) : (
             <AboutView
               onReturn={handleReturnToChat}
@@ -2207,8 +2319,8 @@ function App({ onThemeChange }: AppProps) {
 
 function Root() {
   // Create theme system based on current state
-  // Start with dark theme as default, App will update based on identity
-  const [themeId, setThemeId] = useState<ThemeId>('dark');
+  // Start with obsidian theme as default, App will update based on identity
+  const [themeId, setThemeId] = useState<ThemeId>('obsidian');
   const system = useMemo(() => createThemeSystem(themeId), [themeId]);
 
   return (

@@ -80,7 +80,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   it('P001: Component renders with all required props types', () => {
     fc.assert(
       fc.property(
-        fc.constantFrom<ThemeId>('light', 'dark', 'sunset', 'ocean', 'forest'),
+        fc.constantFrom<ThemeId>('mist', 'obsidian', 'sunset', 'ocean', 'forest'),
         (currentTheme) => {
           const availableThemes = createThemeList([currentTheme]);
           const onThemeChange = jest.fn();
@@ -107,7 +107,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('P002: Next button triggers onThemeChange with next theme ID', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset'];
     const availableThemes = createThemeList(themeIds);
     const onThemeChange = jest.fn();
 
@@ -143,7 +143,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('P003: Previous button triggers onThemeChange with previous theme ID', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset', 'ocean'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset', 'ocean'];
     const availableThemes = createThemeList(themeIds);
 
     fc.assert(
@@ -175,7 +175,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('P004: Right navigation from last theme wraps to first theme', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset'];
     const availableThemes = createThemeList(themeIds);
     const lastIndex = themeIds.length - 1;
     const currentTheme = themeIds[lastIndex]; // 'sunset'
@@ -191,7 +191,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
     // Verify wrap-around calculation
     const nextIndex = (lastIndex + 1) % availableThemes.length;
     expect(nextIndex).toBe(0);
-    expect(availableThemes[nextIndex].id).toBe('light');
+    expect(availableThemes[nextIndex].id).toBe('mist');
   });
 
   // ============================================================================
@@ -199,9 +199,9 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('P005: Left navigation from first theme wraps to last theme', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset'];
     const availableThemes = createThemeList(themeIds);
-    const currentTheme = themeIds[0]; // 'light'
+    const currentTheme = themeIds[0]; // 'mist'
 
     const props: ThemeCarouselProps = {
       currentTheme,
@@ -228,16 +228,16 @@ describe('ThemeCarousel - Property-Based Tests', () => {
         (numThemes) => {
           const themeIds: ThemeId[] = [];
           const allThemeIds: ThemeId[] = [
-            'light',
-            'dark',
+            'mist',
+            'obsidian',
             'sunset',
             'ocean',
             'forest',
-            'purple-haze',
+            'amethyst',
             'ember',
             'twilight',
-            'mint',
-            'amber',
+            'jade',
+            'ember',
           ];
 
           for (let i = 0; i < numThemes; i++) {
@@ -273,16 +273,16 @@ describe('ThemeCarousel - Property-Based Tests', () => {
         (numThemes) => {
           const themeIds: ThemeId[] = [];
           const allThemeIds: ThemeId[] = [
-            'light',
-            'dark',
+            'mist',
+            'obsidian',
             'sunset',
             'ocean',
             'forest',
-            'purple-haze',
+            'amethyst',
             'ember',
             'twilight',
-            'mint',
-            'amber',
+            'jade',
+            'ember',
           ];
 
           for (let i = 0; i < numThemes; i++) {
@@ -317,16 +317,16 @@ describe('ThemeCarousel - Property-Based Tests', () => {
         (numThemes) => {
           const themeIds: ThemeId[] = [];
           const allThemeIds: ThemeId[] = [
-            'light',
-            'dark',
+            'mist',
+            'obsidian',
             'sunset',
             'ocean',
             'forest',
-            'purple-haze',
+            'amethyst',
             'ember',
             'twilight',
-            'mint',
-            'amber',
+            'jade',
+            'ember',
           ];
 
           for (let i = 0; i < numThemes; i++) {
@@ -358,16 +358,16 @@ describe('ThemeCarousel - Property-Based Tests', () => {
         (numThemes) => {
           const themeIds: ThemeId[] = [];
           const allThemeIds: ThemeId[] = [
-            'light',
-            'dark',
+            'mist',
+            'obsidian',
             'sunset',
             'ocean',
             'forest',
-            'purple-haze',
+            'amethyst',
             'ember',
             'twilight',
-            'mint',
-            'amber',
+            'jade',
+            'ember',
           ];
 
           for (let i = 0; i < numThemes; i++) {
@@ -399,16 +399,16 @@ describe('ThemeCarousel - Property-Based Tests', () => {
         (numThemes) => {
           const themeIds: ThemeId[] = [];
           const allThemeIds: ThemeId[] = [
-            'light',
-            'dark',
+            'mist',
+            'obsidian',
             'sunset',
             'ocean',
             'forest',
-            'purple-haze',
+            'amethyst',
             'ember',
             'twilight',
-            'mint',
-            'amber',
+            'jade',
+            'copper',
           ];
 
           for (let i = 0; i < numThemes; i++) {
@@ -436,9 +436,9 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   it('P011: Preview component receives current theme ID', () => {
     fc.assert(
       fc.property(
-        fc.constantFrom<ThemeId>('light', 'dark', 'sunset', 'ocean', 'forest'),
+        fc.constantFrom<ThemeId>('mist', 'obsidian', 'sunset', 'ocean', 'forest'),
         (currentTheme) => {
-          const availableThemes = createThemeList([currentTheme, 'amber']);
+          const availableThemes = createThemeList([currentTheme, 'ember']);
 
           const props: ThemeCarouselProps = {
             currentTheme,
@@ -460,9 +460,9 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('P012: Component exports correct type and is a valid React component', () => {
-    const availableThemes = createThemeList(['light', 'dark']);
+    const availableThemes = createThemeList(['mist', 'obsidian']);
     const props: ThemeCarouselProps = {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: jest.fn(),
     };
@@ -478,19 +478,19 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('P013: Component accepts correctly typed props', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset'];
     const availableThemes = createThemeList(themeIds);
     const mockOnThemeChange = jest.fn();
 
     const validProps: ThemeCarouselProps = {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: mockOnThemeChange,
     };
 
     const element = React.createElement(ThemeCarousel, validProps);
 
-    expect(element.props.currentTheme).toBe('light');
+    expect(element.props.currentTheme).toBe('mist');
     expect(element.props.availableThemes).toEqual(availableThemes);
     expect(element.props.onThemeChange).toBe(mockOnThemeChange);
   });
@@ -500,11 +500,11 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('P014: onThemeChange callback is preserved in props', () => {
-    const availableThemes = createThemeList(['light', 'dark']);
+    const availableThemes = createThemeList(['mist', 'obsidian']);
     const callback = jest.fn();
 
     const props: ThemeCarouselProps = {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: callback,
     };
@@ -520,14 +520,14 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('P015: Multiple component instances maintain independent props', () => {
-    const themesA = createThemeList(['light', 'dark']);
+    const themesA = createThemeList(['mist', 'obsidian']);
     const themesB = createThemeList(['ocean', 'forest', 'sunset']);
 
     const callbackA = jest.fn();
     const callbackB = jest.fn();
 
     const elementA = React.createElement(ThemeCarousel, {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes: themesA,
       onThemeChange: callbackA,
     });
@@ -538,7 +538,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
       onThemeChange: callbackB,
     });
 
-    expect(elementA.props.currentTheme).toBe('light');
+    expect(elementA.props.currentTheme).toBe('mist');
     expect(elementB.props.currentTheme).toBe('ocean');
     expect(elementA.props.availableThemes).not.toBe(elementB.props.availableThemes);
     expect(elementA.props.onThemeChange).not.toBe(elementB.props.onThemeChange);
@@ -555,16 +555,16 @@ describe('ThemeCarousel - Property-Based Tests', () => {
         (numThemes) => {
           const themeIds: ThemeId[] = [];
           const allThemeIds: ThemeId[] = [
-            'light',
-            'dark',
+            'mist',
+            'obsidian',
             'sunset',
             'ocean',
             'forest',
-            'purple-haze',
+            'amethyst',
             'ember',
             'twilight',
-            'mint',
-            'amber',
+            'jade',
+            'ember',
           ];
 
           for (let i = 0; i < numThemes; i++) {
@@ -624,16 +624,16 @@ describe('ThemeCarousel - Property-Based Tests', () => {
 
   it('P018: Available themes list contains valid ThemeId values', () => {
     const validThemeIds: ThemeId[] = [
-      'light',
-      'dark',
+      'mist',
+      'obsidian',
       'sunset',
       'ocean',
       'forest',
-      'purple-haze',
+      'amethyst',
       'ember',
       'twilight',
-      'mint',
-      'amber',
+      'jade',
+      'ember',
     ];
 
     fc.assert(
@@ -666,8 +666,8 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('P019: Single theme in list navigates to itself on all operations', () => {
-    const availableThemes = createThemeList(['light']);
-    const currentTheme: ThemeId = 'light';
+    const availableThemes = createThemeList(['mist']);
+    const currentTheme: ThemeId = 'mist';
 
     // Next from index 0 should wrap to 0
     let nextIdx = (0 + 1) % 1;
@@ -694,7 +694,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   it('P020: Theme metadata objects contain required properties', () => {
     fc.assert(
       fc.property(
-        fc.constantFrom<ThemeId>('light', 'dark', 'sunset', 'ocean', 'forest'),
+        fc.constantFrom<ThemeId>('mist', 'obsidian', 'sunset', 'ocean', 'forest'),
         (themeId) => {
           const metadata = generateThemeMetadata(themeId);
           const availableThemes = [metadata];
@@ -727,15 +727,15 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('E001: Specific theme sequence - light to dark to sunset and back', () => {
-    const availableThemes = createThemeList(['light', 'dark', 'sunset']);
+    const availableThemes = createThemeList(['mist', 'obsidian', 'sunset']);
 
     // Start at light (index 0)
     let currentIndex = 0;
-    expect(availableThemes[currentIndex].id).toBe('light');
+    expect(availableThemes[currentIndex].id).toBe('mist');
 
     // Navigate right to dark (index 1)
     currentIndex = (currentIndex + 1) % availableThemes.length;
-    expect(availableThemes[currentIndex].id).toBe('dark');
+    expect(availableThemes[currentIndex].id).toBe('obsidian');
 
     // Navigate right to sunset (index 2)
     currentIndex = (currentIndex + 1) % availableThemes.length;
@@ -743,7 +743,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
 
     // Navigate right wraps to light (index 0)
     currentIndex = (currentIndex + 1) % availableThemes.length;
-    expect(availableThemes[currentIndex].id).toBe('light');
+    expect(availableThemes[currentIndex].id).toBe('mist');
 
     // Navigate left to sunset (index 2)
     currentIndex = (currentIndex - 1 + availableThemes.length) % availableThemes.length;
@@ -756,20 +756,20 @@ describe('ThemeCarousel - Property-Based Tests', () => {
 
   it('E002: Component renders with all 10 theme options', () => {
     const allThemes = createThemeList([
-      'light',
-      'dark',
-      'amber',
+      'mist',
+      'obsidian',
+      'ember',
       'ember',
       'forest',
-      'mint',
+      'jade',
       'ocean',
-      'purple-haze',
+      'amethyst',
       'sunset',
       'twilight',
     ]);
 
     const props: ThemeCarouselProps = {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes: allThemes,
       onThemeChange: jest.fn(),
     };
@@ -777,7 +777,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
     const element = React.createElement(ThemeCarousel, props);
 
     expect(element.props.availableThemes.length).toBe(10);
-    expect(element.props.availableThemes[0].id).toBe('light');
+    expect(element.props.availableThemes[0].id).toBe('mist');
     expect(element.props.availableThemes[9].id).toBe('twilight');
   });
 
@@ -786,9 +786,9 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('E003: Component structure includes proper ARIA attributes', () => {
-    const availableThemes = createThemeList(['light', 'dark']);
+    const availableThemes = createThemeList(['mist', 'obsidian']);
     const props: ThemeCarouselProps = {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: jest.fn(),
     };
@@ -805,11 +805,11 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('E004: Component structure supports keyboard navigation', () => {
-    const availableThemes = createThemeList(['light', 'dark', 'sunset']);
+    const availableThemes = createThemeList(['mist', 'obsidian', 'sunset']);
     const mockOnThemeChange = jest.fn();
 
     const props: ThemeCarouselProps = {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: mockOnThemeChange,
     };
@@ -825,11 +825,11 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('E005: Component structure supports right arrow key navigation', () => {
-    const availableThemes = createThemeList(['light', 'dark', 'sunset', 'ocean']);
+    const availableThemes = createThemeList(['mist', 'obsidian', 'sunset', 'ocean']);
     const mockOnThemeChange = jest.fn();
 
     const props: ThemeCarouselProps = {
-      currentTheme: 'dark',
+      currentTheme: 'obsidian',
       availableThemes,
       onThemeChange: mockOnThemeChange,
     };
@@ -845,7 +845,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('E006: Navigation from first theme (light) wraps correctly', () => {
-    const availableThemes = createThemeList(['light', 'dark', 'sunset']);
+    const availableThemes = createThemeList(['mist', 'obsidian', 'sunset']);
     const currentIndex = 0; // light
 
     // Left should wrap to last (sunset)
@@ -854,7 +854,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
 
     // Right should go to dark
     const nextIndex = (currentIndex + 1) % availableThemes.length;
-    expect(availableThemes[nextIndex].id).toBe('dark');
+    expect(availableThemes[nextIndex].id).toBe('obsidian');
   });
 
   // ============================================================================
@@ -862,16 +862,16 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('E007: Navigation from last theme (sunset) wraps correctly', () => {
-    const availableThemes = createThemeList(['light', 'dark', 'sunset']);
+    const availableThemes = createThemeList(['mist', 'obsidian', 'sunset']);
     const currentIndex = 2; // sunset
 
     // Right should wrap to first (light)
     const nextIndex = (currentIndex + 1) % availableThemes.length;
-    expect(availableThemes[nextIndex].id).toBe('light');
+    expect(availableThemes[nextIndex].id).toBe('mist');
 
     // Left should go to dark
     const prevIndex = (currentIndex - 1 + availableThemes.length) % availableThemes.length;
-    expect(availableThemes[prevIndex].id).toBe('dark');
+    expect(availableThemes[prevIndex].id).toBe('obsidian');
   });
 
   // ============================================================================
@@ -890,8 +890,8 @@ describe('ThemeCarousel - Property-Based Tests', () => {
 
   it('E009: Component accepts filtered theme subset', () => {
     const allThemes = createThemeList([
-      'light',
-      'dark',
+      'mist',
+      'obsidian',
       'sunset',
       'ocean',
       'forest',
@@ -899,7 +899,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
     const filteredThemes = [allThemes[0], allThemes[2]]; // light, sunset only
 
     const props: ThemeCarouselProps = {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes: filteredThemes,
       onThemeChange: jest.fn(),
     };
@@ -907,7 +907,7 @@ describe('ThemeCarousel - Property-Based Tests', () => {
     const element = React.createElement(ThemeCarousel, props);
 
     expect(element.props.availableThemes.length).toBe(2);
-    expect(element.props.availableThemes[0].id).toBe('light');
+    expect(element.props.availableThemes[0].id).toBe('mist');
     expect(element.props.availableThemes[1].id).toBe('sunset');
   });
 
@@ -916,18 +916,18 @@ describe('ThemeCarousel - Property-Based Tests', () => {
   // ============================================================================
 
   it('E010: Sequential navigation calls work with independent callbacks', () => {
-    const availableThemes = createThemeList(['light', 'dark', 'sunset']);
+    const availableThemes = createThemeList(['mist', 'obsidian', 'sunset']);
     const callback1 = jest.fn();
     const callback2 = jest.fn();
 
     const props1: ThemeCarouselProps = {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: callback1,
     };
 
     const props2: ThemeCarouselProps = {
-      currentTheme: 'dark',
+      currentTheme: 'obsidian',
       availableThemes,
       onThemeChange: callback2,
     };
@@ -947,7 +947,7 @@ describe('ThemeCarousel - Disabled State Tests', () => {
   // ============================================================================
 
   it('P021: When disabled=true, next button navigation has no effect', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset', 'ocean'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset', 'ocean'];
     const availableThemes = createThemeList(themeIds);
     const mockOnThemeChange = jest.fn();
 
@@ -982,7 +982,7 @@ describe('ThemeCarousel - Disabled State Tests', () => {
   // ============================================================================
 
   it('P022: When disabled=true, previous button navigation has no effect', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset'];
     const availableThemes = createThemeList(themeIds);
     const mockOnThemeChange = jest.fn();
 
@@ -1013,7 +1013,7 @@ describe('ThemeCarousel - Disabled State Tests', () => {
   // ============================================================================
 
   it('P023: When disabled=true, keyboard navigation should not trigger callbacks', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset', 'ocean', 'forest'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset', 'ocean', 'forest'];
     const availableThemes = createThemeList(themeIds);
     const mockOnThemeChange = jest.fn();
 
@@ -1045,7 +1045,7 @@ describe('ThemeCarousel - Disabled State Tests', () => {
   // ============================================================================
 
   it('P024: When disabled=false (default), carousel accepts props for navigation', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset'];
     const availableThemes = createThemeList(themeIds);
     const mockOnThemeChange = jest.fn();
 
@@ -1078,12 +1078,12 @@ describe('ThemeCarousel - Disabled State Tests', () => {
   // ============================================================================
 
   it('P025: disabled property is optional with sensible default', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset'];
     const availableThemes = createThemeList(themeIds);
     const mockOnThemeChange = jest.fn();
 
     const propsWithoutDisabled: ThemeCarouselProps = {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: mockOnThemeChange,
     };
@@ -1099,13 +1099,13 @@ describe('ThemeCarousel - Disabled State Tests', () => {
   // ============================================================================
 
   it('P026: Component correctly receives different disabled states', () => {
-    const themeIds: ThemeId[] = ['light', 'dark', 'sunset'];
+    const themeIds: ThemeId[] = ['mist', 'obsidian', 'sunset'];
     const availableThemes = createThemeList(themeIds);
     const mockOnThemeChange = jest.fn();
 
     // Element with disabled=true
     const disabledElement = React.createElement(ThemeCarousel, {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: mockOnThemeChange,
       disabled: true,
@@ -1113,7 +1113,7 @@ describe('ThemeCarousel - Disabled State Tests', () => {
 
     // Element with disabled=false
     const enabledElement = React.createElement(ThemeCarousel, {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: mockOnThemeChange,
       disabled: false,
@@ -1133,16 +1133,16 @@ describe('ThemeCarousel - Disabled State Tests', () => {
       fc.property(fc.integer({ min: 1, max: 10 }), (numThemes) => {
         const themeIds: ThemeId[] = [];
         const allThemeIds: ThemeId[] = [
-          'light',
-          'dark',
+          'mist',
+          'obsidian',
           'sunset',
           'ocean',
           'forest',
-          'purple-haze',
+          'amethyst',
           'ember',
           'twilight',
-          'mint',
-          'amber',
+          'jade',
+          'ember',
         ];
 
         for (let i = 0; i < numThemes; i++) {
@@ -1174,8 +1174,8 @@ describe('ThemeCarousel - Disabled State Tests', () => {
 
   it('P028: disabled prop works correctly with filtered theme lists', () => {
     const allThemes = createThemeList([
-      'light',
-      'dark',
+      'mist',
+      'obsidian',
       'sunset',
       'ocean',
       'forest',
@@ -1185,7 +1185,7 @@ describe('ThemeCarousel - Disabled State Tests', () => {
     const mockOnThemeChange = jest.fn();
 
     const propsDisabled: ThemeCarouselProps = {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes: filteredThemes,
       onThemeChange: mockOnThemeChange,
       disabled: true,
@@ -1202,12 +1202,12 @@ describe('ThemeCarousel - Disabled State Tests', () => {
   // ============================================================================
 
   it('E011: Carousel disabled state reflects async application in progress', () => {
-    const availableThemes = createThemeList(['light', 'dark', 'sunset']);
+    const availableThemes = createThemeList(['mist', 'obsidian', 'sunset']);
     const mockOnThemeChange = jest.fn();
 
     // Simulate initial state (not applying)
     const initialElement = React.createElement(ThemeCarousel, {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: mockOnThemeChange,
       disabled: false,
@@ -1217,7 +1217,7 @@ describe('ThemeCarousel - Disabled State Tests', () => {
 
     // Simulate applying state (theme application in progress)
     const applyingElement = React.createElement(ThemeCarousel, {
-      currentTheme: 'light',
+      currentTheme: 'mist',
       availableThemes,
       onThemeChange: mockOnThemeChange,
       disabled: true,
@@ -1231,11 +1231,11 @@ describe('ThemeCarousel - Disabled State Tests', () => {
   // ============================================================================
 
   it('E012: Disabled carousel correctly passes current theme to preview', () => {
-    const availableThemes = createThemeList(['light', 'dark', 'sunset']);
+    const availableThemes = createThemeList(['mist', 'obsidian', 'sunset']);
     const mockOnThemeChange = jest.fn();
 
     const props: ThemeCarouselProps = {
-      currentTheme: 'dark',
+      currentTheme: 'obsidian',
       availableThemes,
       onThemeChange: mockOnThemeChange,
       disabled: true,
@@ -1244,7 +1244,7 @@ describe('ThemeCarousel - Disabled State Tests', () => {
     const element = React.createElement(ThemeCarousel, props);
 
     // Even when disabled, currentTheme should be passed to preview
-    expect(element.props.currentTheme).toBe('dark');
+    expect(element.props.currentTheme).toBe('obsidian');
     expect(element.props.disabled).toBe(true);
   });
 });

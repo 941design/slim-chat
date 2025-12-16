@@ -23,16 +23,16 @@ describe('Theme System Integration: Core Properties', () => {
     fc.assert(
       fc.property(
         fc.constantFrom<ThemeId>(
-          'light',
-          'dark',
+          'mist',
+          'obsidian',
           'sunset',
           'ocean',
           'forest',
-          'purple-haze',
+          'amethyst',
           'ember',
           'twilight',
-          'mint',
-          'amber'
+          'jade',
+          'ember'
         ),
         (themeId: ThemeId) => {
           const system = createThemeSystem(themeId);
@@ -66,7 +66,7 @@ describe('Theme System Integration: Core Properties', () => {
     const originalWarn = console.warn;
     console.warn = () => {}; // Suppress expected warnings during test
     // Cache the dark system once to avoid redundant expensive calls
-    const darkSystem = createThemeSystem('dark');
+    const darkSystem = createThemeSystem('obsidian');
     try {
       fc.assert(
         fc.property(
@@ -87,7 +87,7 @@ describe('Theme System Integration: Core Properties', () => {
 
   it('Property: Null/undefined theme IDs fall back to dark theme', () => {
     // Cache the dark system once to avoid redundant expensive calls
-    const darkSystem = createThemeSystem('dark');
+    const darkSystem = createThemeSystem('obsidian');
     fc.assert(
       fc.property(
         fc.constantFrom(null as null | undefined, undefined),
@@ -105,7 +105,7 @@ describe('Theme System Integration: Core Properties', () => {
 describe('Theme System Integration: Identity Resolution', () => {
   it('Property: Null identity returns dark theme', () => {
     const themeId = getThemeIdForIdentity(null);
-    expect(themeId).toBe('dark');
+    expect(themeId).toBe('obsidian');
   });
 
   it('Property: Identity without theme field returns dark theme', () => {
@@ -119,7 +119,7 @@ describe('Theme System Integration: Identity Resolution', () => {
         }),
         (identity: any) => {
           const themeId = getThemeIdForIdentity(identity as NostlingIdentity);
-          expect(themeId).toBe('dark');
+          expect(themeId).toBe('obsidian');
         }
       ),
       fcOptions
@@ -142,7 +142,7 @@ describe('Theme System Integration: Identity Resolution', () => {
           }),
           (identity: any) => {
             const themeId = getThemeIdForIdentity(identity as NostlingIdentity);
-            expect(themeId).toBe('dark');
+            expect(themeId).toBe('obsidian');
           }
         ),
         fcOptions
@@ -162,16 +162,16 @@ describe('Theme System Integration: Identity Resolution', () => {
             label: fc.string(),
             createdAt: fc.string(),
             theme: fc.constantFrom<ThemeId>(
-              'light',
-              'dark',
+              'mist',
+              'obsidian',
               'sunset',
               'ocean',
               'forest',
-              'purple-haze',
+              'amethyst',
               'ember',
               'twilight',
-              'mint',
-              'amber'
+              'jade',
+              'ember'
             ),
           })
           .filter((identity: any) => isValidThemeId(identity.theme)),
@@ -192,28 +192,28 @@ describe('Theme System Integration: Theme Switching', () => {
       fc.property(
         fc.tuple(
           fc.constantFrom<ThemeId>(
-            'light',
-            'dark',
+            'mist',
+            'obsidian',
             'sunset',
             'ocean',
             'forest',
-            'purple-haze',
+            'amethyst',
             'ember',
             'twilight',
-            'mint',
-            'amber'
+            'jade',
+            'ember'
           ),
           fc.constantFrom<ThemeId>(
-            'light',
-            'dark',
+            'mist',
+            'obsidian',
             'sunset',
             'ocean',
             'forest',
-            'purple-haze',
+            'amethyst',
             'ember',
             'twilight',
-            'mint',
-            'amber'
+            'jade',
+            'ember'
           )
         ),
         ([themeA, themeB]: [ThemeId, ThemeId]) => {
@@ -235,16 +235,16 @@ describe('Theme System Integration: Theme Switching', () => {
     fc.assert(
       fc.property(
         fc.constantFrom<ThemeId>(
-          'light',
-          'dark',
+          'mist',
+          'obsidian',
           'sunset',
           'ocean',
           'forest',
-          'purple-haze',
+          'amethyst',
           'ember',
           'twilight',
-          'mint',
-          'amber'
+          'jade',
+          'ember'
         ),
         (themeId: ThemeId) => {
           const system1 = createThemeSystem(themeId);
@@ -263,16 +263,16 @@ describe('Theme System Integration: Metadata Consistency', () => {
     fc.assert(
       fc.property(
         fc.constantFrom<ThemeId>(
-          'light',
-          'dark',
+          'mist',
+          'obsidian',
           'sunset',
           'ocean',
           'forest',
-          'purple-haze',
+          'amethyst',
           'ember',
           'twilight',
-          'mint',
-          'amber'
+          'jade',
+          'ember'
         ),
         (themeId: ThemeId) => {
           const themeDef = getTheme(themeId);
@@ -290,16 +290,16 @@ describe('Theme System Integration: Metadata Consistency', () => {
     fc.assert(
       fc.property(
         fc.constantFrom<ThemeId>(
-          'light',
-          'dark',
+          'mist',
+          'obsidian',
           'sunset',
           'ocean',
           'forest',
-          'purple-haze',
+          'amethyst',
           'ember',
           'twilight',
-          'mint',
-          'amber'
+          'jade',
+          'ember'
         ),
         (themeId: ThemeId) => {
           const themeDef = getTheme(themeId);
@@ -325,16 +325,16 @@ describe('Theme System Integration: Complete Workflow', () => {
           label: fc.string(),
           createdAt: fc.string(),
           theme: fc.constantFrom<ThemeId>(
-            'light',
-            'dark',
+            'mist',
+            'obsidian',
             'sunset',
             'ocean',
             'forest',
-            'purple-haze',
+            'amethyst',
             'ember',
             'twilight',
-            'mint',
-            'amber'
+            'jade',
+            'ember'
           ),
         }),
         (identity: any) => {
@@ -362,16 +362,16 @@ describe('Theme System Integration: Complete Workflow', () => {
             label: fc.string(),
             createdAt: fc.string(),
             theme: fc.constantFrom<ThemeId>(
-              'light',
-              'dark',
+              'mist',
+              'obsidian',
               'sunset',
               'ocean',
               'forest',
-              'purple-haze',
+              'amethyst',
               'ember',
               'twilight',
-              'mint',
-              'amber'
+              'jade',
+              'ember'
             ),
           }),
           fc.record({
@@ -380,16 +380,16 @@ describe('Theme System Integration: Complete Workflow', () => {
             label: fc.string(),
             createdAt: fc.string(),
             theme: fc.constantFrom<ThemeId>(
-              'light',
-              'dark',
+              'mist',
+              'obsidian',
               'sunset',
               'ocean',
               'forest',
-              'purple-haze',
+              'amethyst',
               'ember',
               'twilight',
-              'mint',
-              'amber'
+              'jade',
+              'ember'
             ),
           })
         ),
@@ -421,27 +421,27 @@ describe('Theme System Integration: Complete Workflow', () => {
           label: fc.string(),
           createdAt: fc.string(),
           theme: fc.constantFrom<ThemeId>(
-            'light',
-            'dark',
+            'mist',
+            'obsidian',
             'sunset',
             'ocean',
             'forest',
-            'purple-haze',
+            'amethyst',
             'ember',
             'twilight',
-            'mint',
-            'amber'
+            'jade',
+            'ember'
           ),
         }),
         (identity: any) => {
           const noIdentityTheme = getThemeIdForIdentity(null);
-          expect(noIdentityTheme).toBe('dark');
+          expect(noIdentityTheme).toBe('obsidian');
 
           const withIdentityTheme = getThemeIdForIdentity(identity as NostlingIdentity);
           expect(withIdentityTheme).toBe(identity.theme);
 
           const backToNoIdentityTheme = getThemeIdForIdentity(null);
-          expect(backToNoIdentityTheme).toBe('dark');
+          expect(backToNoIdentityTheme).toBe('obsidian');
           expect(backToNoIdentityTheme).toBe(noIdentityTheme);
         }
       ),
@@ -455,7 +455,7 @@ describe('Theme System Integration: Fallback Consistency', () => {
     const originalWarn = console.warn;
     console.warn = () => {}; // Suppress expected warnings during test
     // Cache the dark system once to avoid redundant expensive calls
-    const darkSystem = createThemeSystem('dark');
+    const darkSystem = createThemeSystem('obsidian');
     try {
       fc.assert(
         fc.property(

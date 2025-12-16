@@ -9,6 +9,7 @@ import { Box, HStack, IconButton } from '@chakra-ui/react';
 import { ThemeMetadata, ThemeId } from '../../themes/definitions';
 import { ThemePreview } from './ThemePreview';
 import { useThemeColors } from '../../themes/ThemeContext';
+import type { ThemeSemanticColors } from '../../themes/useTheme';
 
 export interface ThemeCarouselProps {
   /**
@@ -17,7 +18,7 @@ export interface ThemeCarouselProps {
   currentTheme: ThemeId;
 
   /**
-   * Filtered list of available themes to navigate through
+   * List of available themes to navigate through
    */
   availableThemes: ThemeMetadata[];
 
@@ -31,6 +32,12 @@ export interface ThemeCarouselProps {
    * Used during async theme application to prevent race conditions
    */
   disabled?: boolean;
+
+  /**
+   * Optional custom colors to preview instead of a registered theme
+   * When provided, the preview shows these colors instead of currentTheme
+   */
+  customColors?: ThemeSemanticColors;
 }
 
 /**
@@ -104,6 +111,7 @@ function ThemeCarouselComponent({
   availableThemes,
   onThemeChange,
   disabled = false,
+  customColors,
 }: ThemeCarouselProps): React.ReactElement {
   const colors = useThemeColors();
 
@@ -152,7 +160,7 @@ function ThemeCarouselComponent({
       >
         <ChevronLeftIcon />
       </IconButton>
-      <ThemePreview themeId={currentTheme} />
+      <ThemePreview themeId={currentTheme} customColors={customColors} />
       <IconButton
         aria-label="Next theme"
         onClick={handleNavigateNext}
@@ -175,7 +183,8 @@ export const ThemeCarousel = React.memo(
     return (
       prevProps.currentTheme === nextProps.currentTheme &&
       prevProps.availableThemes === nextProps.availableThemes &&
-      prevProps.disabled === nextProps.disabled
+      prevProps.disabled === nextProps.disabled &&
+      prevProps.customColors === nextProps.customColors
     );
   }
 );

@@ -64,16 +64,16 @@ describe('Theme Definitions', () => {
 
     it('should have required theme IDs', () => {
       const requiredThemes: ThemeId[] = [
-        'light',
-        'dark',
+        'mist',
+        'obsidian',
         'sunset',
         'ocean',
         'forest',
-        'purple-haze',
+        'amethyst',
         'ember',
         'twilight',
-        'mint',
-        'amber',
+        'jade',
+        'ember',
       ];
 
       requiredThemes.forEach((themeId) => {
@@ -87,16 +87,16 @@ describe('Theme Definitions', () => {
       fc.assert(
         fc.property(
           fc.constantFrom(
-            'light' as const,
-            'dark' as const,
+            'mist' as const,
+            'obsidian' as const,
             'sunset' as const,
             'ocean' as const,
             'forest' as const,
-            'purple-haze' as const,
+            'amethyst' as const,
             'ember' as const,
             'twilight' as const,
-            'mint' as const,
-            'amber' as const
+            'jade' as const,
+            'ember' as const
           ),
           (themeId: string) => {
             expect(isValidThemeId(themeId)).toBe(true);
@@ -142,16 +142,16 @@ describe('Theme Definitions', () => {
             .filter(
               (s: string) =>
                 ![
-                  'light',
-                  'dark',
+                  'mist',
+                  'obsidian',
                   'sunset',
                   'ocean',
                   'forest',
-                  'purple-haze',
+                  'amethyst',
                   'ember',
                   'twilight',
-                  'mint',
-                  'amber',
+                  'jade',
+                  'ember',
                 ].includes(s)
             ),
           (unknownId: string) => {
@@ -162,11 +162,11 @@ describe('Theme Definitions', () => {
     });
 
     it('should work as type guard', () => {
-      const themeId: string = 'dark';
+      const themeId: string = 'obsidian';
       if (isValidThemeId(themeId)) {
         // This should compile without errors - type narrowing works
         const _narrowed: ThemeId = themeId;
-        expect(_narrowed).toBe('dark');
+        expect(_narrowed).toBe('obsidian');
       }
     });
   });
@@ -176,16 +176,16 @@ describe('Theme Definitions', () => {
       fc.assert(
         fc.property(
           fc.constantFrom(
-            'light' as const,
-            'dark' as const,
+            'mist' as const,
+            'obsidian' as const,
             'sunset' as const,
             'ocean' as const,
             'forest' as const,
-            'purple-haze' as const,
+            'amethyst' as const,
             'ember' as const,
             'twilight' as const,
-            'mint' as const,
-            'amber' as const
+            'jade' as const,
+            'ember' as const
           ),
           (themeId: string) => {
             const theme = getTheme(themeId);
@@ -200,29 +200,29 @@ describe('Theme Definitions', () => {
       const originalWarn = console.warn;
       console.warn = () => {}; // Suppress expected warnings during test
       try {
-        expect(getTheme('invalid')).toEqual(THEME_REGISTRY.dark);
-        expect(getTheme('unknown-theme')).toEqual(THEME_REGISTRY.dark);
-        expect(getTheme('Light')).toEqual(THEME_REGISTRY.dark); // Case sensitive
+        expect(getTheme('invalid')).toEqual(THEME_REGISTRY.obsidian);
+        expect(getTheme('unknown-theme')).toEqual(THEME_REGISTRY.obsidian);
+        expect(getTheme('Light')).toEqual(THEME_REGISTRY.obsidian); // Case sensitive
       } finally {
         console.warn = originalWarn;
       }
     });
 
     it('should return dark theme for null and undefined', () => {
-      expect(getTheme(null)).toEqual(THEME_REGISTRY.dark);
-      expect(getTheme(undefined)).toEqual(THEME_REGISTRY.dark);
-      expect(getTheme()).toEqual(THEME_REGISTRY.dark);
+      expect(getTheme(null)).toEqual(THEME_REGISTRY.obsidian);
+      expect(getTheme(undefined)).toEqual(THEME_REGISTRY.obsidian);
+      expect(getTheme()).toEqual(THEME_REGISTRY.obsidian);
     });
 
     it('should return dark theme for empty string', () => {
-      expect(getTheme('')).toEqual(THEME_REGISTRY.dark);
+      expect(getTheme('')).toEqual(THEME_REGISTRY.obsidian);
     });
 
     it('should return identity for dark theme (dark fallback)', () => {
       fc.assert(
         fc.property(fc.anything(), (_: unknown) => {
-          const darkTheme = getTheme('dark');
-          expect(darkTheme).toEqual(THEME_REGISTRY.dark);
+          const darkTheme = getTheme('obsidian');
+          expect(darkTheme).toEqual(THEME_REGISTRY.obsidian);
         })
       );
     });
@@ -231,16 +231,16 @@ describe('Theme Definitions', () => {
       fc.assert(
         fc.property(
           fc.constantFrom(
-            'light' as const,
-            'dark' as const,
+            'mist' as const,
+            'obsidian' as const,
             'sunset' as const,
             'ocean' as const,
             'forest' as const,
-            'purple-haze' as const,
+            'amethyst' as const,
             'ember' as const,
             'twilight' as const,
-            'mint' as const,
-            'amber' as const
+            'jade' as const,
+            'ember' as const
           ),
           (themeId: string) => {
             const first = getTheme(themeId);
@@ -254,16 +254,16 @@ describe('Theme Definitions', () => {
     });
 
     it('should have complete Chakra config', () => {
-      const theme = getTheme('dark');
+      const theme = getTheme('obsidian');
       expect(theme.config).toBeDefined();
       expect(theme.config.theme).toBeDefined();
     });
 
     it('should have metadata in returned theme', () => {
-      const theme = getTheme('light');
+      const theme = getTheme('mist');
       expect(theme.metadata).toBeDefined();
-      expect(theme.metadata.id).toBe('light');
-      expect(theme.metadata.name).toBe('Light');
+      expect(theme.metadata.id).toBe('mist');
+      expect(theme.metadata.name).toBe('Mist');
     });
   });
 
@@ -292,22 +292,24 @@ describe('Theme Definitions', () => {
 
     it('should have light and dark first', () => {
       const themes = getAllThemes();
-      expect(themes[0].id).toBe('light');
-      expect(themes[1].id).toBe('dark');
+      // Light themes come first (alphabetically), then dark themes
+      // Light themes: blossom, cloud, dawn, meadow, mist
+      expect(themes[0].brightness).toBe('light');
+      expect(themes.slice(0, 5).every((t) => t.brightness === 'light')).toBe(true);
     });
 
     it('should have themed options grouped by brightness (light themes, then dark themes)', () => {
       const themes = getAllThemes();
-      // After light/dark, we have light themes first, then dark themes
-      const themedIds = themes.slice(2).map((t) => t.id);
-      // Light themes: arctic, lavender, sakura, sandstone
-      // Dark themes: the rest
-      expect(themedIds.length).toBeGreaterThan(0);
-      // First 4 should be light themes
-      const lightThemes = ['arctic', 'lavender', 'sakura', 'sandstone'];
-      lightThemes.forEach((id) => {
-        expect(themedIds).toContain(id);
-      });
+      // Light themes: blossom, cloud, dawn, meadow, mist (5 total)
+      // Dark themes: the rest (15 total)
+      const lightThemes = themes.filter((t) => t.brightness === 'light');
+      const darkThemes = themes.filter((t) => t.brightness === 'dark');
+      expect(lightThemes.length).toBe(5);
+      expect(darkThemes.length).toBe(15);
+      // Verify light themes come before dark themes
+      const lastLightIndex = themes.findIndex((t) => t.id === lightThemes[lightThemes.length - 1].id);
+      const firstDarkIndex = themes.findIndex((t) => t.id === darkThemes[0].id);
+      expect(lastLightIndex).toBeLessThan(firstDarkIndex);
     });
 
     it('should return metadata with all required fields', () => {
@@ -341,16 +343,16 @@ describe('Theme Definitions', () => {
       fc.assert(
         fc.property(
           fc.constantFrom(
-            'light' as const,
-            'dark' as const,
+            'mist' as const,
+            'obsidian' as const,
             'sunset' as const,
             'ocean' as const,
             'forest' as const,
-            'purple-haze' as const,
+            'amethyst' as const,
             'ember' as const,
             'twilight' as const,
-            'mint' as const,
-            'amber' as const
+            'jade' as const,
+            'ember' as const
           ),
           (themeId: string) => {
             const theme = THEME_REGISTRY[themeId as ThemeId];
@@ -390,7 +392,7 @@ describe('Theme Definitions', () => {
 
   describe('WCAG AA Accessibility Compliance', () => {
     it('should have sufficient contrast for dark text on light background (light theme)', () => {
-      const lightTheme = THEME_REGISTRY.light;
+      const lightTheme = THEME_REGISTRY.mist;
       const brand = lightTheme.config.theme?.tokens?.colors?.brand;
       if (!brand) throw new Error('Brand tokens not found');
 
@@ -407,7 +409,7 @@ describe('Theme Definitions', () => {
     });
 
     it('should have sufficient contrast for light text on dark background (dark theme)', () => {
-      const darkTheme = THEME_REGISTRY.dark;
+      const darkTheme = THEME_REGISTRY.obsidian;
       const brand = darkTheme.config.theme?.tokens?.colors?.brand;
       if (!brand) throw new Error('Brand tokens not found');
 
@@ -430,11 +432,11 @@ describe('Theme Definitions', () => {
             'sunset' as const,
             'ocean' as const,
             'forest' as const,
-            'purple-haze' as const,
+            'amethyst' as const,
             'ember' as const,
             'twilight' as const,
-            'mint' as const,
-            'amber' as const
+            'jade' as const,
+            'ember' as const
           ),
           (themeId: string) => {
             const theme = THEME_REGISTRY[themeId as ThemeId];
@@ -536,7 +538,7 @@ describe('Theme Definitions', () => {
 
   describe('Type Safety', () => {
     it('should narrow ThemeId type correctly', () => {
-      const input: string = 'dark';
+      const input: string = 'obsidian';
       if (isValidThemeId(input)) {
         // Type should be narrowed to ThemeId
         const _narrowed: ThemeId = input;

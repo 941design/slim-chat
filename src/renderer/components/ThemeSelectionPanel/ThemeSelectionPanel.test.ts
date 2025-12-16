@@ -20,16 +20,16 @@ import { ThemeSelectionPanelProps } from './ThemeSelectionPanel';
 
 // Test theme IDs for property generation
 const themeIds: ThemeId[] = [
-  'light',
-  'dark',
+  'mist',
+  'obsidian',
   'sunset',
   'ocean',
   'forest',
-  'purple-haze',
+  'amethyst',
   'ember',
   'twilight',
-  'mint',
-  'amber',
+  'jade',
+  'ember',
 ];
 
 // Arbitrary for generating valid ThemeId values
@@ -41,7 +41,7 @@ const identityIdArb = fc.oneof(fc.constant(null), fc.string({ minLength: 1, maxL
 // Helper to create default props
 function createProps(overrides?: Partial<ThemeSelectionPanelProps>): ThemeSelectionPanelProps {
   return {
-    currentTheme: 'dark',
+    currentTheme: 'obsidian',
     identityId: null,
     onThemeApply: jest.fn().mockResolvedValue(undefined),
     onCancel: jest.fn(),
@@ -71,7 +71,7 @@ describe('ThemeSelectionPanel', () => {
 
   describe('P002: Staging Logic - originalTheme vs stagedTheme isolation', () => {
     it('should preserve originalTheme through component lifecycle', () => {
-      const currentTheme = 'dark';
+      const currentTheme = 'obsidian';
       const props = createProps({
         currentTheme,
       });
@@ -101,7 +101,7 @@ describe('ThemeSelectionPanel', () => {
     it('should have onThemeApply callback', () => {
       const onThemeApply = jest.fn().mockResolvedValue(undefined);
       const props = createProps({
-        currentTheme: 'dark',
+        currentTheme: 'obsidian',
         onThemeApply,
       });
 
@@ -163,7 +163,7 @@ describe('ThemeSelectionPanel', () => {
   describe('P005: Filter State Management', () => {
     it('should initialize with valid theme for filtering', () => {
       const props = createProps();
-      expect(props.currentTheme).toBe('dark');
+      expect(props.currentTheme).toBe('obsidian');
     });
 
     it('P005: Filter initialization - panel initializes with currentTheme', () => {
@@ -272,11 +272,11 @@ describe('ThemeSelectionPanel', () => {
     it('should allow onThemeApply to be called with same theme', () => {
       const onThemeApply = jest.fn().mockResolvedValue(undefined);
       const props = createProps({
-        currentTheme: 'dark',
+        currentTheme: 'obsidian',
         onThemeApply,
       });
 
-      expect(props.currentTheme).toBe('dark');
+      expect(props.currentTheme).toBe('obsidian');
       expect(typeof props.onThemeApply).toBe('function');
     });
 
@@ -332,10 +332,10 @@ describe('ThemeSelectionPanel', () => {
   describe('E001: Example - Props Validation with Light Theme', () => {
     it('should create valid props with light theme', () => {
       const props = createProps({
-        currentTheme: 'light',
+        currentTheme: 'mist',
       });
 
-      expect(props.currentTheme).toBe('light');
+      expect(props.currentTheme).toBe('mist');
     });
   });
 
@@ -344,12 +344,12 @@ describe('ThemeSelectionPanel', () => {
       const onThemeApply = jest.fn().mockResolvedValue(undefined);
       const onCancel = jest.fn();
       const props = createProps({
-        currentTheme: 'dark',
+        currentTheme: 'obsidian',
         onThemeApply,
         onCancel,
       });
 
-      expect(props.currentTheme).toBe('dark');
+      expect(props.currentTheme).toBe('obsidian');
       expect(props.onThemeApply).toBe(onThemeApply);
       expect(props.onCancel).toBe(onCancel);
     });
@@ -375,7 +375,7 @@ describe('ThemeSelectionPanel', () => {
 
   describe('E004: Example - Multiple Theme IDs', () => {
     it('should work correctly with different current themes', () => {
-      const testThemes: ThemeId[] = ['light', 'dark', 'ocean', 'forest'];
+      const testThemes: ThemeId[] = ['mist', 'obsidian', 'ocean', 'forest'];
 
       for (const theme of testThemes) {
         const onThemeApply = jest.fn().mockResolvedValue(undefined);
@@ -433,10 +433,10 @@ describe('ThemeSelectionPanel', () => {
 
     it('INV005: Filter state management has currentTheme', () => {
       const props = createProps({
-        currentTheme: 'dark',
+        currentTheme: 'obsidian',
       });
 
-      expect(props.currentTheme).toBe('dark');
+      expect(props.currentTheme).toBe('obsidian');
     });
 
     it('INV006: Keyboard accessibility via onCancel', () => {
@@ -460,7 +460,7 @@ describe('ThemeSelectionPanel', () => {
       });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      expect((props.onThemeApply as any)('dark')).toBeInstanceOf(Promise);
+      expect((props.onThemeApply as any)('obsidian')).toBeInstanceOf(Promise);
     });
 
     it('INV008: Component props complete', () => {
@@ -476,11 +476,11 @@ describe('ThemeSelectionPanel', () => {
     it('INV009: Idempotent theme selection', () => {
       const onThemeApply = jest.fn().mockResolvedValue(undefined);
       const props = createProps({
-        currentTheme: 'dark',
+        currentTheme: 'obsidian',
         onThemeApply,
       });
 
-      expect(props.currentTheme).toBe('dark');
+      expect(props.currentTheme).toBe('obsidian');
     });
 
     it('INV010: Props stable across lifecycle', () => {
@@ -501,7 +501,7 @@ describe('ThemeSelectionPanel', () => {
       const props = createProps({
         onCancel,
         onThemeApply,
-        currentTheme: 'dark',
+        currentTheme: 'obsidian',
       });
 
       // onCancel takes no args

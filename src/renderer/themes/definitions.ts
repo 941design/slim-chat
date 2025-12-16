@@ -100,16 +100,23 @@ function toThemeDefinition(theme: ResolvedTheme): ThemeDefinition {
               Object.entries(theme.colors.brand).map(([key, value]) => [key, { value }])
             ),
           },
-          fonts: theme.typography.fonts
-            ? Object.fromEntries(
-                Object.entries(theme.typography.fonts).map(([key, value]) => [key, { value }])
-              )
-            : undefined,
-          fontSizes: theme.typography.fontSizes
-            ? Object.fromEntries(
-                Object.entries(theme.typography.fontSizes).map(([key, value]) => [key, { value }])
-              )
-            : undefined,
+          // Use CSS variable references so fonts can be changed dynamically
+          fonts: {
+            body: { value: 'var(--app-font-body)' },
+            heading: { value: 'var(--app-font-heading)' },
+            mono: { value: 'var(--app-font-mono)' },
+          },
+          // Use CSS variable references so font sizes can be changed dynamically
+          fontSizes: {
+            xs: { value: 'var(--app-font-size-xs)' },
+            sm: { value: 'var(--app-font-size-sm)' },
+            md: { value: 'var(--app-font-size-md)' },
+            lg: { value: 'var(--app-font-size-lg)' },
+            xl: { value: 'var(--app-font-size-xl)' },
+            '2xl': { value: 'var(--app-font-size-2xl)' },
+            '3xl': { value: 'var(--app-font-size-3xl)' },
+            '4xl': { value: 'var(--app-font-size-4xl)' },
+          },
           radii: theme.radii
             ? Object.fromEntries(
                 Object.entries(theme.radii).map(([key, value]) => [key, { value }])
@@ -150,18 +157,18 @@ for (const id of themeIds) {
  *
  *   Invariants:
  *     - Always returns a valid theme (never undefined)
- *     - Invalid/null themeId returns 'dark' theme (default)
+ *     - Invalid/null themeId returns 'obsidian' theme (default)
  *     - Return value contains complete Chakra config
  */
 export function getTheme(themeId?: string | null): ThemeDefinition {
   if (themeId && loaderIsValidThemeId(themeId)) {
-    return THEME_REGISTRY[themeId] || THEME_REGISTRY.dark;
+    return THEME_REGISTRY[themeId] || THEME_REGISTRY.obsidian;
   }
   // Log warning for invalid theme IDs (helps debugging)
   if (themeId) {
-    console.warn(`Invalid theme ID "${themeId}", falling back to dark theme`);
+    console.warn(`Invalid theme ID "${themeId}", falling back to obsidian theme`);
   }
-  return THEME_REGISTRY.dark;
+  return THEME_REGISTRY.obsidian;
 }
 
 /**
@@ -175,38 +182,32 @@ export function getTheme(themeId?: string | null): ThemeDefinition {
  *     - Array of ThemeMetadata objects, one per theme in registry
  *
  *   Invariants:
- *     - Returns all themes except 'default' (internal only)
- *     - Order: light, dark, then themed options alphabetically
+ *     - Returns all themes in the registry
+ *     - Order: light themes first, then dark themes alphabetically
  *     - Each metadata object includes preview colors for swatches
  */
 export function getAllThemes(): ThemeMetadata[] {
-  const themeOrder: ThemeId[] = [
-    'light',
-    'dark',
-    // New light themes
-    'arctic',
-    'lavender',
-    'sakura',
-    'sandstone',
-    // Existing dark themes
-    'amber',
-    'ember',
-    'forest',
-    'mint',
-    'ocean',
-    'purple-haze',
-    'sunset',
-    'twilight',
-    // New dark themes
-    'copper',
-    'midnight',
-    'mocha',
-    'neon',
-    'rose',
-    'slate',
-  ];
+  // Get all themes and sort: light themes first, then dark themes
+  const allThemeIds = getAllThemeIds();
 
-  return themeOrder
+  // Separate light and dark themes
+  const lightThemes: string[] = [];
+  const darkThemes: string[] = [];
+
+  for (const id of allThemeIds) {
+    const theme = THEME_REGISTRY[id];
+    if (theme?.metadata.brightness === 'light') {
+      lightThemes.push(id);
+    } else {
+      darkThemes.push(id);
+    }
+  }
+
+  // Sort each group alphabetically and combine
+  lightThemes.sort();
+  darkThemes.sort();
+
+  return [...lightThemes, ...darkThemes]
     .filter((id) => THEME_REGISTRY[id])
     .map((id) => THEME_REGISTRY[id].metadata);
 }

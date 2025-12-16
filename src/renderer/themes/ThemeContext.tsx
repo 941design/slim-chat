@@ -19,11 +19,11 @@ interface ThemeContextValue {
 }
 
 /**
- * Default context value (dark theme)
+ * Default context value (obsidian theme)
  */
-const defaultColors = getSemanticColors('dark');
+const defaultColors = getSemanticColors('obsidian');
 const ThemeContext = createContext<ThemeContextValue>({
-  themeId: 'dark',
+  themeId: 'obsidian',
   colors: defaultColors,
 });
 
@@ -51,7 +51,7 @@ interface ThemeProviderProps {
  *
  *   Invariants:
  *     - Colors always correspond to the provided themeId
- *     - Invalid themeId falls back to 'dark' colors
+ *     - Invalid themeId falls back to 'obsidian' colors
  */
 export function ThemeProvider({ themeId, children }: ThemeProviderProps): React.ReactElement {
   const contextValue = useMemo(
@@ -64,14 +64,15 @@ export function ThemeProvider({ themeId, children }: ThemeProviderProps): React.
 
   // Inject theme CSS variables directly onto :root
   // This bypasses Chakra's static token system for dynamic theme switching
+  // We use --app-* prefix so Chakra's system can reference these variables
   useEffect(() => {
     const theme = resolveTheme(themeId);
     const root = document.documentElement;
 
-    // Inject font sizes
+    // Inject font sizes (used by Chakra's fontSizes tokens via var(--app-font-size-*))
     if (theme.typography?.fontSizes) {
       for (const [key, value] of Object.entries(theme.typography.fontSizes)) {
-        root.style.setProperty(`--chakra-font-sizes-${key}`, value);
+        root.style.setProperty(`--app-font-size-${key}`, value);
       }
     }
 
@@ -82,13 +83,50 @@ export function ThemeProvider({ themeId, children }: ThemeProviderProps): React.
       }
     }
 
-    // Inject fonts
+    // Inject fonts (used by Chakra's fonts tokens via var(--app-font-*))
     if (theme.typography?.fonts) {
       for (const [key, value] of Object.entries(theme.typography.fonts)) {
-        root.style.setProperty(`--chakra-fonts-${key}`, value);
+        root.style.setProperty(`--app-font-${key}`, value);
       }
     }
   }, [themeId]);
+
+  return <ThemeContext.Provider value={contextValue}>{children}</ThemeContext.Provider>;
+}
+
+/**
+ * Custom Color Provider props
+ */
+interface ColorProviderProps {
+  colors: ThemeSemanticColors;
+  children: React.ReactNode;
+}
+
+/**
+ * Custom Color Provider Component
+ *
+ * Provides custom colors directly to child components.
+ * Used for previewing dynamically generated themes that aren't in the registry.
+ *
+ * CONTRACT:
+ *   Inputs:
+ *     - colors: ThemeSemanticColors object with all color tokens
+ *     - children: Child components to wrap
+ *
+ *   Outputs:
+ *     - Context provider with provided colors
+ *
+ *   Invariants:
+ *     - Colors are passed through directly without lookup
+ */
+export function ColorProvider({ colors, children }: ColorProviderProps): React.ReactElement {
+  const contextValue = useMemo(
+    () => ({
+      themeId: 'custom' as ThemeId,
+      colors,
+    }),
+    [colors]
+  );
 
   return <ThemeContext.Provider value={contextValue}>{children}</ThemeContext.Provider>;
 }
@@ -105,7 +143,7 @@ export function ThemeProvider({ themeId, children }: ThemeProviderProps): React.
  *
  *   Invariants:
  *     - Returns colors from the nearest ThemeProvider
- *     - Falls back to dark theme if no provider exists
+ *     - Falls back to obsidian theme if no provider exists
  *
  *   Usage:
  *     const colors = useThemeColors();
@@ -128,7 +166,7 @@ export function useThemeColors(): ThemeSemanticColors {
  *
  *   Invariants:
  *     - Returns context from the nearest ThemeProvider
- *     - Falls back to dark theme if no provider exists
+ *     - Falls back to obsidian theme if no provider exists
  */
 export function useThemeContext(): ThemeContextValue {
   return useContext(ThemeContext);

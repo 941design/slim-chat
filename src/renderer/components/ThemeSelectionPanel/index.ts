@@ -4,4 +4,7 @@
 
 export { ThemeSelectionPanel } from './ThemeSelectionPanel';
 export type { ThemeSelectionPanelProps } from './ThemeSelectionPanel';
-export type { ThemeFilters, BrightnessFilter, ColorFamilyFilter } from './types';
+export { ThemeVariableSliders } from './ThemeVariableSliders';
+export type { ThemeVariableSlidersProps } from './ThemeVariableSliders';
+export { ThemeInfo } from './ThemeInfo';
+export type { ThemeInfoProps } from './ThemeInfo';
