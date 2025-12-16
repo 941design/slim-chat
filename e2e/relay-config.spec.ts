@@ -25,7 +25,7 @@ test.describe('Relay Configuration View', () => {
     await expect(page.locator('h2:has-text("Relay Configuration"), h3:has-text("Relay Configuration")')).toBeVisible();
 
     // Verify Done button is visible
-    await expect(page.locator('.relay-config-done-button')).toBeVisible();
+    await expect(page.locator('[data-testid="relay-config-done-button"]')).toBeVisible();
 
     // Verify chat/conversation pane is hidden
     await expect(page.locator('.conversation-pane')).not.toBeVisible();
@@ -38,13 +38,13 @@ test.describe('Relay Configuration View', () => {
     await navigateToRelayConfig(page);
 
     // Click Done button
-    await page.locator('.relay-config-done-button').click();
+    await page.locator('[data-testid="relay-config-done-button"]').click();
 
     // Verify back to chat view - conversation pane should be visible
     await expect(page.locator('.conversation-pane')).toBeVisible();
 
     // Verify relay config Done button is no longer visible
-    await expect(page.locator('.relay-config-done-button')).not.toBeVisible();
+    await expect(page.locator('[data-testid="relay-config-done-button"]')).not.toBeVisible();
   });
 
   test('should add a new relay', async ({ page }) => {
@@ -168,7 +168,7 @@ test.describe('Relay Configuration View', () => {
     await expect(page.locator(`input[value="${uniqueUrl}"]`)).toBeVisible({ timeout: 5000 });
 
     // Return to chat and back - changes are auto-saved via onChange callback
-    await page.locator('.relay-config-done-button').click();
+    await page.locator('[data-testid="relay-config-done-button"]').click();
     await waitForAppReady(page);
     await navigateToRelayConfig(page);
 
@@ -192,7 +192,7 @@ test.describe('Relay Configuration View', () => {
     // Heading "Relay Configuration" (using role selector to avoid matching menu item)
     await expect(page.getByRole('heading', { name: 'Relay Configuration' })).toBeVisible();
     // Done button to return to chat
-    await expect(page.locator('.relay-config-done-button')).toBeVisible();
+    await expect(page.locator('[data-testid="relay-config-done-button"]')).toBeVisible();
     // Relay table is visible
     await expect(page.locator('table')).toBeVisible();
     // Verify header text exists (using text selectors which are more robust)

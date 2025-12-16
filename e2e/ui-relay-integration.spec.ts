@@ -31,7 +31,7 @@ test.describe('UI Relay Integration', () => {
     await expect(page.locator('table')).toBeVisible();
 
     // Verify Done button exists
-    await expect(page.locator('.relay-config-done-button')).toBeVisible();
+    await expect(page.locator('[data-testid="relay-config-done-button"]')).toBeVisible();
   });
 
   test('should display relay status dots', async ({ page }) => {
@@ -318,13 +318,13 @@ test.describe('UI Relay Integration', () => {
     await expect(page.locator('table')).toBeVisible();
 
     // Click Done button
-    await page.locator('.relay-config-done-button').click();
+    await page.locator('[data-testid="relay-config-done-button"]').click();
 
     // Verify back in chat view
     await expect(page.locator('.conversation-pane')).toBeVisible();
 
     // Verify relay table is no longer visible (but StateTable might still be)
-    await expect(page.locator('.relay-config-done-button')).not.toBeVisible();
+    await expect(page.locator('[data-testid="relay-config-done-button"]')).not.toBeVisible();
   });
 
   test('should require identity selection for relay config', async ({ page }) => {
@@ -365,7 +365,7 @@ test.describe('UI Relay Integration', () => {
     await expect(page.locator(`input[value="${uniqueUrl}"]`)).toBeVisible();
 
     // Return to chat
-    await page.locator('.relay-config-done-button').click();
+    await page.locator('[data-testid="relay-config-done-button"]').click();
     await expect(page.locator('.conversation-pane')).toBeVisible();
 
     // Navigate back to relay config

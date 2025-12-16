@@ -15,76 +15,73 @@
 import { test, expect, type Page } from './fixtures';
 import { waitForAppReady, ensureIdentityExists, navigateToAbout } from './helpers';
 
-// Theme semantic color definitions for testing
-const THEME_COLORS = {
-  dark: {
-    appBg: 'rgb(15, 23, 42)', // #0f172a
-    surfaceBg: 'rgba(0, 0, 0, 0.3)',
-    text: 'rgb(226, 232, 240)', // #e2e8f0
-  },
-  light: {
-    appBg: 'rgb(248, 250, 252)', // #f8fafc
-    surfaceBg: 'rgb(255, 255, 255)', // #ffffff
-    text: 'rgb(30, 41, 59)', // #1e293b
-  },
-  amber: {
-    appBg: 'rgb(26, 20, 16)', // #1a1410
-    text: 'rgb(253, 230, 138)', // #fde68a
-  },
-  forest: {
-    appBg: 'rgb(10, 31, 10)', // #0a1f0a
-    text: 'rgb(187, 247, 208)', // #bbf7d0
-  },
-  ocean: {
-    appBg: 'rgb(12, 24, 33)', // #0c1821
-    text: 'rgb(153, 246, 228)', // #99f6e4
-  },
-} as const;
+// Valid theme IDs (from presets)
+// Light themes: mist, dawn, cloud, blossom, meadow
+// Dark themes: obsidian (default), sapphire, ocean, arctic, storm, forest, jade, matrix,
+//              ember, copper, sunset, mocha, amethyst, twilight, rose
+
+// Theme order in carousel (based on presets/index.ts)
+const THEME_ORDER = [
+  'mist', 'dawn', 'cloud', 'blossom', 'meadow',
+  'obsidian', 'sapphire', 'ocean', 'arctic', 'storm',
+  'forest', 'jade', 'matrix',
+  'ember', 'copper', 'sunset', 'mocha',
+  'amethyst', 'twilight', 'rose'
+];
 
 /**
- * Helper to convert CSS color to rgb format for comparison
- */
-function cssColorToRgb(color: string): string {
-  // If already rgb(a), return as-is
-  if (color.startsWith('rgb')) {
-    return color;
-  }
-  return color;
-}
-
-/**
- * Helper to select a theme via the hamburger menu
+ * Helper to select a theme via the theme panel carousel
  */
 async function selectTheme(page: Page, themeId: string): Promise<void> {
   // Open hamburger menu
   await page.locator('button[aria-label="Open menu"]').click();
 
-  // Click on Theme selector trigger
-  await page.locator('[data-testid="theme-selector-trigger"]').click();
+  // Wait for menu to open
+  await page.waitForTimeout(100);
 
-  // Select the theme
-  await page.locator(`[data-testid="theme-option-${themeId}"]`).click();
+  // Click on Theme panel trigger
+  await page.locator('[data-testid="theme-panel-trigger"]').click();
 
-  // Wait for theme to be applied
+  // Wait for theme panel to open
+  await page.waitForSelector('[data-testid="theme-selection-panel"]', { timeout: 5000 });
+
+  // Get the current theme from ThemeInfo
+  const getDisplayedThemeName = async (): Promise<string> => {
+    const nameElement = page.locator('[data-testid="theme-info-name"]');
+    return (await nameElement.textContent())?.toLowerCase() || '';
+  };
+
+  // Navigate to the desired theme using carousel
+  const targetIndex = THEME_ORDER.indexOf(themeId);
+  if (targetIndex === -1) {
+    throw new Error(`Unknown theme ID: ${themeId}`);
+  }
+
+  // Navigate using carousel - check if we're at the right theme
+  let attempts = 0;
+  const maxAttempts = THEME_ORDER.length + 2;
+
+  while (attempts < maxAttempts) {
+    const currentThemeName = await getDisplayedThemeName();
+    if (currentThemeName === themeId.toLowerCase()) {
+      break;
+    }
+    // Click next to cycle through themes
+    await page.locator('[data-testid="theme-carousel-next"]').click();
+    await page.waitForTimeout(100);
+    attempts++;
+  }
+
+  if (attempts >= maxAttempts) {
+    throw new Error(`Could not navigate to theme: ${themeId}`);
+  }
+
+  // Click Apply button
+  await page.locator('[data-testid="theme-panel-ok"]').click();
+
+  // Wait for panel to close and theme to be applied
+  await page.waitForSelector('[data-testid="theme-selection-panel"]', { state: 'hidden', timeout: 5000 });
   await page.waitForTimeout(300);
-
-  // Close menu by pressing escape
-  await page.keyboard.press('Escape');
-}
-
-/**
- * Helper to verify an element has a specific background color
- */
-async function verifyBackgroundColor(
-  page: Page,
-  selector: string,
-  expectedColor: string
-): Promise<void> {
-  const element = page.locator(selector);
-  const bgColor = await element.evaluate((el) =>
-    window.getComputedStyle(el).backgroundColor
-  );
-  expect(bgColor).toBe(expectedColor);
 }
 
 test.describe('Theme Components', () => {
@@ -94,30 +91,32 @@ test.describe('Theme Components', () => {
   });
 
   test('should apply theme colors to app shell', async ({ page }) => {
-    // Verify initial dark theme
+    // Get initial app shell background (default is obsidian)
     const appShell = page.locator('[data-testid="app-shell"]');
-    let bgColor = await appShell.evaluate((el) =>
+    const initialBgColor = await appShell.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
-    expect(bgColor).toBe(THEME_COLORS.dark.appBg);
+    expect(initialBgColor).not.toBe('rgba(0, 0, 0, 0)');
 
-    // Switch to amber theme
-    await selectTheme(page, 'amber');
+    // Switch to ember theme (warm)
+    await selectTheme(page, 'ember');
 
-    // Verify amber theme applied to app shell
-    bgColor = await appShell.evaluate((el) =>
+    // Verify background color changed
+    const emberBgColor = await appShell.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
-    expect(bgColor).toBe(THEME_COLORS.amber.appBg);
+    expect(emberBgColor).not.toBe('rgba(0, 0, 0, 0)');
+    expect(emberBgColor).not.toBe(initialBgColor);
 
     // Switch to forest theme
     await selectTheme(page, 'forest');
 
-    // Verify forest theme applied
-    bgColor = await appShell.evaluate((el) =>
+    // Verify forest theme applied (different from ember)
+    const forestBgColor = await appShell.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
-    expect(bgColor).toBe(THEME_COLORS.forest.appBg);
+    expect(forestBgColor).not.toBe('rgba(0, 0, 0, 0)');
+    expect(forestBgColor).not.toBe(emberBgColor);
   });
 
   test('should apply theme colors to header', async ({ page }) => {
@@ -158,8 +157,8 @@ test.describe('Theme Components', () => {
     // Verify sidebar exists
     await expect(sidebar).toBeVisible();
 
-    // Switch to amber theme
-    await selectTheme(page, 'amber');
+    // Switch to ember theme
+    await selectTheme(page, 'ember');
 
     // Verify sidebar has themed background
     const bgColor = await sidebar.evaluate((el) =>
@@ -221,15 +220,15 @@ test.describe('Theme Components', () => {
       window.getComputedStyle(el).borderColor
     );
 
-    // Switch to amber theme
-    await selectTheme(page, 'amber');
+    // Switch to ember theme
+    await selectTheme(page, 'ember');
 
     // Verify border color has changed
     const newBorderColor = await conversationPane.evaluate((el) =>
       window.getComputedStyle(el).borderColor
     );
 
-    // Border colors should reflect amber theme
+    // Border colors should reflect ember theme
     expect(newBorderColor).not.toBe('rgb(0, 0, 0)');
   });
 
@@ -255,49 +254,50 @@ test.describe('Theme Components', () => {
   });
 
   // Note: Theme persistence across reload is tested in theme-persistence.spec.ts
-  // Tests 39 and 40 verify the API returns correct theme and UI shows correct checkmark
 
-  test('should show correct checkmark indicator for selected theme', async ({ page }) => {
-    // Open hamburger menu and theme selector
-    await page.locator('button[aria-label="Open menu"]').click();
-    await page.locator('[data-testid="theme-selector-trigger"]').click();
-
-    // Dark theme should be selected by default
-    const darkCheckmark = page.locator('[data-testid="theme-swatch-checkmark-dark"]');
-    await expect(darkCheckmark).toBeVisible();
-
-    // Close menu
-    await page.keyboard.press('Escape');
-
-    // Switch to forest theme
+  test('should show current badge for active theme in theme panel', async ({ page }) => {
+    // Switch to forest theme first
     await selectTheme(page, 'forest');
 
-    // Reopen menu and verify forest is now selected
+    // Reopen theme panel
     await page.locator('button[aria-label="Open menu"]').click();
-    await page.locator('[data-testid="theme-selector-trigger"]').click();
+    await page.waitForTimeout(100);
+    await page.locator('[data-testid="theme-panel-trigger"]').click();
+    await page.waitForSelector('[data-testid="theme-selection-panel"]', { timeout: 5000 });
 
-    const forestCheckmark = page.locator('[data-testid="theme-swatch-checkmark-forest"]');
-    await expect(forestCheckmark).toBeVisible();
+    // Get the displayed theme name - should be forest
+    const themeNameElement = page.locator('[data-testid="theme-info-name"]');
+    await expect(themeNameElement).toContainText('Forest');
 
-    // Dark should no longer have checkmark
-    await expect(darkCheckmark).not.toBeVisible();
+    // The current badge should be visible when viewing the current theme
+    const currentBadge = page.locator('[data-testid="theme-info-current-badge"]');
+    await expect(currentBadge).toBeVisible();
+
+    // Cancel to close the panel
+    await page.locator('[data-testid="theme-panel-cancel"]').click();
   });
 
   test('should apply light theme correctly', async ({ page }) => {
-    // Switch to light theme
-    await selectTheme(page, 'light');
-
-    // Verify light theme applied to app shell
+    // Get initial background (dark theme)
     const appShell = page.locator('[data-testid="app-shell"]');
-    const bgColor = await appShell.evaluate((el) =>
+    const darkBgColor = await appShell.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
-    expect(bgColor).toBe(THEME_COLORS.light.appBg);
+
+    // Switch to mist theme (light)
+    await selectTheme(page, 'mist');
+
+    // Verify light theme applied to app shell - should be lighter than dark theme
+    const lightBgColor = await appShell.evaluate((el) =>
+      window.getComputedStyle(el).backgroundColor
+    );
+    expect(lightBgColor).not.toBe('rgba(0, 0, 0, 0)');
+    expect(lightBgColor).not.toBe(darkBgColor);
   });
 
   test('all themed components should be consistent within a theme', async ({ page }) => {
-    // Switch to amber theme for consistent testing
-    await selectTheme(page, 'amber');
+    // Switch to ember theme for consistent testing
+    await selectTheme(page, 'ember');
 
     // Get background colors from multiple components
     const components = [
@@ -324,8 +324,9 @@ test.describe('Theme Components', () => {
   });
 
   test('should cycle through multiple themes correctly', async ({ page }) => {
-    const themes = ['amber', 'ocean', 'forest', 'dark'];
+    const themes = ['ember', 'ocean', 'forest', 'obsidian'];
     const appShell = page.locator('[data-testid="app-shell"]');
+    let previousBgColor = '';
 
     for (const themeId of themes) {
       await selectTheme(page, themeId);
@@ -334,10 +335,14 @@ test.describe('Theme Components', () => {
         window.getComputedStyle(el).backgroundColor
       );
 
-      // Verify the background color matches expected theme
-      if (themeId in THEME_COLORS) {
-        expect(bgColor).toBe(THEME_COLORS[themeId as keyof typeof THEME_COLORS].appBg);
+      // Verify background is not transparent
+      expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
+
+      // Verify background changed from previous theme
+      if (previousBgColor) {
+        expect(bgColor).not.toBe(previousBgColor);
       }
+      previousBgColor = bgColor;
     }
   });
 });

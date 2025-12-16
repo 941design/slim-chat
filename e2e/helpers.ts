@@ -103,7 +103,7 @@ export async function navigateToRelayConfig(page: Page): Promise<void> {
   // Click Relay Configuration menu item
   await page.locator('[data-value="relay-config"]').click();
   // Wait for relay config view to be visible
-  await page.waitForSelector('.relay-config-done-button', { timeout: 5000 });
+  await page.waitForSelector('[data-testid="relay-config-done-button"]', { timeout: 5000 });
 }
 
 /**
@@ -119,7 +119,7 @@ export async function navigateToAbout(page: Page): Promise<void> {
  * Clicks the Done button in relay config to return to chat view.
  */
 export async function returnToChat(page: Page): Promise<void> {
-  await page.locator('.relay-config-done-button').click();
+  await page.locator('[data-testid="relay-config-done-button"]').click();
   // Wait for conversation pane to be visible
   await page.waitForSelector('.conversation-pane', { timeout: 5000 });
 }
