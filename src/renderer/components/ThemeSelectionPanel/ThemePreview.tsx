@@ -51,7 +51,6 @@ export interface ThemePreviewProps {
 function MockHeaderSection(): React.ReactElement {
   const colors = useThemeColors();
   const typography = usePreviewTypography();
-  const headingFont = typography?.fonts?.heading;
 
   return (
     <HStack
@@ -65,17 +64,21 @@ function MockHeaderSection(): React.ReactElement {
       borderRadius="md"
     >
       <Text
-        fontSize="lg"
         fontWeight="semibold"
         color={colors.buttonPrimaryBg}
-        style={headingFont ? { fontFamily: headingFont } : undefined}
+        style={{
+          fontSize: typography?.fontSizes?.lg ?? '1.125rem',
+          fontFamily: typography?.fonts?.heading,
+        }}
       >
         Nostling
       </Text>
       <Text
-        fontSize="lg"
         color={colors.textMuted}
-        style={headingFont ? { fontFamily: headingFont } : undefined}
+        style={{
+          fontSize: typography?.fontSizes?.lg ?? '1.125rem',
+          fontFamily: typography?.fonts?.heading,
+        }}
       >
         ☰
       </Text>
@@ -90,7 +93,6 @@ function MockHeaderSection(): React.ReactElement {
 function MockAvatarSection(): React.ReactElement {
   const colors = useThemeColors();
   const typography = usePreviewTypography();
-  const bodyFont = typography?.fonts?.body;
 
   return (
     <Box
@@ -120,10 +122,12 @@ function MockAvatarSection(): React.ReactElement {
               badgeIconColor={colors.text}
             />
             <Text
-              fontSize="md"
               fontWeight="semibold"
               color={colors.text}
-              style={bodyFont ? { fontFamily: bodyFont } : undefined}
+              style={{
+                fontSize: typography?.fontSizes?.md ?? '1rem',
+                fontFamily: typography?.fonts?.body,
+              }}
             >
               Alice
             </Text>
@@ -148,8 +152,6 @@ function MockAvatarSection(): React.ReactElement {
 function MockConversationSection(): React.ReactElement {
   const colors = useThemeColors();
   const typography = usePreviewTypography();
-  const bodyFont = typography?.fonts?.body;
-  const fontStyle = bodyFont ? { fontFamily: bodyFont } : undefined;
 
   return (
     <Box
@@ -161,15 +163,18 @@ function MockConversationSection(): React.ReactElement {
       <VStack align="stretch" gap={3}>
         <HStack justify="flex-start">
           <Box
+            data-testid="preview-message-received"
             bg={colors.surfaceBgSubtle}
             color={colors.text}
             borderWidth="1px"
             borderColor={colors.border}
             p={3}
             borderRadius="md"
-            fontSize="md"
             maxW="70%"
-            style={fontStyle}
+            style={{
+              fontSize: typography?.fontSizes?.md ?? '1rem',
+              fontFamily: typography?.fonts?.body,
+            }}
           >
             Hey there! How are you?
           </Box>
@@ -183,9 +188,11 @@ function MockConversationSection(): React.ReactElement {
             borderColor={colors.ownBubbleBorder}
             p={3}
             borderRadius="md"
-            fontSize="md"
             maxW="70%"
-            style={fontStyle}
+            style={{
+              fontSize: typography?.fontSizes?.md ?? '1rem',
+              fontFamily: typography?.fonts?.body,
+            }}
           >
             Doing great, thanks for asking!
           </Box>
@@ -197,7 +204,10 @@ function MockConversationSection(): React.ReactElement {
           bg={colors.surfaceBg}
           borderColor={colors.border}
           rows={2}
-          style={fontStyle}
+          style={{
+            fontSize: typography?.fontSizes?.sm ?? '0.875rem',
+            fontFamily: typography?.fonts?.body,
+          }}
         />
       </VStack>
     </Box>
@@ -238,6 +248,7 @@ function MockButtonSection(): React.ReactElement {
  */
 function MockFooterSection(): React.ReactElement {
   const colors = useThemeColors();
+  const typography = usePreviewTypography();
   return (
     <HStack
       data-testid="mock-footer-section"
@@ -249,13 +260,32 @@ function MockFooterSection(): React.ReactElement {
       borderColor={colors.border}
       borderRadius="md"
     >
-      <Text fontSize="sm" color={colors.textSubtle}>
+      <Text
+        color={colors.textSubtle}
+        style={{
+          fontSize: typography?.fontSizes?.sm ?? '0.875rem',
+          fontFamily: typography?.fonts?.body,
+        }}
+      >
         v0.0.34
       </Text>
-      <Text fontSize="sm" color={colors.textMuted}>
+      <Text
+        color={colors.textMuted}
+        style={{
+          fontSize: typography?.fontSizes?.sm ?? '0.875rem',
+          fontFamily: typography?.fonts?.body,
+        }}
+      >
         Connected
       </Text>
-      <Text fontSize="lg" cursor="pointer" color={colors.textMuted}>
+      <Text
+        cursor="pointer"
+        color={colors.textMuted}
+        style={{
+          fontSize: typography?.fontSizes?.lg ?? '1.125rem',
+          fontFamily: typography?.fonts?.body,
+        }}
+      >
         ⟳
       </Text>
     </HStack>

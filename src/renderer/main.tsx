@@ -2092,6 +2092,7 @@ function App({ onThemeChange }: AppProps) {
   }, [currentView, currentThemeId]);
 
   // Get theme metadata for sidebar display
+  // Always show theme info when in theme selection mode (fall back to currentThemeId if stagedThemeId not yet set)
   const stagedThemeMetadata = useMemo((): ThemeMetadata | null => {
     if (themeCustomColors) {
       return {
@@ -2101,9 +2102,11 @@ function App({ onThemeChange }: AppProps) {
         previewColors: { primary: '#000', background: '#fff', text: '#000' },
       };
     }
-    if (!stagedThemeId) return null;
-    return getAllThemes().find((t) => t.id === stagedThemeId) || null;
-  }, [themeCustomColors, stagedThemeId]);
+    // Use stagedThemeId, or fall back to currentThemeId when entering theme selection mode
+    const effectiveThemeId = stagedThemeId ?? (currentView === 'themeSelection' ? currentThemeId : null);
+    if (!effectiveThemeId) return null;
+    return getAllThemes().find((t) => t.id === effectiveThemeId) || null;
+  }, [themeCustomColors, stagedThemeId, currentView, currentThemeId]);
 
   // Relay management methods
   const loadRelaysForIdentity = async (identityId: string) => {
@@ -2219,7 +2222,7 @@ function App({ onThemeChange }: AppProps) {
             currentView === 'themeSelection' && stagedThemeMetadata
               ? {
                   theme: stagedThemeMetadata,
-                  isCurrentTheme: stagedThemeId === currentThemeId && !themeCustomColors,
+                  isCurrentTheme: (stagedThemeId ?? currentThemeId) === currentThemeId && !themeCustomColors,
                 }
               : null
           }
