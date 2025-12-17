@@ -120,9 +120,8 @@ export function CachedImage({ url, fallbackSrc, ...imageProps }: CachedImageProp
   return (
     <Image
       src={src}
-      fallbackSrc={fallbackSrc}
       {...imageProps}
-      isLoading={isLoading}
+      loading={isLoading ? 'eager' : 'lazy'}
       onLoad={() => setIsLoading(false)}
       onError={() => {
         if (fallbackSrc) {

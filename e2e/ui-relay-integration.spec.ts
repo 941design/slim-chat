@@ -152,29 +152,24 @@ test.describe('UI Relay Integration', () => {
       await page.waitForTimeout(500);
     }
 
-    // Get the first relay row
+    // Get the first relay row - newly added relays have read=true, write=true, so isEnabled=true
     const firstRow = page.locator('tbody').locator('tr').first();
 
-    // Enable the relay first (if not already enabled)
+    // Verify the relay is enabled (should be by default for new relays)
     const enableCheckbox = firstRow.locator('[aria-label="Enabled"]');
-    const enabledState = await enableCheckbox.getAttribute('data-state');
-    if (enabledState !== 'checked') {
-      const enableInput = enableCheckbox.locator('input[type="checkbox"]');
-      await enableInput.click({ force: true });
-      await page.waitForTimeout(200);
-    }
+    await expect(enableCheckbox).toHaveAttribute('data-state', 'checked');
 
-    // Toggle the read checkbox using hidden input
+    // Toggle the read checkbox - click on the Checkbox.Root element directly
     const readCheckbox = firstRow.locator('[aria-label="Read"]');
-    const initialState = await readCheckbox.getAttribute('data-state');
+    await expect(readCheckbox).toBeVisible();
+    await expect(readCheckbox).toHaveAttribute('data-state', 'checked');
 
-    const readInput = readCheckbox.locator('input[type="checkbox"]');
-    await readInput.click({ force: true });
-    await page.waitForTimeout(200);
+    // Click on the control element instead of hidden input
+    await readCheckbox.click();
+    await page.waitForTimeout(500);
 
     // Verify state changed
-    const newState = await readCheckbox.getAttribute('data-state');
-    expect(newState).not.toBe(initialState);
+    await expect(readCheckbox).toHaveAttribute('data-state', 'unchecked');
   });
 
   test('should toggle relay write permission', async ({ page }) => {
@@ -198,29 +193,24 @@ test.describe('UI Relay Integration', () => {
       await page.waitForTimeout(500);
     }
 
-    // Get the first relay row
+    // Get the first relay row - newly added relays have read=true, write=true, so isEnabled=true
     const firstRow = page.locator('tbody').locator('tr').first();
 
-    // Enable the relay first (if not already enabled)
+    // Verify the relay is enabled (should be by default for new relays)
     const enableCheckbox = firstRow.locator('[aria-label="Enabled"]');
-    const enabledState = await enableCheckbox.getAttribute('data-state');
-    if (enabledState !== 'checked') {
-      const enableInput = enableCheckbox.locator('input[type="checkbox"]');
-      await enableInput.click({ force: true });
-      await page.waitForTimeout(200);
-    }
+    await expect(enableCheckbox).toHaveAttribute('data-state', 'checked');
 
-    // Toggle the write checkbox using hidden input
+    // Toggle the write checkbox - click on the Checkbox.Root element directly
     const writeCheckbox = firstRow.locator('[aria-label="Write"]');
-    const initialState = await writeCheckbox.getAttribute('data-state');
+    await expect(writeCheckbox).toBeVisible();
+    await expect(writeCheckbox).toHaveAttribute('data-state', 'checked');
 
-    const writeInput = writeCheckbox.locator('input[type="checkbox"]');
-    await writeInput.click({ force: true });
-    await page.waitForTimeout(200);
+    // Click on the control element instead of hidden input
+    await writeCheckbox.click();
+    await page.waitForTimeout(500);
 
     // Verify state changed
-    const newState = await writeCheckbox.getAttribute('data-state');
-    expect(newState).not.toBe(initialState);
+    await expect(writeCheckbox).toHaveAttribute('data-state', 'unchecked');
   });
 
   test('should remove a relay', async ({ page }) => {

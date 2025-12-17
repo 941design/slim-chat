@@ -5,6 +5,7 @@
 export interface CachedImage {
   url: string;
   filePath: string;
+  dataUrl?: string;
   timestamp: number;
   size: number;
 }

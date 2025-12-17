@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { Database } from 'sql.js';
+import { BoundedSet } from './bounded-set';
 import {
   AddContactRequest,
   CreateIdentityRequest,
@@ -106,7 +107,7 @@ export class NostlingService {
   private subscriptions: Map<string, { close: () => void }> = new Map();
   private profileDiscoveryCleanups: Map<string, () => void> = new Map();
   private profileUpdateCallbacks: Set<(identityId: string) => void> = new Set();
-  private seenEventIds: Set<string> = new Set();
+  private seenEventIds = new BoundedSet<string>(50_000);
   private relayConfigManager: RelayConfigManager;
   private pollingTimer: NodeJS.Timeout | null = null;
   private pollingIntervalMs: number = 0;

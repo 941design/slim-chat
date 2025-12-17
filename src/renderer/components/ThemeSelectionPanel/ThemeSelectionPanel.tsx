@@ -13,6 +13,7 @@ import {
 import { ThemeId, getAllThemes } from '../../themes/definitions';
 import { resolveTheme } from '../../themes/loader';
 import { ThemeCarousel } from './ThemeCarousel';
+import { ThemeInfo } from './ThemeInfo';
 import { SubPanel } from '../SubPanel';
 import type { ThemeSemanticColors } from '../../themes/useTheme';
 
@@ -237,14 +238,26 @@ export function ThemeSelectionPanel({
         h="100%"
       >
         {availableThemes.length > 0 && (
-          <ThemeCarousel
-            currentTheme={stagedTheme}
-            availableThemes={availableThemes}
-            onThemeChange={handleThemeChange}
-            disabled={isApplying}
-            customColors={customColors ?? undefined}
-            previewTypography={previewTypography ?? undefined}
-          />
+          <>
+            <ThemeCarousel
+              currentTheme={stagedTheme}
+              availableThemes={availableThemes}
+              onThemeChange={handleThemeChange}
+              disabled={isApplying}
+              customColors={customColors ?? undefined}
+              previewTypography={previewTypography ?? undefined}
+            />
+            {/* Theme info displayed below carousel */}
+            {(() => {
+              const themeMetadata = availableThemes.find((t) => t.id === stagedTheme);
+              return themeMetadata ? (
+                <ThemeInfo
+                  theme={themeMetadata}
+                  isCurrentTheme={stagedTheme === currentTheme}
+                />
+              ) : null;
+            })()}
+          </>
         )}
 
         {error && (

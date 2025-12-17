@@ -54,11 +54,14 @@ afterEach(() => {
 });
 
 // Arbitraries for property-based testing
+// Filter out Object prototype property names to avoid prototype pollution issues
+const prototypeNames = ['constructor', 'toString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString', '__proto__', '__defineGetter__', '__defineSetter__', '__lookupGetter__', '__lookupSetter__'];
+
 const nonEmptyStringArb = fc
   .string({ minLength: 1, maxLength: 100 })
   .filter(s => s.trim().length > 0);
 
-const keyArb = nonEmptyStringArb;
+const keyArb = nonEmptyStringArb.filter(s => !prototypeNames.includes(s));
 const valueArb = fc.string({ minLength: 0, maxLength: 1000 });
 
 // Generate entries with unique keys to avoid overwrites

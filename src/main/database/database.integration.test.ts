@@ -287,10 +287,12 @@ describe('Database Persistence Layer Integration', () => {
     });
 
     it('should return all set state entries', async () => {
+      // Filter out Object prototype property names to avoid prototype pollution issues
+      const prototypeNames = ['constructor', 'toString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString', '__proto__', '__defineGetter__', '__defineSetter__', '__lookupGetter__', '__lookupSetter__'];
       await fc.assert(
         fc.asyncProperty(
           fc.dictionary(
-            fc.string({ minLength: 1, maxLength: 20 }).filter((s) => s.trim().length > 0),
+            fc.string({ minLength: 1, maxLength: 20 }).filter((s) => s.trim().length > 0 && !prototypeNames.includes(s)),
             fc.string({ minLength: 0, maxLength: 50 }),
             { minKeys: 1, maxKeys: 10 }
           ),

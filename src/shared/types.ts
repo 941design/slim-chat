@@ -219,10 +219,21 @@ export interface SendNostrMessageRequest {
   plaintext: string;
 }
 
+/**
+ * API error response for operations that can fail with structured errors.
+ * Used for operations like identity list/create that may fail due to
+ * secure storage issues (SECRET_DECRYPTION_FAILED, SECURE_STORAGE_UNAVAILABLE).
+ */
+export interface ApiErrorResponse {
+  success: false;
+  error: string;
+  message?: string;
+}
+
 export interface NostlingApi {
   identities: {
-    list(): Promise<NostlingIdentity[]>;
-    create(request: CreateIdentityRequest): Promise<NostlingIdentity>;
+    list(): Promise<NostlingIdentity[] | ApiErrorResponse>;
+    create(request: CreateIdentityRequest): Promise<NostlingIdentity | ApiErrorResponse>;
     remove(id: string): Promise<void>;
     updateLabel(identityId: string, label: string): Promise<NostlingIdentity>;
     updateTheme(identityId: string, themeId: string): Promise<void>;
@@ -252,6 +263,7 @@ export interface NostlingApi {
   profiles: {
     onUpdated(callback: (identityId: string) => void): () => void;
     getPrivateAuthored(identityId: string): Promise<any>; // Returns ProfileRecord | null
+    getContactProfile(contactId: string): Promise<any>; // Returns ProfileRecord | null
     updatePrivate(request: { identityId: string; content: any }): Promise<any>; // Returns UpdatePrivateProfileResult
   };
   imageCache: {

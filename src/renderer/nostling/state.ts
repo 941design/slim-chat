@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AddContactRequest,
+  ApiErrorResponse,
   CreateIdentityRequest,
   NostlingContact,
   NostlingIdentity,
@@ -8,6 +9,11 @@ import {
   SendNostrMessageRequest,
 } from '../../shared/types';
 import { getNostlingStatusTextThemed } from './state.themed';
+
+/** Type guard to check if a result is an API error response */
+function isApiError<T>(result: T | ApiErrorResponse): result is ApiErrorResponse {
+  return typeof result === 'object' && result !== null && 'success' in result && result.success === false;
+}
 
 type ContactMap = Record<string, NostlingContact[]>;
 type MessageMap = Record<string, NostlingMessage[]>;
@@ -110,7 +116,7 @@ export function useNostlingState() {
     setScopedLoading('identities', null, true);
     try {
       const result = await window.api.nostling!.identities.list();
-      if ('success' in result && result.success === false) {
+      if (isApiError(result)) {
         recordError('Load identities failed', result.error || 'Unknown error');
         return;
       }
@@ -168,7 +174,7 @@ export function useNostlingState() {
 
       try {
         const identity = await window.api.nostling!.identities.create(request);
-        if ('success' in identity && identity.success === false) {
+        if (isApiError(identity)) {
           recordError('Create identity failed', identity.error || 'Unknown error');
           return null;
         }
@@ -491,6 +497,7 @@ export function useNostlingState() {
     await refreshIdentities();
 
     const identitiesSnapshot = await window.api.nostling!.identities.list();
+    if (isApiError(identitiesSnapshot)) return;
     for (const identity of identitiesSnapshot) {
       await refreshContacts(identity.id);
       await refreshUnreadCounts(identity.id);

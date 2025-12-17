@@ -141,7 +141,7 @@ export function ContactsPanel({ selectedContact, onClose }: ContactsPanelProps):
     >
       {isLoading ? (
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-          <Spinner size="lg" color={colors.primary} />
+          <Spinner size="lg" color={colors.buttonPrimaryBg} />
         </Box>
       ) : (
         <VStack align="stretch" gap={6}>

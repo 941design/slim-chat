@@ -10,84 +10,155 @@
  * Actual: Secret loading fails with "Failed to load identity secret"
  */
 
-import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test';
+import { test as base, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
-import { tmpdir } from 'os';
+import os from 'os';
 
 let testDataDir: string;
-let app: ElectronApplication;
-let mainWindow: Page;
 
-test.describe('Bug: Identity secret loading in dev mode', () => {
-  test.beforeAll(async () => {
+/**
+ * Helper to build launch args with proper flags for Docker/Linux CI
+ */
+function buildLaunchArgs(): string[] {
+  const args: string[] = [];
+
+  // Add flags for Linux CI to handle headless environment
+  // These MUST be added before the main entry point
+  const isLinuxCI = process.env.CI || process.platform === 'linux';
+
+  if (isLinuxCI) {
+    args.push(
+      '--no-sandbox',              // Avoid chrome-sandbox permission issues
+      '--disable-gpu',             // Disable GPU hardware acceleration in headless mode
+      '--disable-dev-shm-usage',   // Use /tmp instead of /dev/shm in containerized environments
+      '--password-store=gnome-libsecret'  // Use gnome-keyring for secure storage
+    );
+  }
+
+  // Main entry script must come AFTER all flags
+  args.push(path.join(__dirname, '../dist/main/index.js'));
+
+  return args;
+}
+
+/**
+ * Helper to wait for app shell to be ready
+ */
+async function waitForAppReady(page: Page): Promise<void> {
+  await page.waitForSelector('.app-shell', { timeout: 10000 });
+  await page.waitForLoadState('domcontentloaded');
+}
+
+/**
+ * Helper to create an identity using the UI
+ */
+async function createIdentity(page: Page, label: string): Promise<string> {
+  // Hover the identity list to reveal the + button
+  await page.locator('[data-testid="identity-list"]').hover();
+
+  // Click the + button to open identity modal
+  await page.locator('button[aria-label="Create identity"]').click();
+
+  // Wait for modal to appear
+  await page.waitForSelector('text=Create or Import Identity', { timeout: 5000 });
+
+  // Fill in the label
+  await page.locator('input[placeholder="Personal account"]').fill(label);
+
+  // Click Save button
+  await page.locator('button:has-text("Save")').click();
+
+  // Wait for modal to close
+  await page.waitForSelector('text=Create or Import Identity', { state: 'hidden', timeout: 5000 });
+
+  // Wait for identity item to appear in sidebar
+  const identityItem = page.locator('[data-testid^="identity-item-"]').first();
+  await identityItem.waitFor({ state: 'visible', timeout: 5000 });
+
+  // Get the identity ID from the data-testid
+  const testId = await identityItem.getAttribute('data-testid');
+  const identityId = testId?.replace('identity-item-', '') || '';
+
+  return identityId;
+}
+
+base.describe('Bug: Identity secret loading in dev mode', () => {
+  base.beforeAll(async () => {
     // Create temporary data directory for this test
-    testDataDir = path.join(tmpdir(), `nostling-test-${Date.now()}`);
+    testDataDir = path.join(
+      process.env.NOSTLING_DATA_DIR || os.tmpdir(),
+      `nostling-bug-test-${Date.now()}`
+    );
     fs.mkdirSync(testDataDir, { recursive: true });
   });
 
-  test.afterAll(async () => {
+  base.afterAll(async () => {
     // Cleanup
-    if (fs.existsSync(testDataDir)) {
+    if (testDataDir && fs.existsSync(testDataDir)) {
       fs.rmSync(testDataDir, { recursive: true, force: true });
     }
   });
 
-  test.afterEach(async () => {
-    if (app) {
-      await app.close();
-    }
-  });
+  base('identity secret should persist across app restarts in dev mode', async () => {
+    let app: ElectronApplication;
+    let mainWindow: Page;
+    let identityId: string;
 
-  test('identity secret should persist across app restarts in dev mode', async () => {
     // ========================================================================
     // FIRST RUN: Create identity with private key
     // ========================================================================
 
+    const launchEnv: Record<string, string> = {
+      ...process.env as Record<string, string>,
+      NODE_ENV: 'development',
+      ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
+      NOSTLING_DATA_DIR: testDataDir,
+    };
+
+    if (process.env.NOSTLING_DEV_RELAY) {
+      launchEnv.NOSTLING_DEV_RELAY = process.env.NOSTLING_DEV_RELAY;
+    }
+
     app = await electron.launch({
-      args: [path.join(__dirname, '../dist/main/index.js')],
-      env: {
-        ...process.env,
-        NODE_ENV: 'development',
-        NOSTLING_DATA_DIR: testDataDir,
-      },
+      args: buildLaunchArgs(),
+      env: launchEnv,
     });
 
-    mainWindow = await app.firstWindow();
-    await mainWindow.waitForLoadState('domcontentloaded');
+    try {
+      mainWindow = await app.firstWindow();
+      await waitForAppReady(mainWindow);
 
-    // Create a new identity
-    const createButton = mainWindow.locator('button[data-testid="create-identity"]');
-    await createButton.waitFor({ state: 'visible', timeout: 10000 });
-    await createButton.click();
+      // Create a new identity
+      identityId = await createIdentity(mainWindow, 'Bug Test Identity');
+      expect(identityId).toBeTruthy();
 
-    // Wait for identity to be created (presence of profile edit section)
-    const profileSection = mainWindow.locator('[data-testid="profile-editor"]');
-    await profileSection.waitFor({ state: 'visible', timeout: 5000 });
+      // Select the identity
+      await mainWindow.locator(`[data-testid="identity-item-${identityId}"]`).click();
 
-    // Get the identity ID for later verification
-    const identityCard = mainWindow.locator('[data-testid^="identity-card-"]').first();
-    await identityCard.waitFor({ state: 'visible', timeout: 5000 });
-    const identityId = (await identityCard.getAttribute('data-testid'))?.replace('identity-card-', '') || '';
-    expect(identityId).toBeTruthy();
+      // Open identities panel to edit profile
+      await mainWindow.locator('button[aria-label="Open menu"]').click();
+      await mainWindow.locator('[data-testid="identities-panel-trigger"]').click();
 
-    // Update the private profile
-    const displayNameInput = mainWindow.locator('input[placeholder="Display name"]');
-    await displayNameInput.waitFor({ state: 'visible', timeout: 5000 });
-    await displayNameInput.fill('Test Identity First Run');
+      // Wait for panel to open
+      const panel = mainWindow.locator('[data-testid="identities-panel"]');
+      await expect(panel).toBeVisible({ timeout: 5000 });
 
-    const aboutInput = mainWindow.locator('textarea[placeholder*="about yourself"]');
-    await aboutInput.fill('Test about section first run');
+      // Edit the profile name
+      const nameInput = mainWindow.locator('[data-testid="profile-editor-name"]');
+      await nameInput.fill('Test Identity First Run');
 
-    // Save the profile
-    const saveButton = mainWindow.locator('button:has-text("Save")');
-    await saveButton.click();
+      // Click Apply to save changes
+      const applyButton = mainWindow.locator('[data-testid="identities-panel-apply"]');
+      await applyButton.click();
 
-    // Wait for save to complete (button should be re-enabled)
-    await expect(saveButton).not.toBeDisabled({ timeout: 5000 });
+      // Wait for panel to close (indicates success)
+      await expect(panel).not.toBeVisible({ timeout: 5000 });
 
-    // Close the app
-    await app.close();
+    } finally {
+      // Close the app
+      await app.close();
+    }
 
     // ========================================================================
     // SECOND RUN: Restart app with persisted data
@@ -97,47 +168,44 @@ test.describe('Bug: Identity secret loading in dev mode', () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     app = await electron.launch({
-      args: [path.join(__dirname, '../dist/main/index.js')],
-      env: {
-        ...process.env,
-        NODE_ENV: 'development',
-        NOSTLING_DATA_DIR: testDataDir,
-      },
+      args: buildLaunchArgs(),
+      env: launchEnv,
     });
 
-    mainWindow = await app.firstWindow();
-    await mainWindow.waitForLoadState('domcontentloaded');
+    try {
+      mainWindow = await app.firstWindow();
+      await waitForAppReady(mainWindow);
 
-    // Verify identity still exists
-    const identityCardAfterRestart = mainWindow.locator(`[data-testid="identity-card-${identityId}"]`);
-    await identityCardAfterRestart.waitFor({ state: 'visible', timeout: 5000 });
+      // Verify identity still exists in sidebar
+      const identityItem = mainWindow.locator(`[data-testid="identity-item-${identityId}"]`);
+      await identityItem.waitFor({ state: 'visible', timeout: 5000 });
 
-    // Try to update the profile again (this should trigger secret loading)
-    await identityCardAfterRestart.click();
+      // Select the identity
+      await identityItem.click();
 
-    const displayNameInputAfterRestart = mainWindow.locator('input[placeholder="Display name"]');
-    await displayNameInputAfterRestart.waitFor({ state: 'visible', timeout: 5000 });
-    await displayNameInputAfterRestart.fill('Test Identity After Restart');
+      // Open identities panel to edit profile
+      await mainWindow.locator('button[aria-label="Open menu"]').click();
+      await mainWindow.locator('[data-testid="identities-panel-trigger"]').click();
 
-    const aboutInputAfterRestart = mainWindow.locator('textarea[placeholder*="about yourself"]');
-    await aboutInputAfterRestart.fill('Test about section after restart');
+      // Wait for panel to open
+      const panel = mainWindow.locator('[data-testid="identities-panel"]');
+      await expect(panel).toBeVisible({ timeout: 5000 });
 
-    // Save the profile - THIS SHOULD FAIL with "Failed to load identity secret"
-    const saveButtonAfterRestart = mainWindow.locator('button:has-text("Save")');
-    await saveButtonAfterRestart.click();
+      // Try to edit the profile again (this should trigger secret loading)
+      const nameInput = mainWindow.locator('[data-testid="profile-editor-name"]');
+      await nameInput.fill('Test Identity After Restart');
 
-    // BUG: This test currently FAILS because secret loading fails after restart
-    // Expected: Save succeeds
-    // Actual: Error "Failed to load identity secret" is thrown
-    //
-    // The error should appear in console logs or as an error notification
-    // For now, we expect this test to fail until the bug is fixed
+      // Click Apply to save changes
+      // BUG: This may fail with "Failed to load identity secret" if encryption keys changed
+      const applyButton = mainWindow.locator('[data-testid="identities-panel-apply"]');
+      await applyButton.click();
 
-    // Wait for save result (timeout indicates failure)
-    // When bug is fixed, this should complete successfully
-    await expect(saveButtonAfterRestart).not.toBeDisabled({ timeout: 5000 });
+      // Wait for panel to close (indicates success)
+      // When bug is fixed, this should complete successfully
+      await expect(panel).not.toBeVisible({ timeout: 5000 });
 
-    // Verify the changes were saved (by checking the input values are preserved)
-    expect(await displayNameInputAfterRestart.inputValue()).toBe('Test Identity After Restart');
+    } finally {
+      await app.close();
+    }
   });
 });

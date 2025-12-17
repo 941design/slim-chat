@@ -12,6 +12,7 @@ import { SimplePool } from 'nostr-tools';
 import type { Event } from 'nostr-tools';
 import { useWebSocketImplementation } from 'nostr-tools/pool';
 import WebSocket from 'ws';
+import { BoundedSet } from './bounded-set';
 import { NostrEvent } from './crypto';
 import { log } from '../logging';
 
@@ -103,7 +104,7 @@ export class RelayPool {
   private endpoints: Map<string, RelayEndpoint>;
   private statusMap: Map<string, RelayStatus>;
   private statusCallbacks: Array<(url: string, status: RelayStatus) => void>;
-  private activeSubscriptions: Map<string, { sub: SubCloser; seenEvents: Set<string> }>;
+  private activeSubscriptions: Map<string, { sub: SubCloser; seenEvents: BoundedSet<string> }>;
   private statusCheckInterval: NodeJS.Timeout | null;
 
   constructor() {
@@ -231,7 +232,7 @@ export class RelayPool {
       });
 
       // Store the keepalive subscription so it stays active
-      this.activeSubscriptions.set('__keepalive__', { sub, seenEvents: new Set() });
+      this.activeSubscriptions.set('__keepalive__', { sub, seenEvents: new BoundedSet(10_000) });
       log('debug', `Keepalive subscription active on ${connectedRelays.length} relay(s)`);
     } catch (error) {
       log('warn', `Failed to create keepalive subscription: ${error instanceof Error ? error.message : String(error)}`);
@@ -315,7 +316,7 @@ export class RelayPool {
       return { close: () => {} };
     }
 
-    const seenEvents = new Set<string>();
+    const seenEvents = new BoundedSet<string>(10_000);
     const groupId = Math.random().toString(36).substring(2, 15);
 
     // WORKAROUND: nostr-tools has a bug where passing an array of filters to pool.subscribe
