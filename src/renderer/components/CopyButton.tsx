@@ -2,11 +2,12 @@
  * CopyButton - A button that copies text to clipboard with visual feedback.
  *
  * Shows a copy icon normally, switches to a green checkmark for 2 seconds after copying.
- * Can optionally display a message in the footer via onCopyMessage callback.
+ * Can optionally display a message in the footer via HoverInfo context or onCopyMessage callback.
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useContext } from 'react';
 import { IconButton, IconButtonProps } from '@chakra-ui/react';
+import { useHoverInfo } from './HoverInfo';
 
 // Copy icon
 const CopyIcon = () => (
@@ -38,7 +39,10 @@ export interface CopyButtonProps extends Omit<IconButtonProps, 'aria-label' | 'o
   onCopy?: () => void;
   /** Message to display in footer on copy (e.g., "npub copied to clipboard") */
   copyMessage?: string;
-  /** Callback to display the copy message (e.g., setMessageHoverInfo) */
+  /**
+   * Callback to display the copy message.
+   * @deprecated Use HoverInfo context instead - CopyButton will automatically use it when available.
+   */
   onCopyMessage?: (message: string | null) => void;
 }
 
@@ -55,6 +59,7 @@ export function CopyButton({
   ...rest
 }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
+  const { showInfo, hideInfo } = useHoverInfo();
 
   const handleCopy = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -63,18 +68,25 @@ export function CopyButton({
       setCopied(true);
       onCopy?.();
 
-      // Show message in footer if both message and callback are provided
-      if (copyMessage && onCopyMessage) {
-        onCopyMessage(copyMessage);
-        // Clear the message after the feedback duration
-        setTimeout(() => onCopyMessage(null), feedbackDuration);
+      // Show message in footer if copyMessage is provided
+      // Use HoverInfo context (preferred) or legacy onCopyMessage callback
+      if (copyMessage) {
+        if (onCopyMessage) {
+          // Legacy: use callback
+          onCopyMessage(copyMessage);
+          setTimeout(() => onCopyMessage(null), feedbackDuration);
+        } else {
+          // Preferred: use HoverInfo context
+          showInfo(copyMessage);
+          setTimeout(() => hideInfo(), feedbackDuration);
+        }
       }
 
       setTimeout(() => setCopied(false), feedbackDuration);
     } catch (err) {
       console.error('Failed to copy to clipboard:', err);
     }
-  }, [textToCopy, feedbackDuration, onCopy, copyMessage, onCopyMessage]);
+  }, [textToCopy, feedbackDuration, onCopy, copyMessage, onCopyMessage, showInfo, hideInfo]);
 
   return (
     <IconButton

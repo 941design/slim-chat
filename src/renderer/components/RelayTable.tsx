@@ -28,6 +28,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { NostlingRelayEndpoint } from '../../shared/types';
 import { useThemeColors } from '../themes/ThemeContext';
+import { useHoverInfo } from './HoverInfo';
 
 interface RelayTableProps {
   identityId: string;
@@ -35,7 +36,6 @@ interface RelayTableProps {
   status: Record<string, 'connected' | 'connecting' | 'disconnected' | 'error'>;
   onChange: (relays: NostlingRelayEndpoint[]) => void;
   onConflict: (message: string) => void;
-  onStatusHover?: (url: string | null, status: string | null) => void;
 }
 
 interface SortableRelayRowProps {
@@ -43,18 +43,17 @@ interface SortableRelayRowProps {
   status: 'connected' | 'connecting' | 'disconnected' | 'error';
   onUpdate: (updated: NostlingRelayEndpoint) => void;
   onRemove: () => void;
-  onStatusHover?: (url: string | null, status: string | null) => void;
 }
 
 interface StatusDotProps {
   status: 'connected' | 'connecting' | 'disconnected' | 'error';
   url: string;
-  onHover?: (url: string | null, status: string | null) => void;
 }
 
 // StatusDot sub-component: renders a colored circle that shows status in footer on hover
-function StatusDot({ status, url, onHover }: StatusDotProps) {
+function StatusDot({ status, url }: StatusDotProps) {
   const colors = useThemeColors();
+  const { showInfo, hideInfo } = useHoverInfo();
 
   const getStatusColor = (): string => {
     switch (status) {
@@ -78,8 +77,8 @@ function StatusDot({ status, url, onHover }: StatusDotProps) {
       bg={getStatusColor()}
       display="inline-block"
       cursor="pointer"
-      onMouseEnter={() => onHover?.(url, status)}
-      onMouseLeave={() => onHover?.(null, null)}
+      onMouseEnter={() => showInfo(`${url}: ${status}`)}
+      onMouseLeave={hideInfo}
     />
   );
 }
@@ -90,7 +89,6 @@ const SortableRelayRow = React.memo(function SortableRelayRow({
   status,
   onUpdate,
   onRemove,
-  onStatusHover,
 }: SortableRelayRowProps) {
   const [editUrl, setEditUrl] = useState(relay.url);
   const colors = useThemeColors();
@@ -189,7 +187,7 @@ const SortableRelayRow = React.memo(function SortableRelayRow({
 
       {/* Status dot */}
       <Table.Cell width="40px" padding="1">
-        <StatusDot status={status} url={relay.url} onHover={onStatusHover} />
+        <StatusDot status={status} url={relay.url} />
       </Table.Cell>
 
       {/* URL field */}
@@ -274,7 +272,6 @@ export function RelayTable({
   status,
   onChange,
   onConflict,
-  onStatusHover,
 }: RelayTableProps) {
   const [newRelayUrl, setNewRelayUrl] = useState('');
   const colors = useThemeColors();
@@ -426,7 +423,6 @@ export function RelayTable({
                     status={status[relay.url] || 'disconnected'}
                     onUpdate={handleRelayUpdate}
                     onRemove={() => handleRemoveRelay(relay.url)}
-                    onStatusHover={onStatusHover}
                   />
                 ))}
               </SortableContext>

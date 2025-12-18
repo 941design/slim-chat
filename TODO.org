@@ -1,7 +1,7 @@
 * TODO
 
-+ make sidebar width adjustable
 + allow pasting/scanning public key hex as well
++ remove shield symbol
 + avatar next to each message
 
 + username vs. display name
@@ -20,6 +20,7 @@
 + clickable links
 + html/markdown messages
 + backup
++ is the sidebar width conceptually part of a theme? if so, store it in SQLite DB
 + forbid to add self as contact
 + consider direct link via ipv6
   + status?
@@ -242,3 +243,44 @@
              → fallback to UTF-8 decode → garbage
 
   
+** hoverinfo controller
+
+  Current Approach: Explicit hideInfo()
+
+  - Caller controls both show and hide timing
+  - Requires every component to remember to call hideInfo() on mouse leave
+  - Component knows when its hover ends
+
+  Alternative: Queue-based with Handler-controlled Display
+
+  - Caller only calls showInfo(text)
+  - Handler decides when/how to clear (e.g., timeout, next message, idle detection)
+  - Simpler API for callers
+
+  Potential Benefits of Queueing
+
+  1. Simpler caller code - just showInfo("message"), no cleanup responsibility
+  2. Consistent timing - handler controls display duration uniformly
+  3. Graceful transitions - could show messages sequentially instead of overwriting
+  4. Handles edge cases - component unmounts before calling hideInfo(), rapid hover changes
+
+  Potential Drawbacks
+
+  1. Less control - some messages might want different durations (copy feedback vs hover info)
+  2. Stale messages - queue could show outdated info if user moves quickly
+  3. Complexity - queue management, priority, deduplication
+
+  Middle Ground Options
+
+  Option A: Auto-expire with optional override
+  showInfo(text, { duration?: number | 'until-cleared' })
+  Default auto-clears after ~300ms of no new messages.
+
+  Option B: Message types with different behaviors
+  showInfo(text, { type: 'hover' | 'feedback' })
+  // 'hover' = cleared on next showInfo or timeout
+  // 'feedback' = shows for fixed duration then clears
+
+  Option C: Last-write-wins with hysteresis (closest to current)
+  showInfo(text) // shows immediately
+  // Auto-clears after 300ms of inactivity (no new showInfo calls)

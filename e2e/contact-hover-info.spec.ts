@@ -29,10 +29,10 @@ function getFooter(page: Page) {
 }
 
 /**
- * Get the message hover info text element in the footer
+ * Get the hover info text element in the footer
  */
 function getHoverInfoText(page: Page) {
-  return page.locator('.message-hover-info');
+  return page.locator('.hover-info');
 }
 
 test.describe('Contact panel hover info', () => {

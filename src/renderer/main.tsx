@@ -41,6 +41,7 @@ import { RelayConflictModal } from './components/RelayConflictModal';
 import { ThemeSelectionPanel, ThemeVariableSliders, ThemeInfo } from './components/ThemeSelectionPanel';
 import { IdentitiesPanel } from './components/IdentitiesPanel';
 import { ContactsPanel } from './components/ContactsPanel/ContactsPanel';
+import { HoverInfoProvider, useHoverInfo } from './components/HoverInfo';
 import { SubPanel } from './components/SubPanel';
 import { EmojiPicker, useEmojiInsertion } from './components/EmojiPicker';
 import { parseMessageContent } from './utils/linkify';
@@ -417,11 +418,10 @@ interface FooterProps {
   onRestart: () => void;
   nostlingStatus?: string;
   nostlingError?: string | null;
-  relayHoverInfo?: { url: string; status: string } | null;
-  messageHoverInfo?: string | null;
+  hoverInfo?: string | null;
 }
 
-function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostlingStatus, nostlingError, relayHoverInfo, messageHoverInfo }: FooterProps) {
+function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostlingStatus, nostlingError, hoverInfo }: FooterProps) {
   const colors = useThemeColors();
   // Memoize based on phase and display-relevant fields only to prevent
   // random message re-selection during progress updates (downloading, mounting)
@@ -469,19 +469,11 @@ function Footer({ version, updateState, onRefresh, onDownload, onRestart, nostli
             </Text>
           </>
         )}
-        {relayHoverInfo && (
+        {hoverInfo && (
           <>
             <Text color={colors.textSubtle}>•</Text>
-            <Text className="relay-hover-info" color={relayHoverInfo.status === 'connected' ? 'green.300' : relayHoverInfo.status === 'connecting' ? 'yellow.300' : 'red.300'} title={`${relayHoverInfo.url}: ${relayHoverInfo.status}`} maxW="400px" truncate>
-              {relayHoverInfo.url}: {relayHoverInfo.status}
-            </Text>
-          </>
-        )}
-        {messageHoverInfo && (
-          <>
-            <Text color={colors.textSubtle}>•</Text>
-            <Text className="message-hover-info" color={colors.textMuted} maxW="400px" truncate>
-              {messageHoverInfo}
+            <Text className="hover-info" color={colors.textMuted} maxW="400px" truncate>
+              {hoverInfo}
             </Text>
           </>
         )}
@@ -622,7 +614,6 @@ function IdentityList({
   unreadCounts,
   newlyArrived,
   disabled,
-  onCopyMessage,
 }: {
   identities: NostlingIdentity[];
   selectedId: string | null;
@@ -633,7 +624,6 @@ function IdentityList({
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
   disabled?: boolean;
-  onCopyMessage?: (message: string | null) => void;
 }) {
   const colors = useThemeColors();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -845,7 +835,6 @@ function IdentityList({
                       color={colors.textSubtle}
                       _hover={{ color: colors.textMuted }}
                       copyMessage="npub copied to clipboard"
-                      onCopyMessage={onCopyMessage}
                     />
                     <IconButton
                       size="xs"
@@ -1105,7 +1094,6 @@ interface ConversationPaneProps {
   contact: NostlingContact | null;
   messages: NostlingMessage[];
   onSend: (plaintext: string) => Promise<boolean>;
-  onMessageHover: (info: string | null) => void;
 }
 
 function ConversationPane({
@@ -1113,8 +1101,8 @@ function ConversationPane({
   contact,
   messages,
   onSend,
-  onMessageHover,
 }: ConversationPaneProps) {
+  const { showInfo, hideInfo } = useHoverInfo();
   const colors = useThemeColors();
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -1127,9 +1115,9 @@ function ConversationPane({
   const handleMessageHover = (message: NostlingMessage | null) => {
     if (message) {
       const sender = message.direction === 'outgoing' ? 'you' : contact?.alias || contact?.profileName || 'contact';
-      onMessageHover(`sent by ${sender} on ${formatTimestamp(message.timestamp)}`);
+      showInfo(`sent by ${sender} on ${formatTimestamp(message.timestamp)}`);
     } else {
-      onMessageHover(null);
+      hideInfo();
     }
   };
 
@@ -1625,7 +1613,6 @@ function Sidebar({
   isIdentitiesMode,
   isContactsMode,
   identitySelectionDisabled,
-  onCopyMessage,
   width,
   onResizeStart,
   isResizing,
@@ -1651,7 +1638,6 @@ function Sidebar({
   isIdentitiesMode?: boolean;
   isContactsMode?: boolean;
   identitySelectionDisabled?: boolean;
-  onCopyMessage?: (message: string | null) => void;
   width: string;
   onResizeStart: (e: React.MouseEvent) => void;
   isResizing: boolean;
@@ -1704,7 +1690,6 @@ function Sidebar({
             unreadCounts={identityUnreadCounts}
             newlyArrived={newlyArrivedIdentities}
             disabled={identitySelectionDisabled}
-            onCopyMessage={onCopyMessage}
           />
         ) : isContactsMode ? (
           // Contacts mode: show identity list for selection and contact list for contacts view
@@ -1718,7 +1703,6 @@ function Sidebar({
               onRename={onRenameIdentity}
               unreadCounts={identityUnreadCounts}
               newlyArrived={newlyArrivedIdentities}
-              onCopyMessage={onCopyMessage}
             />
             <Separator borderColor={colors.borderSubtle} />
             <ContactList
@@ -1745,7 +1729,6 @@ function Sidebar({
               onRename={onRenameIdentity}
               unreadCounts={identityUnreadCounts}
               newlyArrived={newlyArrivedIdentities}
-              onCopyMessage={onCopyMessage}
             />
             <Separator borderColor={colors.borderSubtle} />
             <ContactList
@@ -1824,8 +1807,7 @@ function App({ onThemeChange }: AppProps) {
   // Relay state management (per-identity)
   const [currentRelays, setCurrentRelays] = useState<NostlingRelayEndpoint[]>([]);
   const [relayStatus, setRelayStatus] = useState<Record<string, string>>({});
-  const [relayHoverInfo, setRelayHoverInfo] = useState<{ url: string; status: string } | null>(null);
-  const [messageHoverInfo, setMessageHoverInfo] = useState<string | null>(null);
+  const [hoverInfo, setHoverInfo] = useState<string | null>(null);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflictMessage, setConflictMessage] = useState('');
 
@@ -2249,8 +2231,9 @@ function App({ onThemeChange }: AppProps) {
   }, []);
 
   return (
-    <Flex className="app-shell" direction="column" h="100vh" bg={colors.appBg} data-testid="app-shell">
-      <Header
+    <HoverInfoProvider onInfoChange={setHoverInfo}>
+      <Flex className="app-shell" direction="column" h="100vh" bg={colors.appBg} data-testid="app-shell">
+        <Header
         onShowAbout={handleShowAbout}
         onShowRelayConfig={handleShowRelayConfig}
         currentTheme={currentThemeId}
@@ -2303,7 +2286,6 @@ function App({ onThemeChange }: AppProps) {
           isIdentitiesMode={currentView === 'identities'}
           isContactsMode={currentView === 'contacts'}
           identitySelectionDisabled={identitiesPanelDirty}
-          onCopyMessage={setMessageHoverInfo}
           width={sidebarWidth}
           onResizeStart={handleSidebarResizeStart}
           isResizing={isSidebarResizing}
@@ -2315,7 +2297,6 @@ function App({ onThemeChange }: AppProps) {
               contact={selectedContact}
               messages={conversationMessages}
               onSend={handleSendMessage}
-              onMessageHover={setMessageHoverInfo}
             />
           ) : currentView === 'relay-config' ? (
             <SubPanel
@@ -2340,13 +2321,6 @@ function App({ onThemeChange }: AppProps) {
                   onConflict={(msg: string) => {
                     setConflictMessage(msg);
                     setConflictModalOpen(true);
-                  }}
-                  onStatusHover={(url, status) => {
-                    if (url && status) {
-                      setRelayHoverInfo({ url, status });
-                    } else {
-                      setRelayHoverInfo(null);
-                    }
                   }}
                 />
               ) : (
@@ -2380,7 +2354,7 @@ function App({ onThemeChange }: AppProps) {
                 onRemove={handleRequestDeleteContact}
                 onRename={handleRenameContact}
                 onClearAlias={handleClearContactAlias}
-                onHoverInfo={setMessageHoverInfo}
+                onHoverInfo={setHoverInfo}
               />
             ) : (
               <Box p="4" color={colors.textSubtle}>
@@ -2442,10 +2416,10 @@ function App({ onThemeChange }: AppProps) {
         onRestart={restart}
         nostlingStatus={nostling.nostlingStatusText}
         nostlingError={nostling.lastError}
-        relayHoverInfo={relayHoverInfo}
-        messageHoverInfo={messageHoverInfo}
+        hoverInfo={hoverInfo}
       />
-    </Flex>
+      </Flex>
+    </HoverInfoProvider>
   );
 }
 

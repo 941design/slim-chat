@@ -43,10 +43,10 @@ async function createContactAndOpenProfile(page: Page, npub: string, alias: stri
 }
 
 /**
- * Get the footer element that displays hover info
+ * Get the hover info text element in the footer
  */
 function getHoverInfoText(page: Page) {
-  return page.locator('.message-hover-info');
+  return page.locator('.hover-info');
 }
 
 /**
