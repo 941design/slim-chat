@@ -302,6 +302,28 @@ export function useNostlingState() {
     [hasBridge, recordError]
   );
 
+  const clearContactAlias = useCallback(
+    async (contactId: string) => {
+      if (!hasBridge) return null;
+
+      try {
+        const contact = await window.api.nostling!.contacts.clearAlias(contactId);
+        setContacts((current) => {
+          const existing = current[contact.identityId] || [];
+          return {
+            ...current,
+            [contact.identityId]: existing.map((entry) => (entry.id === contact.id ? contact : entry)),
+          };
+        });
+        return contact;
+      } catch (error) {
+        recordError('Clear contact alias failed', error);
+        return null;
+      }
+    },
+    [hasBridge, recordError]
+  );
+
   const markContactConnected = useCallback(
     async (contactId: string, identityId: string) => {
       if (!hasBridge) return null;
@@ -564,6 +586,7 @@ export function useNostlingState() {
     markContactConnected,
     updateIdentityLabel,
     updateContactAlias,
+    clearContactAlias,
     sendMessage,
     discardUnknown,
     retryFailedMessages,

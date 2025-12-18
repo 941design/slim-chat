@@ -694,7 +694,6 @@ function IdentityList({
         {identities.map((identity) => {
           const displayName = getPreferredDisplayName({
             profileName: identity.profileName,
-            alias: identity.alias ?? identity.label,
             npub: identity.npub,
           });
           const unreadCount = unreadCounts?.[identity.id] || 0;
@@ -874,7 +873,6 @@ function ContactList({
   onOpenAdd,
   disabled,
   onRequestDelete,
-  onRename,
   onShowProfile,
   unreadCounts,
   newlyArrived,
@@ -885,45 +883,11 @@ function ContactList({
   onOpenAdd: () => void;
   disabled: boolean;
   onRequestDelete: (contact: NostlingContact) => void;
-  onRename: (contactId: string, alias: string) => Promise<void>;
   onShowProfile: (contact: NostlingContact) => void;
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
 }) {
   const colors = useThemeColors();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draftAlias, setDraftAlias] = useState('');
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (editingId) {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }
-  }, [editingId]);
-
-  const startEditing = (contact: NostlingContact, event: React.MouseEvent) => {
-    event.stopPropagation();
-    setEditingId(contact.id);
-    setDraftAlias(contact.alias);
-  };
-
-  const cancelEditing = (event?: React.MouseEvent) => {
-    event?.stopPropagation();
-    setEditingId(null);
-    setDraftAlias('');
-  };
-
-  const saveEditing = async (contactId: string, event?: React.MouseEvent) => {
-    event?.stopPropagation();
-    const trimmed = draftAlias.trim();
-    if (!trimmed) {
-      cancelEditing();
-      return;
-    }
-    await onRename(contactId, trimmed);
-    setEditingId(null);
-  };
 
   return (
     <Box mt="6" data-testid="contact-list">
@@ -955,7 +919,6 @@ function ContactList({
         {(contacts || []).map((contact) => {
           const displayName = getPreferredDisplayName({
             profileName: contact.profileName,
-            alias: contact.alias,
             npub: contact.npub,
           });
           const unreadCount = unreadCounts?.[contact.id] || 0;
@@ -990,126 +953,53 @@ function ContactList({
               position="relative"
             >
               <HStack justify="space-between" align="center" gap="2">
-                {editingId === contact.id ? (
-                  <HStack align="center" gap="0" flex="1">
-                    <Input
-                      ref={inputRef}
-                      size="sm"
-                      value={draftAlias}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(event) => setDraftAlias(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          void saveEditing(contact.id);
-                        }
-                        if (event.key === 'Escape') {
-                          event.preventDefault();
-                          cancelEditing();
-                        }
-                      }}
-                    />
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Save contact alias"
-                      onClick={(event) => void saveEditing(contact.id, event)}
-                      color={colors.textSubtle}
-                      _hover={{ color: colors.textMuted }}
+                <HStack flex="1" gap="2">
+                  <AvatarWithBadge
+                    displayName={displayName}
+                    pictureUrl={contact.picture}
+                    profileSource={contact.profileSource}
+                    size={32}
+                    badgeBackgroundColor={colors.surfaceBg}
+                    badgeIconColor={colors.text}
+                  />
+                  <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1" fontFamily="body">
+                    {displayName}
+                  </Text>
+                  {hasUnread && (
+                    <Badge
+                      colorPalette="blue"
+                      variant="solid"
+                      borderRadius="full"
+                      fontSize="xs"
+                      px="2"
+                      minW="6"
+                      textAlign="center"
                     >
-                      <CheckIcon />
-                    </IconButton>
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Cancel editing"
-                      onClick={(event) => cancelEditing(event)}
-                      color={colors.textSubtle}
-                      _hover={{ color: colors.textMuted }}
-                    >
-                      <CloseIcon />
-                    </IconButton>
-                  </HStack>
-                ) : (
-                  <HStack flex="1" gap="2">
-                    <AvatarWithBadge
-                      displayName={displayName}
-                      pictureUrl={contact.picture}
-                      profileSource={contact.profileSource}
-                      size={32}
-                      badgeBackgroundColor={colors.surfaceBg}
-                      badgeIconColor={colors.text}
-                    />
-                    <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1" fontFamily="body">
-                      {displayName}
-                    </Text>
-                    {hasUnread && (
-                      <Badge
-                        colorPalette="blue"
-                        variant="solid"
-                        borderRadius="full"
-                        fontSize="xs"
-                        px="2"
-                        minW="6"
-                        textAlign="center"
-                      >
-                        {unreadCount}
-                      </Badge>
-                    )}
-                  </HStack>
-                )}
+                      {unreadCount}
+                    </Badge>
+                  )}
+                </HStack>
                 <HStack
                   gap="0"
                   opacity={0}
-                  _groupHover={{ opacity: selectedId === contact.id ? 1 : 0 }}
-                  pointerEvents={selectedId === contact.id ? 'auto' : 'none'}
+                  _groupHover={{ opacity: 1 }}
                   transition="opacity 0.15s"
                 >
-                  {editingId !== contact.id && (
-                    <>
-                      <IconButton
-                        size="xs"
-                        variant="ghost"
-                        aria-label="Edit contact alias"
-                        title="Rename contact"
-                        onClick={(event) => startEditing(contact, event)}
-                        color={colors.textSubtle}
-                        _hover={{ color: colors.textMuted }}
-                      >
-                        <PencilIcon />
-                      </IconButton>
-                      <IconButton
-                        size="xs"
-                        variant="ghost"
-                        aria-label="Delete contact"
-                        title="Remove contact"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRequestDelete(contact);
-                        }}
-                        color={colors.textSubtle}
-                        _hover={{ color: colors.textMuted }}
-                        data-testid={`delete-contact-${contact.id}`}
-                      >
-                        <TrashIcon />
-                      </IconButton>
-                      <IconButton
-                        size="xs"
-                        variant="ghost"
-                        aria-label="View contact profile"
-                        title="View contact profile"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onShowProfile(contact);
-                        }}
-                        color={colors.textSubtle}
-                        _hover={{ color: colors.textMuted }}
-                        data-testid={`view-profile-${contact.id}`}
-                      >
-                        <MoreVerticalIcon />
-                      </IconButton>
-                    </>
-                  )}
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    aria-label="View contact profile"
+                    title="View contact profile"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShowProfile(contact);
+                    }}
+                    color={colors.textSubtle}
+                    _hover={{ color: colors.textMuted }}
+                    data-testid={`view-profile-${contact.id}`}
+                  >
+                    <MoreVerticalIcon />
+                  </IconButton>
                 </HStack>
               </HStack>
             </Box>
@@ -1570,7 +1460,7 @@ function DeleteContactDialog({
   loading: boolean;
 }) {
   const colors = useThemeColors();
-  const displayName = contact ? getPreferredDisplayName({ profileName: contact.profileName, alias: contact.alias, npub: contact.npub }) : '';
+  const displayName = contact ? getPreferredDisplayName({ profileName: contact.profileName, npub: contact.npub }) : '';
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && onClose()} closeOnInteractOutside={!loading}>
@@ -1822,7 +1712,6 @@ function Sidebar({
               onOpenAdd={onOpenContactModal}
               disabled={identities.length === 0}
               onRequestDelete={onRequestDeleteContact}
-              onRename={onRenameContact}
               onShowProfile={onShowContactProfile}
               unreadCounts={unreadCounts}
               newlyArrived={newlyArrived}
@@ -1849,7 +1738,6 @@ function Sidebar({
               onOpenAdd={onOpenContactModal}
               disabled={identities.length === 0}
               onRequestDelete={onRequestDeleteContact}
-              onRename={onRenameContact}
               onShowProfile={onShowContactProfile}
               unreadCounts={unreadCounts}
               newlyArrived={newlyArrived}
@@ -2095,6 +1983,10 @@ function App({ onThemeChange }: AppProps) {
     if (updated && updated.identityId === selectedIdentityId) {
       setSelectedContactId(updated.id);
     }
+  };
+
+  const handleClearContactAlias = async (contactId: string) => {
+    await nostling.clearContactAlias(contactId);
   };
 
   const handleSendMessage = async (plaintext: string) => {
@@ -2463,6 +2355,10 @@ function App({ onThemeChange }: AppProps) {
                 selectedContact={(nostling.contacts[selectedIdentityId] || []).find(c => c.id === selectedContactId)!}
                 onClose={handleReturnToChat}
                 onShowQr={setQrDisplayContactProfile}
+                onRemove={handleRequestDeleteContact}
+                onRename={handleRenameContact}
+                onClearAlias={handleClearContactAlias}
+                onHoverInfo={setMessageHoverInfo}
               />
             ) : (
               <Box p="4" color={colors.textSubtle}>

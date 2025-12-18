@@ -543,6 +543,10 @@ describe('registerHandlers', () => {
         ...exampleContact,
         alias: 'Updated Alias',
       }),
+      clearContactAlias: jest.fn<() => Promise<NostlingContact>>().mockResolvedValue({
+        ...exampleContact,
+        alias: '',
+      }),
       markContactConnected: jest
         .fn<() => Promise<NostlingContact>>()
         .mockResolvedValue({ ...exampleContact, state: 'connected' as const }),
@@ -595,13 +599,14 @@ describe('registerHandlers', () => {
   }
 
   describe('Property: Completeness - all handlers registered', () => {
-    it('should register 14 IPC handlers (11 new + 3 legacy)', () => {
+    it('should register 15 IPC handlers (11 new + 3 legacy + 1 test-only)', () => {
       const deps = createMockDependencies();
       registerHandlers(deps);
       // 11 new handlers: system:get-status, system:open-external, updates:check, updates:download, updates:restart,
       //                  config:get, config:set, state:get, state:set, state:delete, state:get-all
       // 3 legacy handlers: status:get, update:check, update:restart
-      expect(handlers.size).toBe(14);
+      // 1 test-only handler: test:inject-profile (only in test mode)
+      expect(handlers.size).toBe(15);
     });
 
     it('should register all required channel names', () => {
@@ -648,7 +653,7 @@ describe('registerHandlers', () => {
       const allChannels = Array.from(handlers.keys());
       allChannels.forEach((channel) => {
         expect(channel).toMatch(
-          /^(system|updates|config|state|status|update):[a-z-]+$|^nostling:(identities|contacts|messages|relays):[a-z-]+$/
+          /^(system|updates|config|state|status|update|test):[a-z-]+$|^nostling:(identities|contacts|messages|relays|profiles|image-cache):[a-z-]+$/
         );
       });
     });
@@ -800,14 +805,14 @@ describe('registerHandlers', () => {
       const deps2 = createMockDependencies();
 
       registerHandlers(deps1);
-      // Updated to reflect 14 handlers (11 new + 3 legacy)
-      expect(mockIpcMain.handle).toHaveBeenCalledTimes(14);
+      // Updated to reflect 14 handlers (11 new + 3 legacy) + 1 test-only handler in test mode
+      expect(mockIpcMain.handle).toHaveBeenCalledTimes(15);
 
       handlers.clear();
       registerHandlers(deps2);
-      expect(mockIpcMain.handle).toHaveBeenCalledTimes(28);
+      expect(mockIpcMain.handle).toHaveBeenCalledTimes(30);
 
-      expect(handlers.size).toBe(14);
+      expect(handlers.size).toBe(15);
     });
   });
 
@@ -848,8 +853,8 @@ describe('registerHandlers', () => {
       const deps = createMockDependencies();
       registerHandlers(deps);
 
-      // Updated to reflect 14 handlers (11 new + 3 legacy)
-      expect(handlers.size).toBe(14);
+      // Updated to reflect 14 handlers (11 new + 3 legacy) + 1 test-only handler in test mode
+      expect(handlers.size).toBe(15);
       expect(handlers.has('system:get-status')).toBe(true);
       expect(handlers.has('system:open-external')).toBe(true);
       expect(handlers.has('updates:check')).toBe(true);
@@ -903,8 +908,8 @@ describe('registerHandlers', () => {
       const nostlingDeps = createNostlingDependencies();
       registerHandlers({ ...deps, nostling: nostlingDeps });
 
-      // Base handlers (14) plus nostling channels (including retryFailedMessages, rename flows, relay handlers, updateTheme, unread handlers, and profile handlers including getContactProfile)
-      expect(handlers.size).toBe(37);
+      // Base handlers (14) plus nostling channels (including retryFailedMessages, rename flows, relay handlers, updateTheme, unread handlers, profile handlers including getContactProfile, and clearContactAlias) + 1 test-only handler in test mode
+      expect(handlers.size).toBe(39);
       expect(handlers.has('nostling:identities:list')).toBe(true);
       expect(handlers.has('nostling:contacts:add')).toBe(true);
       expect(handlers.has('nostling:messages:send')).toBe(true);
@@ -915,6 +920,11 @@ describe('registerHandlers', () => {
 
       await handlers.get('nostling:contacts:add')!(null, { identityId: 'id-1', npub: 'npub', alias: 'bob' });
       expect(nostlingDeps.addContact).toHaveBeenCalled();
+
+      // Test clearContactAlias handler
+      expect(handlers.has('nostling:contacts:clear-alias')).toBe(true);
+      await handlers.get('nostling:contacts:clear-alias')!(null, 'contact-1');
+      expect(nostlingDeps.clearContactAlias).toHaveBeenCalledWith('contact-1');
 
       await handlers.get('nostling:messages:send')!(null, {
         identityId: 'id-1',

@@ -7,18 +7,19 @@ describe('sidebar utilities', () => {
     expect(abbreviateNpub('npub1234567890abcdef')).toBe('npub123456…abcdef');
   });
 
-  it('prefers profile name over alias and npub', () => {
+  it('returns profileName when present', () => {
     const npub = 'npub1longexamplekeyvaluehere';
-    expect(getPreferredDisplayName({ profileName: 'Profile Name', alias: 'Alias', npub })).toBe('Profile Name');
+    // profileName is the resolved display name from backend (already has precedence applied)
+    expect(getPreferredDisplayName({ profileName: 'Resolved Name', npub })).toBe('Resolved Name');
   });
 
-  it('falls back to alias when profile name is missing', () => {
+  it('uses abbreviated npub when profileName is missing', () => {
     const npub = 'npub1longexamplekeyvaluehere';
-    expect(getPreferredDisplayName({ profileName: '', alias: 'Alias', npub })).toBe('Alias');
+    expect(getPreferredDisplayName({ profileName: null, npub })).toBe(abbreviateNpub(npub));
   });
 
-  it('uses abbreviated npub when neither profile nor alias are present', () => {
+  it('uses abbreviated npub when profileName is empty', () => {
     const npub = 'npub1longexamplekeyvaluehere';
-    expect(getPreferredDisplayName({ profileName: null, alias: '', npub })).toBe(abbreviateNpub(npub));
+    expect(getPreferredDisplayName({ profileName: '', npub })).toBe(abbreviateNpub(npub));
   });
 });

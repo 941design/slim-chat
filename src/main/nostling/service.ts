@@ -382,7 +382,52 @@ export class NostlingService {
     const existing = this.getContact(contactId);
     this.database.run('UPDATE nostr_contacts SET alias = ? WHERE id = ?', [trimmed, contactId]);
     log('info', `Updated alias for contact ${contactId}`);
-    return { ...existing, alias: trimmed };
+
+    // Re-resolve display name after updating alias (alias takes precedence)
+    let profileName: string;
+    try {
+      const resolution = resolveDisplayNameForContact(contactId, this.database);
+      profileName = resolution.displayName;
+    } catch {
+      profileName = trimmed;
+    }
+
+    // Create base contact and enhance with profile status
+    const baseContact: NostlingContact = {
+      ...existing,
+      alias: trimmed,
+      profileName,
+    };
+
+    // Enhance with profileSource and picture
+    const [enhanced] = enhanceContactsWithProfilesSqlJs(this.database, [baseContact]);
+    return enhanced;
+  }
+
+  async clearContactAlias(contactId: string): Promise<NostlingContact> {
+    const existing = this.getContact(contactId);
+    this.database.run('UPDATE nostr_contacts SET alias = ? WHERE id = ?', ['', contactId]);
+    log('info', `Cleared alias for contact ${contactId}`);
+
+    // Re-resolve display name after clearing alias (will fall back to profile or npub)
+    let profileName: string;
+    try {
+      const resolution = resolveDisplayNameForContact(contactId, this.database);
+      profileName = resolution.displayName;
+    } catch {
+      profileName = '';
+    }
+
+    // Create base contact and enhance with profile status
+    const baseContact: NostlingContact = {
+      ...existing,
+      alias: '',
+      profileName,
+    };
+
+    // Enhance with profileSource and picture
+    const [enhanced] = enhanceContactsWithProfilesSqlJs(this.database, [baseContact]);
+    return enhanced;
   }
 
   async markContactConnected(contactId: string): Promise<NostlingContact> {

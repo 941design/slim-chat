@@ -122,6 +122,12 @@ const api: RendererApi = {
           alias
         ) as ReturnType<NostlingApi['contacts']['updateAlias']>;
       },
+      async clearAlias(contactId: string) {
+        return ipcRenderer.invoke(
+          'nostling:contacts:clear-alias',
+          contactId
+        ) as ReturnType<NostlingApi['contacts']['clearAlias']>;
+      },
       async markConnected(contactId: string) {
         return ipcRenderer.invoke('nostling:contacts:mark-connected', contactId) as ReturnType<
           NostlingApi['contacts']['markConnected']
@@ -201,7 +207,22 @@ const api: RendererApi = {
   },
 };
 
+// Test-only API methods
+// Always expose the test object, but methods only work if the IPC handlers are registered
+// (which only happens when main process runs with NODE_ENV=test)
+const testApi = {
+  test: {
+    async injectProfile(args: {
+      pubkey: string;
+      source: 'private_received' | 'public_discovered';
+      content: Record<string, string>;
+    }) {
+      return ipcRenderer.invoke('test:inject-profile', args);
+    },
+  },
+};
+
 // Expose both APIs during transition
-contextBridge.exposeInMainWorld('api', { ...legacyApi, ...api });
+contextBridge.exposeInMainWorld('api', { ...legacyApi, ...api, ...testApi });
 
 export type {};

@@ -38,6 +38,7 @@ interface NostlingIpcDependencies {
   addContact: (request: AddContactRequest) => Promise<any>;
   removeContact: (contactId: string) => Promise<void>;
   updateContactAlias: (contactId: string, alias: string) => Promise<any>;
+  clearContactAlias: (contactId: string) => Promise<any>;
   markContactConnected: (contactId: string) => Promise<any>;
   listMessages: (identityId: string, contactId: string) => Promise<any>;
   sendMessage: (request: SendNostrMessageRequest) => Promise<any>;
@@ -296,6 +297,9 @@ export function registerHandlers(dependencies: {
     ipcMain.handle('nostling:contacts:update-alias', async (_, contactId: string, alias: string) =>
       dependencies.nostling!.updateContactAlias(contactId, alias)
     );
+    ipcMain.handle('nostling:contacts:clear-alias', async (_, contactId: string) =>
+      dependencies.nostling!.clearContactAlias(contactId)
+    );
     ipcMain.handle('nostling:contacts:mark-connected', async (_, contactId: string) =>
       dependencies.nostling!.markContactConnected(contactId)
     );
@@ -352,6 +356,33 @@ export function registerHandlers(dependencies: {
       dependencies.nostling!.onProfileUpdated((identityId: string) => {
         event.sender.send('nostling:profile-updated', identityId);
       });
+    });
+  }
+
+  // Test-only IPC handler for injecting mock profiles
+  // Only registered in test mode to allow e2e tests to set up profile data
+  if (process.env.NODE_ENV === 'test') {
+    ipcMain.handle('test:inject-profile', async (_, args: {
+      pubkey: string;
+      source: 'private_received' | 'public_discovered';
+      content: Record<string, string>;
+    }) => {
+      // Dynamic import to avoid loading in production
+      const { getDatabase } = await import('../database/connection');
+      const db = getDatabase();
+      if (!db) throw new Error('Database not available');
+
+      const id = `test-profile-${Date.now()}`;
+      const now = new Date().toISOString();
+
+      db.run(
+        `INSERT OR REPLACE INTO nostr_profiles
+         (id, owner_pubkey, source, content_json, event_id, valid_signature, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, args.pubkey, args.source, JSON.stringify(args.content), `test-event-${Date.now()}`, 1, now, now]
+      );
+
+      return { success: true, id };
     });
   }
 

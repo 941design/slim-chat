@@ -3,7 +3,8 @@
  *
  * Tests verify:
  * - Display name precedence is correctly applied (alias > profileName > npub)
- * - Read-only behavior (no editing capabilities)
+ * - Inline alias editing behavior
+ * - Alias clearing behavior (fallback to profileName/npub)
  * - Optional fields are hidden when empty/null
  * - Banner and picture rendering rules
  * - Profile field extraction and formatting
@@ -506,10 +507,10 @@ describe('ContactsPanel - Field Visibility and Graceful Degradation (Property-Ba
 });
 
 // ============================================================================
-// READ-ONLY BEHAVIOR
+// DATA INTEGRITY DURING EXTRACTION
 // ============================================================================
 
-describe('ContactsPanel - Read-Only Behavior (Property-Based)', () => {
+describe('ContactsPanel - Data Integrity (Property-Based)', () => {
   const fcOptions = { numRuns: 100 };
 
   it('P026: Contact data is not mutated during extraction', () => {
@@ -711,5 +712,362 @@ describe('ContactsPanel - Field Content Validation (Property-Based)', () => {
       ),
       { numRuns: 50 }
     );
+  });
+});
+
+// ============================================================================
+// INLINE ALIAS EDITING BEHAVIOR
+// ============================================================================
+
+describe('ContactsPanel - Inline Alias Editing Behavior (Property-Based)', () => {
+  const fcOptions = { numRuns: 100 };
+
+  // Simulate editing state machine
+  type EditingState = 'viewing' | 'editing';
+  interface EditingContext {
+    state: EditingState;
+    draftAlias: string;
+    contact: MockNostlingContact;
+  }
+
+  const createEditingContext = (contact: MockNostlingContact): EditingContext => ({
+    state: 'viewing',
+    draftAlias: '',
+    contact,
+  });
+
+  const startEditing = (ctx: EditingContext): EditingContext => ({
+    ...ctx,
+    state: 'editing',
+    draftAlias: ctx.contact.alias || '',
+  });
+
+  const updateDraft = (ctx: EditingContext, newDraft: string): EditingContext => ({
+    ...ctx,
+    draftAlias: newDraft,
+  });
+
+  const commitEdit = (ctx: EditingContext): EditingContext => ({
+    ...ctx,
+    state: 'viewing',
+    contact: { ...ctx.contact, alias: ctx.draftAlias },
+  });
+
+  const cancelEdit = (ctx: EditingContext): EditingContext => ({
+    ...ctx,
+    state: 'viewing',
+    draftAlias: '',
+  });
+
+  it('P032: Starting edit mode initializes draft with current alias', () => {
+    fc.assert(
+      fc.property(validAlias, npub, (alias, pubkey: string) => {
+        const contact = createMockContact({ alias, npub: pubkey });
+        const ctx = createEditingContext(contact);
+        const editingCtx = startEditing(ctx);
+
+        expect(editingCtx.state).toBe('editing');
+        expect(editingCtx.draftAlias).toBe(alias);
+        return true;
+      }),
+      fcOptions
+    );
+  });
+
+  it('P033: Starting edit with empty alias initializes draft as empty string', () => {
+    fc.assert(
+      fc.property(npub, (pubkey: string) => {
+        const contact = createMockContact({ alias: '', npub: pubkey });
+        const ctx = createEditingContext(contact);
+        const editingCtx = startEditing(ctx);
+
+        expect(editingCtx.state).toBe('editing');
+        expect(editingCtx.draftAlias).toBe('');
+        return true;
+      }),
+      fcOptions
+    );
+  });
+
+  it('P034: Draft updates do not affect original contact until commit', () => {
+    fc.assert(
+      fc.property(validAlias, validAlias, npub, (originalAlias, newAlias, pubkey: string) => {
+        const contact = createMockContact({ alias: originalAlias, npub: pubkey });
+        let ctx = createEditingContext(contact);
+        ctx = startEditing(ctx);
+        ctx = updateDraft(ctx, newAlias);
+
+        // Original contact unchanged
+        expect(ctx.contact.alias).toBe(originalAlias);
+        // Draft updated
+        expect(ctx.draftAlias).toBe(newAlias);
+        return true;
+      }),
+      fcOptions
+    );
+  });
+
+  it('P035: Committing edit updates contact alias', () => {
+    fc.assert(
+      fc.property(validAlias, validAlias, npub, (originalAlias, newAlias, pubkey: string) => {
+        const contact = createMockContact({ alias: originalAlias, npub: pubkey });
+        let ctx = createEditingContext(contact);
+        ctx = startEditing(ctx);
+        ctx = updateDraft(ctx, newAlias);
+        ctx = commitEdit(ctx);
+
+        expect(ctx.state).toBe('viewing');
+        expect(ctx.contact.alias).toBe(newAlias);
+        return true;
+      }),
+      fcOptions
+    );
+  });
+
+  it('P036: Cancelling edit preserves original alias', () => {
+    fc.assert(
+      fc.property(validAlias, validAlias, npub, (originalAlias, newAlias, pubkey: string) => {
+        const contact = createMockContact({ alias: originalAlias, npub: pubkey });
+        let ctx = createEditingContext(contact);
+        ctx = startEditing(ctx);
+        ctx = updateDraft(ctx, newAlias);
+        ctx = cancelEdit(ctx);
+
+        expect(ctx.state).toBe('viewing');
+        expect(ctx.contact.alias).toBe(originalAlias);
+        return true;
+      }),
+      fcOptions
+    );
+  });
+
+  it('P037: Empty draft commit sets alias to empty string', () => {
+    fc.assert(
+      fc.property(validAlias, npub, (originalAlias, pubkey: string) => {
+        const contact = createMockContact({ alias: originalAlias, npub: pubkey });
+        let ctx = createEditingContext(contact);
+        ctx = startEditing(ctx);
+        ctx = updateDraft(ctx, '');
+        ctx = commitEdit(ctx);
+
+        expect(ctx.contact.alias).toBe('');
+        return true;
+      }),
+      fcOptions
+    );
+  });
+
+  it('P038: Multiple edit cycles maintain state consistency', () => {
+    fc.assert(
+      fc.property(
+        fc.array(validAlias, { minLength: 2, maxLength: 5 }),
+        npub,
+        (aliases, pubkey: string) => {
+          const contact = createMockContact({ alias: aliases[0], npub: pubkey });
+          let ctx = createEditingContext(contact);
+
+          // Simulate multiple edit cycles
+          for (let i = 1; i < aliases.length; i++) {
+            ctx = startEditing(ctx);
+            ctx = updateDraft(ctx, aliases[i]);
+            ctx = commitEdit(ctx);
+            expect(ctx.contact.alias).toBe(aliases[i]);
+          }
+
+          expect(ctx.state).toBe('viewing');
+          expect(ctx.contact.alias).toBe(aliases[aliases.length - 1]);
+          return true;
+        }
+      ),
+      { numRuns: 50 }
+    );
+  });
+});
+
+// ============================================================================
+// ALIAS CLEARING BEHAVIOR (FALLBACK TO PRECEDENCE)
+// ============================================================================
+
+describe('ContactsPanel - Alias Clearing Behavior (Property-Based)', () => {
+  const fcOptions = { numRuns: 100 };
+
+  // Simulate alias clearing operation
+  const clearAlias = (contact: MockNostlingContact): MockNostlingContact => ({
+    ...contact,
+    alias: '',
+  });
+
+  it('P039: Clearing alias causes display name to fall back to profileName', () => {
+    fc.assert(
+      fc.property(validAlias, validProfileName, npub, (alias, profileName, pubkey: string) => {
+        const contact = createMockContact({ alias, profileName, npub: pubkey });
+        const clearedContact = clearAlias(contact);
+
+        const displayName = extractDisplayName(clearedContact);
+        expect(displayName).toBe(profileName);
+        return true;
+      }),
+      fcOptions
+    );
+  });
+
+  it('P040: Clearing alias with no profileName causes fallback to npub', () => {
+    fc.assert(
+      fc.property(validAlias, npub, (alias, pubkey: string) => {
+        const contact = createMockContact({
+          alias,
+          profileName: null,
+          npub: pubkey,
+        });
+        const clearedContact = clearAlias(contact);
+
+        const displayName = extractDisplayName(clearedContact);
+        expect(displayName).toBe(pubkey);
+        return true;
+      }),
+      fcOptions
+    );
+  });
+
+  it('P041: Clearing already-empty alias is idempotent', () => {
+    fc.assert(
+      fc.property(fc.option(validProfileName), npub, (profileName, pubkey: string) => {
+        const contact = createMockContact({
+          alias: '',
+          profileName,
+          npub: pubkey,
+        });
+
+        const displayBefore = extractDisplayName(contact);
+        const clearedContact = clearAlias(contact);
+        const displayAfter = extractDisplayName(clearedContact);
+
+        expect(displayBefore).toBe(displayAfter);
+        return true;
+      }),
+      fcOptions
+    );
+  });
+
+  it('P042: Clear alias followed by setting new alias works correctly', () => {
+    fc.assert(
+      fc.property(validAlias, validAlias, npub, (oldAlias, newAlias, pubkey: string) => {
+        let contact = createMockContact({ alias: oldAlias, npub: pubkey });
+
+        // Clear then set new
+        contact = clearAlias(contact);
+        expect(contact.alias).toBe('');
+
+        contact = { ...contact, alias: newAlias };
+        expect(extractDisplayName(contact)).toBe(newAlias);
+        return true;
+      }),
+      fcOptions
+    );
+  });
+
+  it('P043: Clearing alias does not affect other contact fields', () => {
+    fc.assert(
+      fc.property(
+        validAlias,
+        validProfileName,
+        fc.string({ minLength: 1, maxLength: 500 }),
+        urlArbitrary,
+        npub,
+        (alias, profileName, about, picture, pubkey: string) => {
+          const contact = createMockContact({
+            alias,
+            profileName,
+            about,
+            picture,
+            npub: pubkey,
+          });
+
+          const clearedContact = clearAlias(contact);
+
+          // Only alias should change
+          expect(clearedContact.alias).toBe('');
+          expect(clearedContact.profileName).toBe(profileName);
+          expect(clearedContact.about).toBe(about);
+          expect(clearedContact.picture).toBe(picture);
+          expect(clearedContact.npub).toBe(pubkey);
+          return true;
+        }
+      ),
+      fcOptions
+    );
+  });
+});
+
+// ============================================================================
+// ALIAS EDITING EXAMPLE-BASED TESTS
+// ============================================================================
+
+describe('ContactsPanel - Alias Editing Example-Based Tests', () => {
+  it('E007: Edit alias from "Alice" to "Bob"', () => {
+    const contact = createMockContact({
+      alias: 'Alice',
+      npub: 'npub1example',
+    });
+
+    // Before edit
+    expect(extractDisplayName(contact)).toBe('Alice');
+
+    // After edit (simulated)
+    const editedContact = { ...contact, alias: 'Bob' };
+    expect(extractDisplayName(editedContact)).toBe('Bob');
+  });
+
+  it('E008: Clear alias reveals profileName', () => {
+    const contact = createMockContact({
+      alias: 'MyAlias',
+      profileName: 'John Doe',
+      npub: 'npub1example',
+    });
+
+    expect(extractDisplayName(contact)).toBe('MyAlias');
+
+    // After clearing
+    const clearedContact = { ...contact, alias: '' };
+    expect(extractDisplayName(clearedContact)).toBe('John Doe');
+  });
+
+  it('E009: Clear alias with no profileName reveals npub', () => {
+    const contact = createMockContact({
+      alias: 'MyAlias',
+      profileName: null,
+      npub: 'npub1xyz123abc',
+    });
+
+    expect(extractDisplayName(contact)).toBe('MyAlias');
+
+    // After clearing
+    const clearedContact = { ...contact, alias: '' };
+    expect(extractDisplayName(clearedContact)).toBe('npub1xyz123abc');
+  });
+
+  it('E010: Cancel edit preserves original alias', () => {
+    const original = createMockContact({
+      alias: 'Original',
+      npub: 'npub1example',
+    });
+
+    // Simulate edit-cancel: contact should remain unchanged
+    expect(extractDisplayName(original)).toBe('Original');
+  });
+
+  it('E011: Setting alias on contact without one', () => {
+    const contact = createMockContact({
+      alias: '',
+      profileName: 'Jane',
+      npub: 'npub1example',
+    });
+
+    // Initially shows profileName
+    expect(extractDisplayName(contact)).toBe('Jane');
+
+    // After setting alias
+    const withAlias = { ...contact, alias: 'JaneAlias' };
+    expect(extractDisplayName(withAlias)).toBe('JaneAlias');
   });
 });

@@ -244,6 +244,7 @@ export interface NostlingApi {
     add(request: AddContactRequest): Promise<NostlingContact>;
     remove(contactId: string): Promise<void>;
     updateAlias(contactId: string, alias: string): Promise<NostlingContact>;
+    clearAlias(contactId: string): Promise<NostlingContact>;
     markConnected(contactId: string): Promise<NostlingContact>;
   };
   messages: {

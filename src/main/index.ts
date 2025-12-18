@@ -531,6 +531,8 @@ app.on('ready', async () => {
       removeContact: (contactId) => getNostlingService().removeContact(contactId),
       updateContactAlias: (contactId: string, alias: string) =>
         getNostlingService().updateContactAlias(contactId, alias),
+      clearContactAlias: (contactId: string) =>
+        getNostlingService().clearContactAlias(contactId),
       markContactConnected: (contactId) => getNostlingService().markContactConnected(contactId),
       listMessages: (identityId, contactId) => getNostlingService().listMessages(identityId, contactId),
       sendMessage: (request) => getNostlingService().sendMessage(request),

@@ -1,12 +1,15 @@
 * TODO
 
++ username vs. display name
++ omit welcome message
++ show visual indication on copy to clipboard
++ indicate whether a public profile exists lock symbol
++ make sidebar width adjustable
 + allow pasting/scanning public key hex as well
 + avatar next to each message
-+ navigate to profile view via three dots(?) and/or double click(?)
 + cache profile images -> doc
 + consolidate documentation
 + use a config file format that can be commented
-+ make sidebar width adjustable
 + on network connection loss during download, resume
 + bug: download status does not update in a timely manner
 + view and edit profiles
@@ -19,10 +22,10 @@
 + clickable links
 + html/markdown messages
 + backup
++ forbid to add self as contact
 + consider direct link via ipv6
   + status?
 
-** TODO [#A] BUG :: uncaught regression when trying to scan a new contact
 ** TODO [#A] Themes
 
 + save custom themes
@@ -147,12 +150,11 @@
 
 ** [#C]
 
++ navigate to profile view via three dots(?) and/or double click(?)
 + when navigating to about/relay/config/any menu item, deactivate contact. clicking on contact returns to chat
 + highlight/error log if messages are not kind 4
 + settings:
   + send with enter, line break with shift-enter
-  + mirror camera image
-+ forbid to add self as contact
 + add nostling icon
 + informative messages in footer should time out and disappear
   + consider swapping footer for info region that appears only on demand
@@ -167,7 +169,6 @@
 ** Features
 
 + scrollable contact list
-+ indicate whether a public profile exists
 + indicate whether a contact is online
 + calendar integration/display, ical
 + add bell icon or desktop feedback when messages arrive

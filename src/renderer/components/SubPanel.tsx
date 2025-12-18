@@ -39,6 +39,15 @@ export interface SubPanelAction {
    * Test ID for the button
    */
   testId?: string;
+
+  /**
+   * Optional hover info props for displaying info text on hover.
+   * Should include onMouseEnter and onMouseLeave handlers.
+   */
+  hoverProps?: {
+    onMouseEnter: () => void;
+    onMouseLeave: () => void;
+  };
 }
 
 export interface SubPanelProps {
@@ -46,6 +55,13 @@ export interface SubPanelProps {
    * Panel title displayed in the header
    */
   title: string;
+
+  /**
+   * Optional custom title element to render instead of plain text.
+   * When provided, this replaces the default Heading with the custom element.
+   * Useful for editable titles or titles with icons.
+   */
+  titleElement?: React.ReactNode;
 
   /**
    * Action buttons to display in the header (right side)
@@ -73,6 +89,7 @@ export interface SubPanelProps {
  */
 export function SubPanel({
   title,
+  titleElement,
   actions,
   children,
   testId,
@@ -95,9 +112,11 @@ export function SubPanel({
         bg={colors.surfaceBg}
         flexShrink={0}
       >
-        <Heading size="sm" color={colors.textMuted}>
-          {title}
-        </Heading>
+        {titleElement ?? (
+          <Heading size="sm" color={colors.textMuted}>
+            {title}
+          </Heading>
+        )}
         <HStack gap={2}>
           {actions.map((action, index) => (
             <Button
@@ -108,6 +127,7 @@ export function SubPanel({
               onClick={action.onClick}
               disabled={action.disabled}
               data-testid={action.testId}
+              {...action.hoverProps}
             >
               {action.label}
             </Button>
