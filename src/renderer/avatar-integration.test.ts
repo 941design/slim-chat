@@ -5,7 +5,6 @@
  * - Avatars render correctly in Identity list items
  * - Avatars render correctly in Contact list items
  * - Avatar props are passed correctly from parent data
- * - Badge icons reflect profile source accurately
  * - Fallback to letter circle when picture unavailable
  * - Theme colors applied consistently
  * - Avatar rendering doesn't break layout
@@ -135,117 +134,6 @@ describe('Avatar Rendering in Lists - Property-Based Tests', () => {
     it('P006: Avatar size is consistently 32px for contact list items', () => {
       const avatarSize = 32; // Hardcoded in integration
       expect(avatarSize).toBe(32);
-    });
-  });
-});
-
-// ============================================================================
-// BADGE ICON MAPPING - PROPERTY-BASED TESTS
-// ============================================================================
-
-describe('Badge Icon Mapping in Lists - Property-Based Tests', () => {
-  const fcOptions = { numRuns: 50 };
-
-  describe('Identity Profile Source to Badge Icon', () => {
-    it('P007: private_authored identities should show check badge', () => {
-      const identity: NostlingIdentity = {
-        id: 'test-id',
-        npub: 'npub1test',
-        secretRef: 'secret',
-        label: 'Test',
-        profileName: 'Alice',
-        alias: 'alice',
-        createdAt: new Date().toISOString(),
-        profileSource: 'private_authored',
-        picture: null,
-      };
-
-      const source = identity.profileSource;
-      expect(source).toBe('private_authored');
-    });
-
-    it('P008: public_discovered identities should show warning badge', () => {
-      const identity: NostlingIdentity = {
-        id: 'test-id',
-        npub: 'npub1test',
-        secretRef: 'secret',
-        label: 'Test',
-        profileName: 'Bob',
-        alias: 'bob',
-        createdAt: new Date().toISOString(),
-        profileSource: 'public_discovered',
-        picture: null,
-      };
-
-      const source = identity.profileSource;
-      expect(source).toBe('public_discovered');
-    });
-
-    it('P009: null profileSource identities should show off badge', () => {
-      const identity: NostlingIdentity = {
-        id: 'test-id',
-        npub: 'npub1test',
-        secretRef: 'secret',
-        label: 'Test',
-        profileName: 'Charlie',
-        alias: 'charlie',
-        createdAt: new Date().toISOString(),
-        profileSource: null,
-        picture: null,
-      };
-
-      const source = identity.profileSource;
-      expect(source).toBeNull();
-    });
-  });
-
-  describe('Contact Profile Source to Badge Icon', () => {
-    it('P010: private_received contacts should show check badge', () => {
-      const contact: NostlingContact = {
-        id: 'test-id',
-        identityId: 'id-1',
-        npub: 'npub1test',
-        alias: 'alice',
-        state: 'connected',
-        createdAt: new Date().toISOString(),
-        profileSource: 'private_received',
-        picture: null,
-      };
-
-      const source = contact.profileSource;
-      expect(source).toBe('private_received');
-    });
-
-    it('P011: public_discovered contacts should show warning badge', () => {
-      const contact: NostlingContact = {
-        id: 'test-id',
-        identityId: 'id-1',
-        npub: 'npub1test',
-        alias: 'bob',
-        state: 'connected',
-        createdAt: new Date().toISOString(),
-        profileSource: 'public_discovered',
-        picture: null,
-      };
-
-      const source = contact.profileSource;
-      expect(source).toBe('public_discovered');
-    });
-
-    it('P012: null profileSource contacts should show off badge', () => {
-      const contact: NostlingContact = {
-        id: 'test-id',
-        identityId: 'id-1',
-        npub: 'npub1test',
-        alias: 'charlie',
-        state: 'connected',
-        createdAt: new Date().toISOString(),
-        profileSource: null,
-        picture: null,
-      };
-
-      const source = contact.profileSource;
-      expect(source).toBeNull();
     });
   });
 });
@@ -559,13 +447,7 @@ describe('Avatar Integration Invariants', () => {
     expect(avatarSize).toBe(32);
   });
 
-  it('I003: Badge size is always 40% of avatar size', () => {
-    const avatarSize = 32;
-    const expectedBadgeSize = Math.round(avatarSize * 0.4);
-    expect(expectedBadgeSize).toBe(13);
-  });
-
-  it('I004: Avatar picture field is always string or null', () => {
+  it('I003: Avatar picture field is always string or null', () => {
     fc.assert(
       fc.property(fc.integer({ min: 1, max: 5 }), (count) => {
         const identity: NostlingIdentity = {

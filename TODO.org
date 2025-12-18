@@ -1,7 +1,5 @@
 * TODO
 
-+ allow pasting/scanning public key hex as well
-+ remove shield symbol
 + avatar next to each message
 
 + username vs. display name

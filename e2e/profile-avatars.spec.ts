@@ -198,10 +198,6 @@ test.describe('Profile Avatars - Public Profile Discovery', () => {
     // Verify contact appears in sidebar with profile name from kind:0 event
     const contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'Test Contact' });
     await expect(contactItem).toBeVisible({ timeout: 10000 });
-
-    // Verify avatar shows public_discovered badge (green shield)
-    const publicBadge = contactItem.locator('[data-testid="profile-badge-public"]');
-    await expect(publicBadge).toBeVisible();
   });
 
   test('should show contact with no profile using letter avatar', async ({ page }) => {
@@ -222,10 +218,6 @@ test.describe('Profile Avatars - Public Profile Discovery', () => {
     // Verify contact appears in sidebar
     const contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'NoProfileContact' });
     await expect(contactItem).toBeVisible({ timeout: 5000 });
-
-    // Verify avatar shows letter (N for NoProfileContact) with no-profile badge
-    const noBadge = contactItem.locator('[data-testid="profile-badge-none"]');
-    await expect(noBadge).toBeVisible();
   });
 });
 
@@ -262,10 +254,6 @@ test.describe('Profile Avatars - Private Profile Reception', () => {
     // Verify contact appears with private profile name
     const contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'Private Profile Contact' });
     await expect(contactItem).toBeVisible({ timeout: 10000 });
-
-    // Verify avatar shows private_received badge (blue shield)
-    const privateBadge = contactItem.locator('[data-testid="profile-badge-private"]');
-    await expect(privateBadge).toBeVisible();
   });
 });
 
@@ -330,10 +318,6 @@ test.describe('Profile Avatars - Precedence Rules', () => {
     // Verify private_received takes precedence (should show Private Name, not Public Name)
     contactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'Private Name' });
     await expect(contactItem).toBeVisible({ timeout: 10000 });
-
-    // Verify avatar shows private_received badge (not public)
-    const privateBadge = contactItem.locator('[data-testid="profile-badge-private"]');
-    await expect(privateBadge).toBeVisible();
 
     // Verify public name is no longer shown
     const publicContactItem = page.locator('[data-testid^="contact-item-"]').filter({ hasText: 'Public Name' });
