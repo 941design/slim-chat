@@ -127,6 +127,14 @@ const PlusIcon = () => (
   </svg>
 );
 
+const MoreVerticalIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+    <circle cx="12" cy="5" r="2" />
+    <circle cx="12" cy="12" r="2" />
+    <circle cx="12" cy="19" r="2" />
+  </svg>
+);
+
 const initialUpdateState: UpdateState = { phase: 'idle' };
 
 function useStatus() {
@@ -867,7 +875,7 @@ function ContactList({
   disabled,
   onRequestDelete,
   onRename,
-  onShowQr,
+  onShowProfile,
   unreadCounts,
   newlyArrived,
 }: {
@@ -878,7 +886,7 @@ function ContactList({
   disabled: boolean;
   onRequestDelete: (contact: NostlingContact) => void;
   onRename: (contactId: string, alias: string) => Promise<void>;
-  onShowQr: (contact: NostlingContact) => void;
+  onShowProfile: (contact: NostlingContact) => void;
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
 }) {
@@ -1073,34 +1081,6 @@ function ContactList({
                       <IconButton
                         size="xs"
                         variant="ghost"
-                        aria-label="Show QR code"
-                        title="Show QR code for this contact"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onShowQr(contact);
-                        }}
-                        color={colors.textSubtle}
-                        _hover={{ color: colors.textMuted }}
-                      >
-                        <QrCodeIcon />
-                      </IconButton>
-                      <IconButton
-                        size="xs"
-                        variant="ghost"
-                        aria-label="Copy npub"
-                        title="Copy npub to clipboard"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigator.clipboard.writeText(contact.npub);
-                        }}
-                        color={colors.textSubtle}
-                        _hover={{ color: colors.textMuted }}
-                      >
-                        <CopyIcon />
-                      </IconButton>
-                      <IconButton
-                        size="xs"
-                        variant="ghost"
                         aria-label="Delete contact"
                         title="Remove contact"
                         onClick={(e) => {
@@ -1112,6 +1092,21 @@ function ContactList({
                         data-testid={`delete-contact-${contact.id}`}
                       >
                         <TrashIcon />
+                      </IconButton>
+                      <IconButton
+                        size="xs"
+                        variant="ghost"
+                        aria-label="View contact profile"
+                        title="View contact profile"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onShowProfile(contact);
+                        }}
+                        color={colors.textSubtle}
+                        _hover={{ color: colors.textMuted }}
+                        data-testid={`view-profile-${contact.id}`}
+                      >
+                        <MoreVerticalIcon />
                       </IconButton>
                     </>
                   )}
@@ -1728,6 +1723,7 @@ function Sidebar({
   onRequestDeleteContact,
   onRenameIdentity,
   onRenameContact,
+  onShowContactProfile,
   unreadCounts,
   newlyArrived,
   identityUnreadCounts,
@@ -1749,6 +1745,7 @@ function Sidebar({
   onRequestDeleteContact: (contact: NostlingContact) => void;
   onRenameIdentity: (identityId: string, label: string) => Promise<void>;
   onRenameContact: (contactId: string, alias: string) => Promise<void>;
+  onShowContactProfile: (contact: NostlingContact) => void;
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
   identityUnreadCounts?: Record<string, number>;
@@ -1826,7 +1823,7 @@ function Sidebar({
               disabled={identities.length === 0}
               onRequestDelete={onRequestDeleteContact}
               onRename={onRenameContact}
-              onShowQr={setQrDisplayContact}
+              onShowProfile={onShowContactProfile}
               unreadCounts={unreadCounts}
               newlyArrived={newlyArrived}
             />
@@ -1853,7 +1850,7 @@ function Sidebar({
               disabled={identities.length === 0}
               onRequestDelete={onRequestDeleteContact}
               onRename={onRenameContact}
-              onShowQr={setQrDisplayContact}
+              onShowProfile={onShowContactProfile}
               unreadCounts={unreadCounts}
               newlyArrived={newlyArrived}
             />
@@ -1896,6 +1893,7 @@ function App({ onThemeChange }: AppProps) {
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<NostlingContact | null>(null);
   const [deletingContact, setDeletingContact] = useState(false);
+  const [qrDisplayContactProfile, setQrDisplayContactProfile] = useState<NostlingContact | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('chat');
   const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('obsidian');
 
@@ -2188,6 +2186,11 @@ function App({ onThemeChange }: AppProps) {
     setCurrentView('contacts');
   };
 
+  const handleShowContactProfile = useCallback((contact: NostlingContact) => {
+    setSelectedContactId(contact.id);
+    setCurrentView('contacts');
+  }, []);
+
   const handleReturnToChat = () => {
     setCurrentView('chat');
     setThemeCustomColors(null); // Clear custom colors when leaving theme selection
@@ -2366,6 +2369,7 @@ function App({ onThemeChange }: AppProps) {
           onRequestDeleteContact={handleRequestDeleteContact}
           onRenameIdentity={handleRenameIdentity}
           onRenameContact={handleRenameContact}
+          onShowContactProfile={handleShowContactProfile}
           unreadCounts={selectedIdentityId ? nostling.unreadCounts[selectedIdentityId] : undefined}
           newlyArrived={selectedIdentityId ? nostling.newlyArrived[selectedIdentityId] : undefined}
           identityUnreadCounts={unreadConversationCounts}
@@ -2458,6 +2462,7 @@ function App({ onThemeChange }: AppProps) {
               <ContactsPanel
                 selectedContact={(nostling.contacts[selectedIdentityId] || []).find(c => c.id === selectedContactId)!}
                 onClose={handleReturnToChat}
+                onShowQr={setQrDisplayContactProfile}
               />
             ) : (
               <Box p="4" color={colors.textSubtle}>
@@ -2504,6 +2509,12 @@ function App({ onThemeChange }: AppProps) {
           setConflictModalOpen(false);
           selectedIdentity && reloadRelaysForIdentity(selectedIdentity.id);
         }}
+      />
+      <QrCodeDisplayModal
+        isOpen={qrDisplayContactProfile !== null}
+        onClose={() => setQrDisplayContactProfile(null)}
+        npub={qrDisplayContactProfile?.npub || ''}
+        label={qrDisplayContactProfile?.alias}
       />
       <Footer
         version={status?.version}

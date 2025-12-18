@@ -6,17 +6,27 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Box, Text, Link, VStack, Spinner } from '@chakra-ui/react';
+import { Box, Text, Link, VStack, HStack, IconButton, Spinner } from '@chakra-ui/react';
 import { SubPanel } from '../SubPanel';
 import { CachedImage } from '../CachedImage';
 import { Avatar } from '../Avatar';
 import { useThemeColors } from '../../themes/ThemeContext';
 import { NostlingContact } from '../../../shared/types';
 import { ProfileContent } from '../../../shared/profile-types';
+import { QrCodeIcon } from '../qr-icons';
+
+// Copy icon for the contact profile
+const CopyIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
 
 interface ContactsPanelProps {
   selectedContact: NostlingContact;
   onClose: () => void;
+  onShowQr?: (contact: NostlingContact) => void;
 }
 
 interface ProfileData {
@@ -30,11 +40,9 @@ interface ProfileData {
 }
 
 function ProfileField({
-  label,
   value,
   isLink,
 }: {
-  label: string;
   value: string;
   isLink?: boolean;
 }): React.ReactElement {
@@ -42,9 +50,6 @@ function ProfileField({
 
   return (
     <Box>
-      <Text fontSize="sm" fontWeight="semibold" color={colors.textMuted} mb={1}>
-        {label}
-      </Text>
       {isLink ? (
         <Link
           href={value.startsWith('http') ? value : `https://${value}`}
@@ -52,6 +57,7 @@ function ProfileField({
           rel="noopener noreferrer"
           color="blue.500"
           _hover={{ textDecoration: 'underline' }}
+          fontSize="sm"
         >
           {value}
         </Link>
@@ -64,7 +70,7 @@ function ProfileField({
   );
 }
 
-export function ContactsPanel({ selectedContact, onClose }: ContactsPanelProps): React.ReactElement {
+export function ContactsPanel({ selectedContact, onClose, onShowQr }: ContactsPanelProps): React.ReactElement {
   const colors = useThemeColors();
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -147,14 +153,16 @@ export function ContactsPanel({ selectedContact, onClose }: ContactsPanelProps):
         <VStack align="stretch" gap={6}>
           {/* Banner with overlaid picture */}
           {profileData?.banner && (
-            <Box position="relative" height="150px" overflow="hidden" borderRadius="md">
-              <CachedImage
-                url={profileData.banner}
-                height="100%"
-                width="100%"
-                objectFit="cover"
-                data-testid="contacts-panel-banner"
-              />
+            <Box position="relative" marginBottom="44px">
+              <Box height="150px" overflow="hidden" borderRadius="md">
+                <CachedImage
+                  url={profileData.banner}
+                  height="100%"
+                  width="100%"
+                  objectFit="cover"
+                  data-testid="contacts-panel-banner"
+                />
+              </Box>
 
               {/* Profile picture overlaid on banner */}
               <Box
@@ -201,9 +209,6 @@ export function ContactsPanel({ selectedContact, onClose }: ContactsPanelProps):
             </Box>
           )}
 
-          {/* Add spacing after banner with overlaid picture */}
-          {profileData?.banner && <Box height="30px" />}
-
           {/* Error message if any */}
           {error && (
             <Box
@@ -218,33 +223,82 @@ export function ContactsPanel({ selectedContact, onClose }: ContactsPanelProps):
           )}
 
           {/* Profile fields */}
-          <VStack align="stretch" gap={4}>
+          <VStack align="stretch" gap={3}>
             {/* Name */}
-            <ProfileField label="Name" value={profileData?.displayName || selectedContact.npub} />
+            <Text fontSize="lg" fontWeight="semibold" color={colors.text}>
+              {profileData?.displayName || selectedContact.npub}
+            </Text>
 
             {/* About */}
-            {profileData?.about && <ProfileField label="About" value={profileData.about} />}
+            {profileData?.about && <ProfileField value={profileData.about} />}
 
             {/* Website */}
             {profileData?.website && (
-              <ProfileField label="Website" value={profileData.website} isLink={true} />
+              <ProfileField value={profileData.website} isLink={true} />
             )}
 
             {/* NIP-05 */}
-            {profileData?.nip05 && <ProfileField label="NIP-05" value={profileData.nip05} />}
+            {profileData?.nip05 && <ProfileField value={profileData.nip05} />}
 
             {/* Lightning Address */}
             {profileData?.lud16 && (
-              <ProfileField label="Lightning Address" value={profileData.lud16} />
+              <ProfileField value={profileData.lud16} />
             )}
 
-            {/* npub for reference */}
-            <Box borderTopWidth="1px" borderColor={colors.border} pt={4}>
-              <Text fontSize="xs" fontWeight="semibold" color={colors.textMuted} mb={1}>
-                Public Key
-              </Text>
-              <Text fontSize="xs" color={colors.text} fontFamily="monospace" wordBreak="break-all">
+            {/* npub with hover icons */}
+            <Box
+              className="group"
+              borderTopWidth="1px"
+              borderColor={colors.border}
+              pt={4}
+            >
+              <Text
+                fontSize="xs"
+                color={colors.textMuted}
+                fontFamily="monospace"
+                wordBreak="break-all"
+                data-testid="contacts-panel-npub"
+                as="span"
+                display="inline"
+              >
                 {selectedContact.npub}
+                <HStack
+                  as="span"
+                  display="inline-flex"
+                  gap={0}
+                  opacity={0}
+                  _groupHover={{ opacity: 1 }}
+                  transition="opacity 0.15s"
+                  verticalAlign="middle"
+                  ml={1}
+                >
+                  {onShowQr && (
+                    <IconButton
+                      size="xs"
+                      variant="ghost"
+                      aria-label="Show QR code"
+                      title="Show QR code for this contact"
+                      onClick={() => onShowQr(selectedContact)}
+                      color={colors.textSubtle}
+                      _hover={{ color: colors.textMuted }}
+                      data-testid="contacts-panel-show-qr"
+                    >
+                      <QrCodeIcon />
+                    </IconButton>
+                  )}
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    aria-label="Copy npub"
+                    title="Copy npub to clipboard"
+                    onClick={() => navigator.clipboard.writeText(selectedContact.npub)}
+                    color={colors.textSubtle}
+                    _hover={{ color: colors.textMuted }}
+                    data-testid="contacts-panel-copy-npub"
+                  >
+                    <CopyIcon />
+                  </IconButton>
+                </HStack>
               </Text>
             </Box>
           </VStack>
