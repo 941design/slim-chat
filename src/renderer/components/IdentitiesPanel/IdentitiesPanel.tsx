@@ -116,19 +116,48 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box } from '@chakra-ui/react';
+import { Box, Heading, HStack, IconButton, Input } from '@chakra-ui/react';
 import type { IdentitiesPanelProps, IdentityProfileData } from './types';
 import { SubPanel } from '../SubPanel';
-import { ProfileEditor } from './ProfileEditor';
+import { IdentityProfileView } from './IdentityProfileView';
+import { useThemeColors } from '../../themes/ThemeContext';
+import { HoverInfoProvider, useHoverInfoProps } from '../HoverInfo';
+import { getPreferredDisplayName } from '../../utils/sidebar';
 
-export function IdentitiesPanel({
+// Pencil icon for editing (matches ContactsPanel)
+const PencilIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+  </svg>
+);
+
+// Check icon for saving
+const CheckIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+// Close icon for canceling
+const CloseIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+function IdentitiesPanelInner({
   selectedIdentityId,
   identities,
   onSelectIdentity,
   onCancel,
   onDirtyChange,
+  onSaved,
+  onShowQr,
 }: IdentitiesPanelProps): React.ReactElement {
+  const colors = useThemeColors();
   const panelRef = useRef<HTMLDivElement>(null);
+  const labelInputRef = useRef<HTMLInputElement | null>(null);
 
   const [originalProfile, setOriginalProfile] = useState<IdentityProfileData | null>(null);
   const [stagedProfile, setStagedProfile] = useState<IdentityProfileData | null>(null);
@@ -136,6 +165,8 @@ export function IdentitiesPanel({
   const [isApplying, setIsApplying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isEditingLabel, setIsEditingLabel] = useState(false);
+  const [draftLabel, setDraftLabel] = useState('');
 
   // Load profile when identity selected
   useEffect(() => {
@@ -228,6 +259,9 @@ export function IdentitiesPanel({
         content: stagedProfile.content,
       });
 
+      // Notify parent to refresh identities list (for sidebar update)
+      onSaved?.();
+
       // Check for partial/complete send failures
       const failedSends = result.sendResults.filter((r: any) => !r.success);
       if (failedSends.length > 0) {
@@ -253,7 +287,7 @@ export function IdentitiesPanel({
     } finally {
       setIsApplying(false);
     }
-  }, [selectedIdentityId, stagedProfile, onCancel]);
+  }, [selectedIdentityId, stagedProfile, onCancel, onSaved, onDirtyChange]);
 
   // Handle keyboard events
   useEffect(() => {
@@ -267,6 +301,150 @@ export function IdentitiesPanel({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleCancel, isApplying]);
 
+  // Get hover props for action buttons
+  const cancelHoverProps = useHoverInfoProps('Discard changes and return to chat');
+  const applyHoverProps = useHoverInfoProps('Save profile and send to contacts');
+
+  // Get display name for the title
+  const headingDisplayName = stagedProfile
+    ? getPreferredDisplayName({
+        profileName: stagedProfile.content.name || stagedProfile.label,
+        npub: '', // Not needed for identity
+      })
+    : 'Identity Profile';
+
+  // Get the current identity's npub
+  const currentIdentity = selectedIdentityId
+    ? identities.find((i) => i.id === selectedIdentityId)
+    : null;
+  const currentNpub = currentIdentity?.npub || '';
+
+  // Handle showing QR code for current identity
+  const handleShowQr = useCallback(() => {
+    if (currentNpub && onShowQr) {
+      onShowQr(currentNpub, stagedProfile?.label);
+    }
+  }, [currentNpub, onShowQr, stagedProfile?.label]);
+
+  // Focus input when label editing starts
+  useEffect(() => {
+    if (isEditingLabel) {
+      labelInputRef.current?.focus();
+      labelInputRef.current?.select();
+    }
+  }, [isEditingLabel]);
+
+  const startEditingLabel = () => {
+    if (stagedProfile && !isApplying) {
+      setIsEditingLabel(true);
+      setDraftLabel(stagedProfile.label);
+    }
+  };
+
+  const cancelEditingLabel = () => {
+    setIsEditingLabel(false);
+    setDraftLabel('');
+  };
+
+  const saveEditingLabel = () => {
+    const trimmed = draftLabel.trim();
+    if (!trimmed || !stagedProfile) {
+      cancelEditingLabel();
+      return;
+    }
+
+    const updatedProfile = { ...stagedProfile, label: trimmed };
+    handleProfileChange(updatedProfile);
+    setIsEditingLabel(false);
+  };
+
+  // Build the custom title element with editable label (like ContactsPanel)
+  const titleElement = (
+    <Box className="group">
+      {isEditingLabel ? (
+        <HStack align="center" gap={1}>
+          <Input
+            ref={labelInputRef}
+            size="sm"
+            value={draftLabel}
+            placeholder="Enter label..."
+            onChange={(e) => setDraftLabel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                saveEditingLabel();
+              } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                cancelEditingLabel();
+              }
+            }}
+            data-testid="identities-panel-label-input"
+          />
+          <Box {...useHoverInfoProps('Save the edited label')}>
+            <IconButton
+              size="xs"
+              variant="ghost"
+              aria-label="Save label"
+              onClick={saveEditingLabel}
+              color={colors.textSubtle}
+              _hover={{ color: colors.textMuted }}
+              data-testid="identities-panel-save-label"
+            >
+              <CheckIcon />
+            </IconButton>
+          </Box>
+          <Box {...useHoverInfoProps('Cancel editing')}>
+            <IconButton
+              size="xs"
+              variant="ghost"
+              aria-label="Cancel editing"
+              onClick={cancelEditingLabel}
+              color={colors.textSubtle}
+              _hover={{ color: colors.textMuted }}
+              data-testid="identities-panel-cancel-label"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </HStack>
+      ) : (
+        <HStack align="center" gap={1}>
+          <Heading
+            size="sm"
+            color={colors.textMuted}
+            data-testid="identities-panel-display-name"
+          >
+            {headingDisplayName}
+          </Heading>
+          {stagedProfile && !isApplying && (
+            <HStack
+              gap={0}
+              opacity={0}
+              _groupHover={{ opacity: 1 }}
+              transition="opacity 0.15s"
+            >
+              <Box {...useHoverInfoProps('Edit identity label')}>
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Edit identity label"
+                  onClick={startEditingLabel}
+                  color={colors.textSubtle}
+                  _hover={{ color: colors.textMuted }}
+                  data-testid="identities-panel-edit-label"
+                >
+                  <PencilIcon />
+                </IconButton>
+              </Box>
+            </HStack>
+          )}
+        </HStack>
+      )}
+    </Box>
+  );
+
   // Define SubPanel actions
   const actions = [
     {
@@ -275,6 +453,7 @@ export function IdentitiesPanel({
       variant: 'ghost' as const,
       disabled: isApplying,
       testId: 'identities-panel-cancel',
+      hoverProps: cancelHoverProps,
     },
     {
       label: isApplying ? 'Saving...' : 'Apply',
@@ -283,12 +462,14 @@ export function IdentitiesPanel({
       colorPalette: 'blue' as const,
       disabled: isApplying || !isDirty,
       testId: 'identities-panel-apply',
+      hoverProps: applyHoverProps,
     },
   ];
 
   return (
     <SubPanel
-      title="Edit Identity Profile"
+      title={headingDisplayName}
+      titleElement={titleElement}
       actions={actions}
       testId="identities-panel"
     >
@@ -318,15 +499,32 @@ export function IdentitiesPanel({
         )}
 
         {!isLoading && stagedProfile && (
-          <ProfileEditor
+          <IdentityProfileView
             profile={stagedProfile}
+            originalProfile={originalProfile}
+            displayName={headingDisplayName}
             disabled={isApplying}
             onChange={handleProfileChange}
-            data-testid="identities-panel-profile-editor"
+            npub={currentNpub}
+            onShowQr={onShowQr ? handleShowQr : undefined}
           />
         )}
       </Box>
     </SubPanel>
+  );
+}
+
+/**
+ * IdentitiesPanel - Edit identity profile with inline field editing.
+ *
+ * Wraps the inner component with HoverInfoProvider to enable hover info
+ * text display for all interactive elements.
+ */
+export function IdentitiesPanel(props: IdentitiesPanelProps): React.ReactElement {
+  return (
+    <HoverInfoProvider>
+      <IdentitiesPanelInner {...props} />
+    </HoverInfoProvider>
   );
 }
 

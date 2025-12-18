@@ -144,9 +144,12 @@ base.describe('Bug: Identity secret loading in dev mode', () => {
       const panel = mainWindow.locator('[data-testid="identities-panel"]');
       await expect(panel).toBeVisible({ timeout: 5000 });
 
-      // Edit the profile name
-      const nameInput = mainWindow.locator('[data-testid="profile-editor-name"]');
-      await nameInput.fill('Test Identity First Run');
+      // Edit the profile name using inline editing pattern
+      const nameValue = mainWindow.locator('[data-testid="identity-profile-name-value"]');
+      await nameValue.hover();
+      await mainWindow.locator('[data-testid="identity-profile-name-edit"]').click();
+      await mainWindow.locator('[data-testid="identity-profile-name-input"]').fill('Test Identity First Run');
+      await mainWindow.locator('[data-testid="identity-profile-name-save"]').click();
 
       // Click Apply to save changes
       const applyButton = mainWindow.locator('[data-testid="identities-panel-apply"]');
@@ -191,9 +194,12 @@ base.describe('Bug: Identity secret loading in dev mode', () => {
       const panel = mainWindow.locator('[data-testid="identities-panel"]');
       await expect(panel).toBeVisible({ timeout: 5000 });
 
-      // Try to edit the profile again (this should trigger secret loading)
-      const nameInput = mainWindow.locator('[data-testid="profile-editor-name"]');
-      await nameInput.fill('Test Identity After Restart');
+      // Try to edit the profile again using inline editing pattern (this should trigger secret loading)
+      const nameValue = mainWindow.locator('[data-testid="identity-profile-name-value"]');
+      await nameValue.hover();
+      await mainWindow.locator('[data-testid="identity-profile-name-edit"]').click();
+      await mainWindow.locator('[data-testid="identity-profile-name-input"]').fill('Test Identity After Restart');
+      await mainWindow.locator('[data-testid="identity-profile-name-save"]').click();
 
       // Click Apply to save changes
       // BUG: This may fail with "Failed to load identity secret" if encryption keys changed

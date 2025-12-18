@@ -79,4 +79,16 @@ export interface IdentitiesPanelProps {
    * Callback when dirty state changes (has unsaved changes)
    */
   onDirtyChange?: (isDirty: boolean) => void;
+
+  /**
+   * Callback when profile is successfully saved.
+   * Parent should use this to refresh the identities list.
+   */
+  onSaved?: () => void;
+
+  /**
+   * Callback when user clicks QR code button to show identity's npub as QR code.
+   * Receives npub string and optional label for display.
+   */
+  onShowQr?: (npub: string, label?: string) => void;
 }

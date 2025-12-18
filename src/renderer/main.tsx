@@ -1783,6 +1783,7 @@ function App({ onThemeChange }: AppProps) {
   const [contactToDelete, setContactToDelete] = useState<NostlingContact | null>(null);
   const [deletingContact, setDeletingContact] = useState(false);
   const [qrDisplayContactProfile, setQrDisplayContactProfile] = useState<NostlingContact | null>(null);
+  const [qrDisplayIdentityProfile, setQrDisplayIdentityProfile] = useState<{ npub: string; label?: string } | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('chat');
   const [currentThemeId, setCurrentThemeId] = useState<ThemeId>('obsidian');
 
@@ -2344,6 +2345,8 @@ function App({ onThemeChange }: AppProps) {
               onSelectIdentity={handleSelectIdentity}
               onCancel={handleReturnToChat}
               onDirtyChange={setIdentitiesPanelDirty}
+              onSaved={() => nostling.refreshIdentities()}
+              onShowQr={(npub, label) => setQrDisplayIdentityProfile({ npub, label })}
             />
           ) : currentView === 'contacts' ? (
             selectedContactId && selectedIdentityId ? (
@@ -2407,6 +2410,12 @@ function App({ onThemeChange }: AppProps) {
         onClose={() => setQrDisplayContactProfile(null)}
         npub={qrDisplayContactProfile?.npub || ''}
         label={qrDisplayContactProfile?.alias}
+      />
+      <QrCodeDisplayModal
+        isOpen={qrDisplayIdentityProfile !== null}
+        onClose={() => setQrDisplayIdentityProfile(null)}
+        npub={qrDisplayIdentityProfile?.npub || ''}
+        label={qrDisplayIdentityProfile?.label}
       />
       <Footer
         version={status?.version}

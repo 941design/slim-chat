@@ -14,10 +14,9 @@ import { Avatar } from '../Avatar';
 import { useThemeColors } from '../../themes/ThemeContext';
 import { NostlingContact } from '../../../shared/types';
 import { ProfileContent } from '../../../shared/profile-types';
-import { QrCodeIcon } from '../qr-icons';
 import { getPreferredDisplayName } from '../../utils/sidebar';
 import { HoverInfoProvider, useHoverInfoProps, useHoverInfo } from '../HoverInfo';
-import { CopyButton } from '../CopyButton';
+import { NpubDisplay } from '../NpubDisplay';
 
 // Pencil icon for editing
 const PencilIcon = () => (
@@ -523,64 +522,16 @@ function ContactsPanelInner({ selectedContact, onClose, onShowQr, onRemove, onRe
 
             {/* npub with hover icons */}
             <Box
-              className="group"
               borderTopWidth="1px"
               borderColor={colors.border}
               pt={4}
             >
-              <Text fontSize="xs" color={colors.textMuted} mb={1}>
-                Public Key
-              </Text>
-              <Text
-                fontSize="xs"
-                color={colors.textMuted}
-                fontFamily="monospace"
-                wordBreak="break-all"
-                data-testid="contacts-panel-npub"
-                as="span"
-                display="inline"
-              >
-                {selectedContact.npub}
-                <HStack
-                  as="span"
-                  display="inline-flex"
-                  gap={0}
-                  opacity={0}
-                  _groupHover={{ opacity: 1 }}
-                  transition="opacity 0.15s"
-                  verticalAlign="middle"
-                  ml={1}
-                >
-                  {onShowQr && (
-                    <Box as="span" display="inline" {...useHoverInfoProps('Display QR code for sharing')}>
-                      <IconButton
-                        size="xs"
-                        variant="ghost"
-                        aria-label="Show QR code"
-                        onClick={() => onShowQr(selectedContact)}
-                        color={colors.textSubtle}
-                        _hover={{ color: colors.textMuted }}
-                        data-testid="contacts-panel-show-qr"
-                      >
-                        <QrCodeIcon />
-                      </IconButton>
-                    </Box>
-                  )}
-                  <Box as="span" display="inline" {...useHoverInfoProps('Copy public key to clipboard')}>
-                    <CopyButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Copy npub"
-                      textToCopy={selectedContact.npub}
-                      color={colors.textSubtle}
-                      _hover={{ color: colors.textMuted }}
-                      data-testid="contacts-panel-copy-npub"
-                      copyMessage="npub copied to clipboard"
-                      onCopyMessage={handleCopyMessage}
-                    />
-                  </Box>
-                </HStack>
-              </Text>
+              <NpubDisplay
+                npub={selectedContact.npub}
+                onShowQr={onShowQr ? () => onShowQr(selectedContact) : undefined}
+                testIdPrefix="contacts-panel"
+                onCopyMessage={handleCopyMessage}
+              />
             </Box>
           </VStack>
         </VStack>
