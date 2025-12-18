@@ -59,13 +59,14 @@ export function isValidNpub(npub: string): boolean {
 }
 
 /**
- * Extracts npub from various Nostr data formats found in QR codes
+ * Extracts npub from various Nostr data formats found in QR codes or pasted input
  *
  * Supported formats:
  *   - npub1... (plain npub)
  *   - nostr:npub1... (URI with npub)
  *   - nprofile1... (profile with pubkey + relay hints)
  *   - nostr:nprofile1... (URI with nprofile)
+ *   - 64-character hex public key (lowercase or uppercase)
  *
  * Returns:
  *   - { success: true, npub: string } if valid Nostr identity found
@@ -113,9 +114,21 @@ export function extractNpubFromNostrData(data: string):
       return { success: false, error: 'QR code contains a private key (nsec) - do not share!' };
     }
 
-    return { success: false, error: 'QR code does not contain a valid Nostr identity' };
+    // Handle hex public key (64 lowercase hex characters)
+    if (cleaned.length === 64 && /^[0-9a-f]{64}$/.test(cleaned)) {
+      const npub = nip19.npubEncode(cleaned);
+      return { success: true, npub };
+    }
+
+    // Handle hex public key with uppercase (normalize to lowercase)
+    if (cleaned.length === 64 && /^[0-9a-fA-F]{64}$/.test(cleaned)) {
+      const npub = nip19.npubEncode(cleaned.toLowerCase());
+      return { success: true, npub };
+    }
+
+    return { success: false, error: 'Input does not contain a valid Nostr identity' };
   } catch (e) {
-    console.error('[QR Scanner] Error extracting npub:', e);
-    return { success: false, error: 'Failed to decode QR code data' };
+    console.error('[npub-validation] Error extracting npub:', e);
+    return { success: false, error: 'Failed to decode input data' };
   }
 }
