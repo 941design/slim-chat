@@ -59,6 +59,7 @@ import { getPreferredDisplayName } from './utils/sidebar';
 import { CopyButton } from './components/CopyButton';
 import { useSidebarWidth } from './hooks/useSidebarWidth';
 import { ResizeHandle } from './components/ResizeHandle';
+import { SidebarUserItem } from './components/SidebarUserItem';
 
 // Simple refresh icon component
 const RefreshIcon = () => (
@@ -609,8 +610,7 @@ function IdentityList({
   selectedId,
   onSelect,
   onOpenCreate,
-  onShowQr,
-  onRename,
+  onShowProfile,
   unreadCounts,
   newlyArrived,
   disabled,
@@ -619,46 +619,12 @@ function IdentityList({
   selectedId: string | null;
   onSelect: (id: string) => void;
   onOpenCreate: () => void;
-  onShowQr: (identity: NostlingIdentity) => void;
-  onRename: (id: string, label: string) => Promise<void>;
+  onShowProfile: (identity: NostlingIdentity) => void;
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
   disabled?: boolean;
 }) {
   const colors = useThemeColors();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draftLabel, setDraftLabel] = useState('');
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (editingId) {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }
-  }, [editingId]);
-
-  const startEditing = (identity: NostlingIdentity, event: React.MouseEvent) => {
-    event.stopPropagation();
-    setEditingId(identity.id);
-    setDraftLabel(identity.label);
-  };
-
-  const cancelEditing = (event?: React.MouseEvent) => {
-    event?.stopPropagation();
-    setEditingId(null);
-    setDraftLabel('');
-  };
-
-  const saveEditing = async (identityId: string, event?: React.MouseEvent) => {
-    event?.stopPropagation();
-    const trimmed = draftLabel.trim();
-    if (!trimmed) {
-      cancelEditing();
-      return;
-    }
-    await onRename(identityId, trimmed);
-    setEditingId(null);
-  };
 
   return (
     <Box data-testid="identity-list">
@@ -703,153 +669,25 @@ function IdentityList({
               : '';
 
           return (
-            <Box
+            <SidebarUserItem
               key={identity.id}
-              borderWidth="1px"
-              borderColor={
-                hasUnread
-                  ? 'brand.400'
-                  : selectedId === identity.id
-                    ? 'brand.400'
-                    : colors.border
-              }
-              borderRadius="md"
-              p="2"
-              bg={selectedId === identity.id ? colors.surfaceBgSelected : 'transparent'}
-              _hover={{ borderColor: disabled ? undefined : 'brand.400', cursor: disabled ? 'not-allowed' : 'pointer' }}
-              onClick={() => !disabled && onSelect(identity.id)}
-              opacity={disabled && selectedId !== identity.id ? 0.5 : 1}
-              pointerEvents={disabled && selectedId !== identity.id ? 'none' : undefined}
-              data-testid={`identity-item-${identity.id}`}
-              data-npub={identity.npub}
-              className={`group ${animationClass}`}
-              position="relative"
-            >
-              <HStack justify="space-between" align="center" gap="2">
-                {editingId === identity.id ? (
-                  <HStack align="center" gap="0" flex="1">
-                    <Input
-                      ref={inputRef}
-                      size="sm"
-                      value={draftLabel}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(event) => setDraftLabel(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault();
-                          void saveEditing(identity.id);
-                        } else if (event.key === 'Escape') {
-                          event.preventDefault();
-                          cancelEditing();
-                        }
-                      }}
-                    />
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Save identity name"
-                      onClick={(event) => void saveEditing(identity.id, event)}
-                      color={colors.textSubtle}
-                      _hover={{ color: colors.textMuted }}
-                    >
-                      <CheckIcon />
-                    </IconButton>
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Cancel editing"
-                      onClick={(event) => cancelEditing(event)}
-                      color={colors.textSubtle}
-                      _hover={{ color: colors.textMuted }}
-                    >
-                      <CloseIcon />
-                    </IconButton>
-                  </HStack>
-                ) : (
-                  <HStack flex="1" gap="2">
-                    <AvatarWithBadge
-                      displayName={displayName}
-                      pictureUrl={identity.picture}
-                      profileSource={identity.profileSource}
-                      size={32}
-                      badgeBackgroundColor={colors.surfaceBg}
-                      badgeIconColor={colors.text}
-                    />
-                    <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1" fontFamily="body">
-                      {displayName}
-                    </Text>
-                    {hasUnread && (
-                      <Badge
-                        colorPalette="blue"
-                        variant="solid"
-                        borderRadius="full"
-                        fontSize="xs"
-                        px="2"
-                        minW="6"
-                        textAlign="center"
-                      >
-                        {unreadCount}
-                      </Badge>
-                    )}
-                  </HStack>
-                )}
-                {editingId !== identity.id && (
-                  <HStack
-                    gap="0"
-                    opacity={0}
-                    _groupHover={{ opacity: selectedId === identity.id ? 1 : 0 }}
-                    pointerEvents={selectedId === identity.id ? 'auto' : 'none'}
-                    transition="opacity 0.15s"
-                  >
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Edit identity name"
-                      title="Rename identity"
-                      onClick={(event) => startEditing(identity, event)}
-                      color={colors.textSubtle}
-                      _hover={{ color: colors.textMuted }}
-                    >
-                      <PencilIcon />
-                    </IconButton>
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Show QR code"
-                      title="Show QR code for this identity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onShowQr(identity);
-                      }}
-                      color={colors.textSubtle}
-                      _hover={{ color: colors.textMuted }}
-                    >
-                      <QrCodeIcon />
-                    </IconButton>
-                    <CopyButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Copy npub"
-                      title="Copy npub to clipboard"
-                      textToCopy={identity.npub}
-                      color={colors.textSubtle}
-                      _hover={{ color: colors.textMuted }}
-                      copyMessage="npub copied to clipboard"
-                    />
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      aria-label="Delete identity"
-                      title="Identities cannot be deleted"
-                      disabled
-                      color={colors.textSubtle}
-                    >
-                      <TrashIcon />
-                    </IconButton>
-                  </HStack>
-                )}
-              </HStack>
-            </Box>
+              id={identity.id}
+              displayName={displayName}
+              npub={identity.npub}
+              pictureUrl={identity.picture}
+              profileSource={identity.profileSource}
+              isSelected={selectedId === identity.id}
+              hasUnread={hasUnread}
+              unreadCount={unreadCount}
+              isNewlyArrived={isNewlyArrived}
+              disabled={disabled}
+              animationClass={animationClass}
+              onClick={() => onSelect(identity.id)}
+              onMoreClick={() => onShowProfile(identity)}
+              testIdPrefix="identity"
+              moreButtonLabel="View identity profile"
+              moreButtonTitle="View identity profile"
+            />
           );
         })}
       </VStack>
@@ -863,7 +701,6 @@ function ContactList({
   onSelect,
   onOpenAdd,
   disabled,
-  onRequestDelete,
   onShowProfile,
   unreadCounts,
   newlyArrived,
@@ -873,7 +710,6 @@ function ContactList({
   onSelect: (id: string) => void;
   onOpenAdd: () => void;
   disabled: boolean;
-  onRequestDelete: (contact: NostlingContact) => void;
   onShowProfile: (contact: NostlingContact) => void;
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
@@ -924,76 +760,24 @@ function ContactList({
               : '';
 
           return (
-            <Box
+            <SidebarUserItem
               key={contact.id}
-              borderWidth="1px"
-              borderColor={
-                hasUnread
-                  ? 'brand.400'
-                  : selectedId === contact.id
-                    ? 'brand.400'
-                    : colors.border
-              }
-              borderRadius="md"
-              p="2"
-              bg={selectedId === contact.id ? colors.surfaceBgSelected : 'transparent'}
-              _hover={{ borderColor: 'brand.400', cursor: 'pointer' }}
+              id={contact.id}
+              displayName={displayName}
+              npub={contact.npub}
+              pictureUrl={contact.picture}
+              profileSource={contact.profileSource}
+              isSelected={selectedId === contact.id}
+              hasUnread={hasUnread}
+              unreadCount={unreadCount}
+              isNewlyArrived={isNewlyArrived}
+              animationClass={animationClass}
               onClick={() => onSelect(contact.id)}
-              data-testid={`contact-item-${contact.id}`}
-              className={`group ${animationClass}`}
-              position="relative"
-            >
-              <HStack justify="space-between" align="center" gap="2">
-                <HStack flex="1" gap="2">
-                  <AvatarWithBadge
-                    displayName={displayName}
-                    pictureUrl={contact.picture}
-                    profileSource={contact.profileSource}
-                    size={32}
-                    badgeBackgroundColor={colors.surfaceBg}
-                    badgeIconColor={colors.text}
-                  />
-                  <Text color={colors.text} fontWeight="semibold" lineClamp={1} flex="1" fontFamily="body">
-                    {displayName}
-                  </Text>
-                  {hasUnread && (
-                    <Badge
-                      colorPalette="blue"
-                      variant="solid"
-                      borderRadius="full"
-                      fontSize="xs"
-                      px="2"
-                      minW="6"
-                      textAlign="center"
-                    >
-                      {unreadCount}
-                    </Badge>
-                  )}
-                </HStack>
-                <HStack
-                  gap="0"
-                  opacity={0}
-                  _groupHover={{ opacity: 1 }}
-                  transition="opacity 0.15s"
-                >
-                  <IconButton
-                    size="xs"
-                    variant="ghost"
-                    aria-label="View contact profile"
-                    title="View contact profile"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onShowProfile(contact);
-                    }}
-                    color={colors.textSubtle}
-                    _hover={{ color: colors.textMuted }}
-                    data-testid={`view-profile-${contact.id}`}
-                  >
-                    <MoreVerticalIcon />
-                  </IconButton>
-                </HStack>
-              </HStack>
-            </Box>
+              onMoreClick={() => onShowProfile(contact)}
+              testIdPrefix="contact"
+              moreButtonLabel="View contact profile"
+              moreButtonTitle="View contact profile"
+            />
           );
         })}
       </VStack>
@@ -1482,6 +1266,55 @@ function DeleteContactDialog({
   );
 }
 
+function DeleteIdentityDialog({
+  identityId,
+  identities,
+  isOpen,
+  onClose,
+  onConfirm,
+  loading,
+}: {
+  identityId: string | null;
+  identities: NostlingIdentity[];
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+  loading: boolean;
+}) {
+  const colors = useThemeColors();
+  const identity = identityId ? identities.find(i => i.id === identityId) : null;
+  const displayName = identity ? getPreferredDisplayName({ profileName: identity.profileName, npub: identity.npub }) : '';
+
+  return (
+    <Dialog.Root open={isOpen} onOpenChange={(e) => !e.open && onClose()} closeOnInteractOutside={!loading}>
+      <Dialog.Backdrop />
+      <Dialog.Positioner>
+        <Dialog.Content data-testid="delete-identity-dialog">
+          <Dialog.Header>
+            <Dialog.Title>Remove identity</Dialog.Title>
+          </Dialog.Header>
+          <Dialog.CloseTrigger disabled={loading} />
+          <Dialog.Body>
+            <Text color={colors.text}>
+              Are you sure you want to remove {displayName || 'this identity'}? This will delete all associated contacts and messages.
+            </Text>
+          </Dialog.Body>
+          <Dialog.Footer>
+            <HStack gap="2">
+              <Button variant="ghost" onClick={onClose} disabled={loading}>
+                Cancel
+              </Button>
+              <Button colorPalette="red" onClick={onConfirm} loading={loading} data-testid="confirm-delete-identity-button">
+                Delete
+              </Button>
+            </HStack>
+          </Dialog.Footer>
+        </Dialog.Content>
+      </Dialog.Positioner>
+    </Dialog.Root>
+  );
+}
+
 function AboutView({
   onReturn,
   nostlingStatusText,
@@ -1600,9 +1433,7 @@ function Sidebar({
   onSelectContact,
   onOpenIdentityModal,
   onOpenContactModal,
-  onRequestDeleteContact,
-  onRenameIdentity,
-  onRenameContact,
+  onShowIdentityProfile,
   onShowContactProfile,
   unreadCounts,
   newlyArrived,
@@ -1625,9 +1456,7 @@ function Sidebar({
   onSelectContact: (id: string) => void;
   onOpenIdentityModal: () => void;
   onOpenContactModal: () => void;
-  onRequestDeleteContact: (contact: NostlingContact) => void;
-  onRenameIdentity: (identityId: string, label: string) => Promise<void>;
-  onRenameContact: (contactId: string, alias: string) => Promise<void>;
+  onShowIdentityProfile: (identity: NostlingIdentity) => void;
   onShowContactProfile: (contact: NostlingContact) => void;
   unreadCounts?: Record<string, number>;
   newlyArrived?: Set<string>;
@@ -1644,8 +1473,6 @@ function Sidebar({
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
-  const [qrDisplayIdentity, setQrDisplayIdentity] = useState<NostlingIdentity | null>(null);
-  const [qrDisplayContact, setQrDisplayContact] = useState<NostlingContact | null>(null);
 
   // When themeSliders is provided, only show theme configuration (hide identity/contacts)
   const isThemeMode = Boolean(themeSliders);
@@ -1685,8 +1512,7 @@ function Sidebar({
             selectedId={selectedIdentityId}
             onSelect={onSelectIdentity}
             onOpenCreate={onOpenIdentityModal}
-            onShowQr={setQrDisplayIdentity}
-            onRename={onRenameIdentity}
+            onShowProfile={onShowIdentityProfile}
             unreadCounts={identityUnreadCounts}
             newlyArrived={newlyArrivedIdentities}
             disabled={identitySelectionDisabled}
@@ -1699,8 +1525,7 @@ function Sidebar({
               selectedId={selectedIdentityId}
               onSelect={onSelectIdentity}
               onOpenCreate={onOpenIdentityModal}
-              onShowQr={setQrDisplayIdentity}
-              onRename={onRenameIdentity}
+              onShowProfile={onShowIdentityProfile}
               unreadCounts={identityUnreadCounts}
               newlyArrived={newlyArrivedIdentities}
             />
@@ -1711,7 +1536,6 @@ function Sidebar({
               onSelect={onSelectContact}
               onOpenAdd={onOpenContactModal}
               disabled={identities.length === 0}
-              onRequestDelete={onRequestDeleteContact}
               onShowProfile={onShowContactProfile}
               unreadCounts={unreadCounts}
               newlyArrived={newlyArrived}
@@ -1725,8 +1549,7 @@ function Sidebar({
               selectedId={selectedIdentityId}
               onSelect={onSelectIdentity}
               onOpenCreate={onOpenIdentityModal}
-              onShowQr={setQrDisplayIdentity}
-              onRename={onRenameIdentity}
+              onShowProfile={onShowIdentityProfile}
               unreadCounts={identityUnreadCounts}
               newlyArrived={newlyArrivedIdentities}
             />
@@ -1737,7 +1560,6 @@ function Sidebar({
               onSelect={onSelectContact}
               onOpenAdd={onOpenContactModal}
               disabled={identities.length === 0}
-              onRequestDelete={onRequestDeleteContact}
               onShowProfile={onShowContactProfile}
               unreadCounts={unreadCounts}
               newlyArrived={newlyArrived}
@@ -1745,22 +1567,6 @@ function Sidebar({
           </>
         )}
       </VStack>
-      {!isThemeMode && (
-        <>
-          <QrCodeDisplayModal
-            isOpen={qrDisplayIdentity !== null}
-            onClose={() => setQrDisplayIdentity(null)}
-            npub={qrDisplayIdentity?.npub || ''}
-            label={qrDisplayIdentity?.label}
-          />
-          <QrCodeDisplayModal
-            isOpen={qrDisplayContact !== null}
-            onClose={() => setQrDisplayContact(null)}
-            npub={qrDisplayContact?.npub || ''}
-            label={qrDisplayContact?.alias}
-          />
-        </>
-      )}
     </Box>
   );
 }
@@ -1782,6 +1588,8 @@ function App({ onThemeChange }: AppProps) {
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [contactToDelete, setContactToDelete] = useState<NostlingContact | null>(null);
   const [deletingContact, setDeletingContact] = useState(false);
+  const [identityToDelete, setIdentityToDelete] = useState<string | null>(null);
+  const [deletingIdentity, setDeletingIdentity] = useState(false);
   const [qrDisplayContactProfile, setQrDisplayContactProfile] = useState<NostlingContact | null>(null);
   const [qrDisplayIdentityProfile, setQrDisplayIdentityProfile] = useState<{ npub: string; label?: string } | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('chat');
@@ -1880,6 +1688,33 @@ function App({ onThemeChange }: AppProps) {
       }
     } finally {
       setDeletingContact(false);
+    }
+  };
+
+  const handleRequestDeleteIdentity = (identityId: string) => {
+    setIdentityToDelete(identityId);
+  };
+
+  const handleCloseDeleteIdentity = () => {
+    if (!deletingIdentity) {
+      setIdentityToDelete(null);
+    }
+  };
+
+  const handleConfirmDeleteIdentity = async () => {
+    if (!identityToDelete) return;
+    setDeletingIdentity(true);
+    try {
+      const success = await nostling.removeIdentity(identityToDelete);
+      if (success && selectedIdentityId === identityToDelete) {
+        setSelectedIdentityId(null);
+        setCurrentView('chat'); // Return to chat view after deleting
+      }
+      if (success) {
+        setIdentityToDelete(null);
+      }
+    } finally {
+      setDeletingIdentity(false);
     }
   };
 
@@ -2084,6 +1919,11 @@ function App({ onThemeChange }: AppProps) {
     setCurrentView('contacts');
   }, []);
 
+  const handleShowIdentityProfile = useCallback((identity: NostlingIdentity) => {
+    setSelectedIdentityId(identity.id);
+    setCurrentView('identities');
+  }, []);
+
   const handleReturnToChat = () => {
     setCurrentView('chat');
     setThemeCustomColors(null); // Clear custom colors when leaving theme selection
@@ -2260,9 +2100,7 @@ function App({ onThemeChange }: AppProps) {
           }}
           onOpenIdentityModal={() => setIdentityModalOpen(true)}
           onOpenContactModal={() => setContactModalOpen(true)}
-          onRequestDeleteContact={handleRequestDeleteContact}
-          onRenameIdentity={handleRenameIdentity}
-          onRenameContact={handleRenameContact}
+          onShowIdentityProfile={handleShowIdentityProfile}
           onShowContactProfile={handleShowContactProfile}
           unreadCounts={selectedIdentityId ? nostling.unreadCounts[selectedIdentityId] : undefined}
           newlyArrived={selectedIdentityId ? nostling.newlyArrived[selectedIdentityId] : undefined}
@@ -2347,6 +2185,7 @@ function App({ onThemeChange }: AppProps) {
               onDirtyChange={setIdentitiesPanelDirty}
               onSaved={() => nostling.refreshIdentities()}
               onShowQr={(npub, label) => setQrDisplayIdentityProfile({ npub, label })}
+              onRemove={handleRequestDeleteIdentity}
             />
           ) : currentView === 'contacts' ? (
             selectedContactId && selectedIdentityId ? (
@@ -2394,6 +2233,14 @@ function App({ onThemeChange }: AppProps) {
         onClose={handleCloseDeleteContact}
         onConfirm={handleConfirmDeleteContact}
         loading={deletingContact}
+      />
+      <DeleteIdentityDialog
+        identityId={identityToDelete}
+        identities={nostling.identities}
+        isOpen={identityToDelete !== null}
+        onClose={handleCloseDeleteIdentity}
+        onConfirm={handleConfirmDeleteIdentity}
+        loading={deletingIdentity}
       />
       <RelayConflictModal
         isOpen={conflictModalOpen}

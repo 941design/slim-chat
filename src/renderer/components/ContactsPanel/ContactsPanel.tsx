@@ -17,6 +17,8 @@ import { ProfileContent } from '../../../shared/profile-types';
 import { getPreferredDisplayName } from '../../utils/sidebar';
 import { HoverInfoProvider, useHoverInfoProps, useHoverInfo } from '../HoverInfo';
 import { NpubDisplay } from '../NpubDisplay';
+import { QrCodeIcon } from '../qr-icons';
+import { CopyButton } from '../CopyButton';
 
 // Pencil icon for editing
 const PencilIcon = () => (
@@ -90,6 +92,9 @@ interface ProfileData {
   lud16?: string;
   source?: 'private_received' | 'public_discovered'; // Profile source (private or public)
 }
+
+// Default max width for banner (based on common Nostr banner dimensions: 1500x500px)
+const BANNER_MAX_WIDTH = '1500px';
 
 function ProfileField({
   label,
@@ -385,6 +390,34 @@ function ContactsPanelInner({ selectedContact, onClose, onShowQr, onRemove, onRe
                 </IconButton>
               </Box>
             )}
+            {onShowQr && (
+              <Box {...useHoverInfoProps('Display QR code for sharing')}>
+                <IconButton
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Show QR code"
+                  onClick={() => onShowQr(selectedContact)}
+                  color={colors.textSubtle}
+                  _hover={{ color: colors.textMuted }}
+                  data-testid="contacts-panel-heading-show-qr"
+                >
+                  <QrCodeIcon />
+                </IconButton>
+              </Box>
+            )}
+            <Box {...useHoverInfoProps('Copy public key to clipboard')}>
+              <CopyButton
+                size="xs"
+                variant="ghost"
+                aria-label="Copy npub"
+                textToCopy={selectedContact.npub}
+                color={colors.textSubtle}
+                _hover={{ color: colors.textMuted }}
+                data-testid="contacts-panel-heading-copy-npub"
+                copyMessage="npub copied to clipboard"
+                onCopyMessage={handleCopyMessage}
+              />
+            </Box>
           </HStack>
         </HStack>
       )}
@@ -428,7 +461,7 @@ function ContactsPanelInner({ selectedContact, onClose, onShowQr, onRemove, onRe
 
           {/* Banner with overlaid picture */}
           {profileData?.banner && (
-            <Box position="relative" marginBottom="44px">
+            <Box position="relative" marginBottom="44px" maxWidth={BANNER_MAX_WIDTH}>
               <Box height="150px" overflow="hidden" borderRadius="md">
                 <CachedImage
                   url={profileData.banner}
@@ -467,20 +500,46 @@ function ContactsPanelInner({ selectedContact, onClose, onShowQr, onRemove, onRe
             </Box>
           )}
 
-          {/* Picture without banner */}
+          {/* Picture without banner - show placeholder banner area */}
           {!profileData?.banner && (
-            <Box width="80px" height="80px" borderRadius="full" overflow="hidden">
-              {profileData?.picture ? (
-                <CachedImage
-                  url={profileData.picture}
-                  height="100%"
-                  width="100%"
-                  objectFit="cover"
-                  data-testid="contacts-panel-picture"
-                />
-              ) : (
-                <Avatar displayName={headingDisplayName} size={80} />
-              )}
+            <Box position="relative" marginBottom="44px" maxWidth={BANNER_MAX_WIDTH}>
+              {/* Placeholder banner area */}
+              <Box
+                height="150px"
+                overflow="hidden"
+                borderRadius="md"
+                bg={colors.surfaceBg}
+                borderWidth="1px"
+                borderStyle="dashed"
+                borderColor={colors.borderSubtle}
+                data-testid="contacts-panel-banner-placeholder"
+              />
+
+              {/* Profile picture overlaid on placeholder banner */}
+              <Box
+                position="absolute"
+                bottom="-40px"
+                left={4}
+                width="80px"
+                height="80px"
+                borderRadius="full"
+                overflow="hidden"
+                borderWidth="4px"
+                borderColor={colors.surfaceBg}
+                bg={colors.surfaceBg}
+              >
+                {profileData?.picture ? (
+                  <CachedImage
+                    url={profileData.picture}
+                    height="100%"
+                    width="100%"
+                    objectFit="cover"
+                    data-testid="contacts-panel-picture"
+                  />
+                ) : (
+                  <Avatar displayName={headingDisplayName} size={80} />
+                )}
+              </Box>
             </Box>
           )}
 

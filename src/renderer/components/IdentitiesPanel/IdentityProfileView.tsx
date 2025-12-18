@@ -65,6 +65,8 @@ type FieldKey = 'label' | 'name' | 'about' | 'picture' | 'banner' | 'website' | 
 const LABEL_WIDTH = '150px';
 // Max width for input fields when editing
 const INPUT_MAX_WIDTH = '280px';
+// Default max width for banner (based on common Nostr banner dimensions: 1500x500px)
+const BANNER_MAX_WIDTH = '1500px';
 
 interface EditableFieldProps {
   fieldKey: FieldKey;
@@ -385,7 +387,7 @@ export function IdentityProfileView({
     <VStack align="stretch" gap={6} position="relative">
       {/* Banner with overlaid picture */}
       {bannerUrl && (
-        <Box position="relative" marginBottom="44px" className="group">
+        <Box position="relative" marginBottom="44px" className="group" maxWidth={BANNER_MAX_WIDTH}>
           <Box height="150px" overflow="hidden" borderRadius="md">
             <CachedImage
               url={bannerUrl}
@@ -494,7 +496,7 @@ export function IdentityProfileView({
 
       {/* Picture without banner - full width container for proper icon positioning */}
       {!bannerUrl && (
-        <Box position="relative" marginBottom="44px" className="group">
+        <Box position="relative" marginBottom="44px" className="group" maxWidth={BANNER_MAX_WIDTH}>
           {/* Placeholder banner area */}
           <Box
             height="150px"

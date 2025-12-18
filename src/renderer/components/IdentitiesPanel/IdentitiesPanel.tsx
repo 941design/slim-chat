@@ -121,8 +121,10 @@ import type { IdentitiesPanelProps, IdentityProfileData } from './types';
 import { SubPanel } from '../SubPanel';
 import { IdentityProfileView } from './IdentityProfileView';
 import { useThemeColors } from '../../themes/ThemeContext';
-import { HoverInfoProvider, useHoverInfoProps } from '../HoverInfo';
+import { HoverInfoProvider, useHoverInfoProps, useHoverInfo } from '../HoverInfo';
 import { getPreferredDisplayName } from '../../utils/sidebar';
+import { QrCodeIcon } from '../qr-icons';
+import { CopyButton } from '../CopyButton';
 
 // Pencil icon for editing (matches ContactsPanel)
 const PencilIcon = () => (
@@ -154,10 +156,12 @@ function IdentitiesPanelInner({
   onDirtyChange,
   onSaved,
   onShowQr,
+  onRemove,
 }: IdentitiesPanelProps): React.ReactElement {
   const colors = useThemeColors();
   const panelRef = useRef<HTMLDivElement>(null);
   const labelInputRef = useRef<HTMLInputElement | null>(null);
+  const { showInfo, hideInfo } = useHoverInfo();
 
   const [originalProfile, setOriginalProfile] = useState<IdentityProfileData | null>(null);
   const [stagedProfile, setStagedProfile] = useState<IdentityProfileData | null>(null);
@@ -304,6 +308,7 @@ function IdentitiesPanelInner({
   // Get hover props for action buttons
   const cancelHoverProps = useHoverInfoProps('Discard changes and return to chat');
   const applyHoverProps = useHoverInfoProps('Save profile and send to contacts');
+  const removeHoverProps = useHoverInfoProps('Permanently remove this identity');
 
   // Get display name for the title
   const headingDisplayName = stagedProfile
@@ -325,6 +330,15 @@ function IdentitiesPanelInner({
       onShowQr(currentNpub, stagedProfile?.label);
     }
   }, [currentNpub, onShowQr, stagedProfile?.label]);
+
+  // Handler for copy message that works with the HoverInfo context
+  const handleCopyMessage = useCallback((message: string | null) => {
+    if (message) {
+      showInfo(message);
+    } else {
+      hideInfo();
+    }
+  }, [showInfo, hideInfo]);
 
   // Focus input when label editing starts
   useEffect(() => {
@@ -438,6 +452,36 @@ function IdentitiesPanelInner({
                   <PencilIcon />
                 </IconButton>
               </Box>
+              {currentNpub && onShowQr && (
+                <Box {...useHoverInfoProps('Display QR code for sharing')}>
+                  <IconButton
+                    size="xs"
+                    variant="ghost"
+                    aria-label="Show QR code"
+                    onClick={handleShowQr}
+                    color={colors.textSubtle}
+                    _hover={{ color: colors.textMuted }}
+                    data-testid="identities-panel-show-qr"
+                  >
+                    <QrCodeIcon />
+                  </IconButton>
+                </Box>
+              )}
+              {currentNpub && (
+                <Box {...useHoverInfoProps('Copy public key to clipboard')}>
+                  <CopyButton
+                    size="xs"
+                    variant="ghost"
+                    aria-label="Copy npub"
+                    textToCopy={currentNpub}
+                    color={colors.textSubtle}
+                    _hover={{ color: colors.textMuted }}
+                    data-testid="identities-panel-copy-npub"
+                    copyMessage="npub copied to clipboard"
+                    onCopyMessage={handleCopyMessage}
+                  />
+                </Box>
+              )}
             </HStack>
           )}
         </HStack>
@@ -445,8 +489,27 @@ function IdentitiesPanelInner({
     </Box>
   );
 
+  // Handle remove action
+  const handleRemove = useCallback(() => {
+    if (selectedIdentityId && onRemove) {
+      onRemove(selectedIdentityId);
+    }
+  }, [selectedIdentityId, onRemove]);
+
   // Define SubPanel actions
-  const actions = [
+  const actions = [];
+  if (onRemove && selectedIdentityId) {
+    actions.push({
+      label: 'Remove',
+      onClick: handleRemove,
+      variant: 'ghost' as const,
+      colorPalette: 'red' as const,
+      disabled: isApplying || isDirty,
+      testId: 'identities-panel-remove',
+      hoverProps: removeHoverProps,
+    });
+  }
+  actions.push(
     {
       label: 'Cancel',
       onClick: handleCancel,
@@ -464,7 +527,7 @@ function IdentitiesPanelInner({
       testId: 'identities-panel-apply',
       hoverProps: applyHoverProps,
     },
-  ];
+  );
 
   return (
     <SubPanel

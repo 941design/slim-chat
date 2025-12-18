@@ -28,7 +28,7 @@ export interface SubPanelAction {
   /**
    * Color palette for the button
    */
-  colorPalette?: 'blue' | 'gray';
+  colorPalette?: 'blue' | 'gray' | 'red';
 
   /**
    * Whether the button is disabled

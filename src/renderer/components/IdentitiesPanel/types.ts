@@ -91,4 +91,10 @@ export interface IdentitiesPanelProps {
    * Receives npub string and optional label for display.
    */
   onShowQr?: (npub: string, label?: string) => void;
+
+  /**
+   * Callback when user clicks Remove button to delete the identity.
+   * Receives identity ID. If not provided, Remove button is not shown.
+   */
+  onRemove?: (identityId: string) => void;
 }

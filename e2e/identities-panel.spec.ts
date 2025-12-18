@@ -44,6 +44,33 @@ test.describe('Identities Panel - Integration', () => {
     await expect(applyButton).toBeVisible();
   });
 
+  test('should open IdentitiesPanel when clicking three-dot icon on identity in sidebar', async ({
+    page,
+  }) => {
+    await waitForAppReady(page);
+    await ensureIdentityExists(page, 'Three Dot Test Identity');
+
+    // Get the identity item
+    const identityItem = page.locator('[data-testid^="identity-item-"]').first();
+    await expect(identityItem).toBeVisible();
+
+    // Hover over identity item to reveal the three-dot icon
+    await identityItem.hover();
+
+    // Click the three-dot icon (more button)
+    const moreButton = page.locator('[data-testid^="identity-more-"]').first();
+    await expect(moreButton).toBeVisible();
+    await moreButton.click();
+
+    // Verify IdentitiesPanel is open
+    const panel = page.locator('[data-testid="identities-panel"]');
+    await expect(panel).toBeVisible();
+
+    // Verify Remove button is present (new feature)
+    const removeButton = panel.locator('[data-testid="identities-panel-remove"]');
+    await expect(removeButton).toBeVisible();
+  });
+
   test('should display IdentityProfileView with all 8 fields', async ({ page }) => {
     await waitForAppReady(page);
     await ensureIdentityExists(page, 'Fields Test Identity');
