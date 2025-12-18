@@ -104,6 +104,9 @@ export function QrCodeScannerModal({
   const lastFrameTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
   const loggedDimensionsRef = useRef<boolean>(false);
+  // Store callback in ref to avoid re-renders when parent passes new function reference
+  const onNpubScannedRef = useRef(onNpubScanned);
+  onNpubScannedRef.current = onNpubScanned;
 
   const [state, setState] = useState<ScannerState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -135,9 +138,9 @@ export function QrCodeScannerModal({
     (npub: string) => {
       setState('success');
       stopCamera();
-      onNpubScanned(npub);
+      onNpubScannedRef.current(npub);
     },
-    [stopCamera, onNpubScanned]
+    [stopCamera]
   );
 
   const scanFrame = React.useCallback(() => {
@@ -330,6 +333,7 @@ export function QrCodeScannerModal({
                       borderRadius: '8px',
                       objectFit: 'cover',
                       opacity: state === 'active' ? 1 : 0,
+                      transform: 'scaleX(-1)',
                     }}
                   />
                   <canvas

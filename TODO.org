@@ -151,6 +151,7 @@
 + highlight/error log if messages are not kind 4
 + settings:
   + send with enter, line break with shift-enter
+  + mirror camera image
 + forbid to add self as contact
 + add nostling icon
 + informative messages in footer should time out and disappear
