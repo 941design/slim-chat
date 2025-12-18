@@ -56,6 +56,8 @@ import { CameraIcon, QrCodeIcon } from './components/qr-icons';
 import { AvatarWithBadge } from './components/AvatarWithBadge';
 import { getPreferredDisplayName } from './utils/sidebar';
 import { CopyButton } from './components/CopyButton';
+import { useSidebarWidth } from './hooks/useSidebarWidth';
+import { ResizeHandle } from './components/ResizeHandle';
 
 // Simple refresh icon component
 const RefreshIcon = () => (
@@ -1624,6 +1626,9 @@ function Sidebar({
   isContactsMode,
   identitySelectionDisabled,
   onCopyMessage,
+  width,
+  onResizeStart,
+  isResizing,
 }: {
   identities: NostlingIdentity[];
   contacts: Record<string, NostlingContact[]>;
@@ -1647,6 +1652,9 @@ function Sidebar({
   isContactsMode?: boolean;
   identitySelectionDisabled?: boolean;
   onCopyMessage?: (message: string | null) => void;
+  width: string;
+  onResizeStart: (e: React.MouseEvent) => void;
+  isResizing: boolean;
 }) {
   const colors = useThemeColors();
   const currentContacts = selectedIdentityId ? contacts[selectedIdentityId] || [] : [];
@@ -1660,14 +1668,18 @@ function Sidebar({
     <Box
       as="aside"
       className="sidebar"
-      w="280px"
+      w={width}
+      minW="0"
       borderRightWidth="1px"
       borderColor={colors.border}
       bg={colors.surfaceBg}
       p="4"
       data-testid="app-sidebar"
       overflowY="auto"
+      position="relative"
+      flexShrink={0}
     >
+      <ResizeHandle onDragStart={onResizeStart} isDragging={isResizing} />
       <VStack align="stretch" gap="4">
         {isThemeMode ? (
           // Theme mode: show theme info and sliders
@@ -1780,6 +1792,7 @@ function App({ onThemeChange }: AppProps) {
   const colors = useThemeColors();
   const { status, updateState, refresh, restart, download } = useStatus();
   const nostling = useNostlingState();
+  const { widthPx: sidebarWidth, isDragging: isSidebarResizing, handleDragStart: handleSidebarResizeStart } = useSidebarWidth();
   const [selectedIdentityId, setSelectedIdentityId] = useState<string | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const [identityModalOpen, setIdentityModalOpen] = useState(false);
@@ -2291,6 +2304,9 @@ function App({ onThemeChange }: AppProps) {
           isContactsMode={currentView === 'contacts'}
           identitySelectionDisabled={identitiesPanelDirty}
           onCopyMessage={setMessageHoverInfo}
+          width={sidebarWidth}
+          onResizeStart={handleSidebarResizeStart}
+          isResizing={isSidebarResizing}
         />
         <Flex as="main" direction="column" flex="1" overflow="hidden" borderWidth="1px" borderColor={colors.border} borderRadius="md" bg={colors.surfaceBgSubtle}>
           {currentView === 'chat' ? (

@@ -163,6 +163,7 @@
   + welcome to my flock
   + ...
 + send images?
++ run all e2e tests in parallel against the same relay in docker compose
 
 ** Features
 
