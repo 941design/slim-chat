@@ -77,6 +77,7 @@ interface MessageRow {
   status: NostlingMessageStatus;
   direction: NostlingMessageDirection;
   is_read: boolean;
+  kind: number | null;
 }
 
 interface NostrKind4Filter extends Filter {
@@ -437,7 +438,7 @@ export class NostlingService {
 
   async listMessages(identityId: string, contactId: string): Promise<NostlingMessage[]> {
     const stmt = this.database.prepare(
-      'SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read FROM nostr_messages WHERE identity_id = ? AND contact_id = ? ORDER BY timestamp ASC'
+      'SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind FROM nostr_messages WHERE identity_id = ? AND contact_id = ? ORDER BY timestamp ASC'
     );
     stmt.bind([identityId, contactId]);
 
@@ -515,6 +516,7 @@ export class NostlingService {
     timestamp?: string;
     decryptionFailed?: boolean;
     errorDetail?: string;
+    kind?: number;  // Nostr event kind (e.g., 4 for DM)
   }): Promise<NostlingMessage | null> {
     return this.withErrorLogging('ingest incoming message', async () => {
       if (options.decryptionFailed) {
@@ -549,7 +551,7 @@ export class NostlingService {
       const id = randomUUID();
 
       this.database.run(
-        'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           id,
           options.identityId,
@@ -562,6 +564,7 @@ export class NostlingService {
           'sent',
           'incoming',
           0, // Incoming messages start as unread
+          options.kind ?? null,
         ]
       );
 
@@ -584,6 +587,7 @@ export class NostlingService {
         status: 'sent',
         direction: 'incoming',
         isRead: false,
+        kind: options.kind,
       };
     });
   }
@@ -595,10 +599,10 @@ export class NostlingService {
   async getOutgoingQueue(identityId?: string): Promise<NostlingMessage[]> {
     const stmt = identityId
       ? this.database.prepare(
-          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') AND identity_id = ? ORDER BY timestamp ASC"
+          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') AND identity_id = ? ORDER BY timestamp ASC"
         )
       : this.database.prepare(
-          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') ORDER BY timestamp ASC"
+          "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind FROM nostr_messages WHERE direction = 'outgoing' AND status IN ('queued', 'sending') ORDER BY timestamp ASC"
         );
 
     if (identityId) {
@@ -640,7 +644,7 @@ export class NostlingService {
 
     // First, collect the IDs of messages to retry
     const selectStmt = this.database.prepare(
-      `SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction FROM nostr_messages ${whereClause}`
+      `SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind FROM nostr_messages ${whereClause}`
     );
 
     if (identityId) {
@@ -1213,7 +1217,8 @@ export class NostlingService {
         content: event.content,  // Pass ciphertext as-is (will be discarded anyway)
         eventId: event.id,
         timestamp: new Date(event.created_at * 1000).toISOString(),
-        decryptionFailed: true
+        decryptionFailed: true,
+        kind: event.kind,
       });
       return;
     }
@@ -1225,7 +1230,8 @@ export class NostlingService {
       recipientNpub,
       content: plaintext,
       eventId: event.id,
-      timestamp: new Date(event.created_at * 1000).toISOString()
+      timestamp: new Date(event.created_at * 1000).toISOString(),
+      kind: event.kind,
     });
   }
 
@@ -1290,11 +1296,12 @@ export class NostlingService {
     const now = new Date().toISOString();
     const id = randomUUID();
     const status: NostlingMessageStatus = this.online ? 'sending' : 'queued';
+    const kind = 4; // NIP-04 encrypted direct message
 
     // Store plaintext for display; encryption happens at publish time
     // (The 'ciphertext' column actually stores displayable content)
     this.database.run(
-      'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO nostr_messages (id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         id,
         options.identityId,
@@ -1307,6 +1314,7 @@ export class NostlingService {
         status,
         'outgoing',
         1, // Outgoing messages are always "read"
+        kind,
       ]
     );
 
@@ -1327,6 +1335,7 @@ export class NostlingService {
       status,
       direction: 'outgoing',
       isRead: true,
+      kind,
     };
   }
 
@@ -1429,6 +1438,7 @@ export class NostlingService {
       status: row.status,
       direction: row.direction,
       isRead: Boolean(row.is_read),
+      kind: row.kind ?? undefined,
     };
   }
 
@@ -1492,7 +1502,7 @@ export class NostlingService {
 
   private getOutgoingMessageRow(messageId: string): MessageRow {
     const stmt = this.database.prepare(
-      "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction FROM nostr_messages WHERE id = ? AND direction = 'outgoing' LIMIT 1"
+      "SELECT id, identity_id, contact_id, sender_npub, recipient_npub, ciphertext, event_id, timestamp, status, direction, is_read, kind FROM nostr_messages WHERE id = ? AND direction = 'outgoing' LIMIT 1"
     );
     stmt.bind([messageId]);
     const hasRow = stmt.step();

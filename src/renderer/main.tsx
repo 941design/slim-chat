@@ -42,6 +42,7 @@ import { ThemeSelectionPanel, ThemeVariableSliders, ThemeInfo } from './componen
 import { IdentitiesPanel } from './components/IdentitiesPanel';
 import { ContactsPanel } from './components/ContactsPanel/ContactsPanel';
 import { HoverInfoProvider, useHoverInfo } from './components/HoverInfo';
+import { MessageInfoModal } from './components/MessageInfoModal';
 import { SubPanel } from './components/SubPanel';
 import { EmojiPicker, useEmojiInsertion } from './components/EmojiPicker';
 import { parseMessageContent } from './utils/linkify';
@@ -137,6 +138,13 @@ const MoreVerticalIcon = () => (
     <circle cx="12" cy="5" r="2" />
     <circle cx="12" cy="12" r="2" />
     <circle cx="12" cy="19" r="2" />
+  </svg>
+);
+
+// Info icon for message details
+const InfoIcon = () => (
+  <svg viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
   </svg>
 );
 
@@ -837,23 +845,32 @@ function MessageBubble({
   isOwn,
   onMouseEnter,
   onMouseLeave,
+  onInfoClick,
 }: {
-  message: {
-    id: string;
-    content: string;
-    timestamp: string;
-    status: 'queued' | 'sending' | 'sent' | 'error';
-  };
+  message: NostlingMessage;
   isOwn: boolean;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  onInfoClick?: () => void;
 }) {
   const colors = useThemeColors();
+  const [isHovered, setIsHovered] = useState(false);
   const isInflight = message.status === 'queued' || message.status === 'sending';
 
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+    onMouseEnter?.();
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+    onMouseLeave?.();
+  };
+
   return (
-    <HStack justify={isOwn ? 'flex-end' : 'flex-start'} align="flex-end" mb="2" gap="2" data-testid="message-bubble">
+    <HStack justify={isOwn ? 'flex-end' : 'flex-start'} align="flex-end" mb="2" gap="2">
       <Box
+        position="relative"
         maxW="70%"
         bg={isOwn ? colors.ownBubbleBg : colors.surfaceBgSubtle}
         borderWidth="1px"
@@ -861,9 +878,31 @@ function MessageBubble({
         borderRadius="md"
         p="3"
         className={isInflight ? 'message-bubble message-inflight' : 'message-bubble'}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        data-testid="message-bubble"
+        data-message-id={message.id}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
+        {isHovered && onInfoClick && (
+          <IconButton
+            size="xs"
+            variant="ghost"
+            aria-label="View message details"
+            title="View message details"
+            position="absolute"
+            top="2px"
+            right="2px"
+            onClick={(e) => {
+              e.stopPropagation();
+              onInfoClick();
+            }}
+            color={colors.textSubtle}
+            _hover={{ color: colors.text, bg: colors.surfaceBg }}
+            data-testid="message-info-button"
+          >
+            <InfoIcon />
+          </IconButton>
+        )}
         <MessageContent
           content={message.content}
           textColor={isOwn ? colors.ownBubbleText : colors.text}
@@ -891,6 +930,7 @@ function ConversationPane({
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [infoModalMessage, setInfoModalMessage] = useState<NostlingMessage | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const { insertEmoji, textareaRef } = useEmojiInsertion(draft, setDraft);
 
@@ -970,15 +1010,11 @@ function ConversationPane({
               <Fragment key={message.id}>
                 {showSeparator && <DateSeparator date={formatRelativeDate(message.timestamp)} />}
                 <MessageBubble
-                  message={{
-                    id: message.id,
-                    content: message.content,
-                    timestamp: message.timestamp,
-                    status: message.status,
-                  }}
+                  message={message}
                   isOwn={message.direction === 'outgoing'}
                   onMouseEnter={() => handleMessageHover(message)}
                   onMouseLeave={() => handleMessageHover(null)}
+                  onInfoClick={() => setInfoModalMessage(message)}
                 />
               </Fragment>
             );
@@ -1019,6 +1055,11 @@ function ConversationPane({
           </Text>
         )}
       </Box>
+      <MessageInfoModal
+        isOpen={infoModalMessage !== null}
+        onClose={() => setInfoModalMessage(null)}
+        message={infoModalMessage}
+      />
     </Flex>
   );
 }

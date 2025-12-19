@@ -1,6 +1,6 @@
 * TODO
 
-+ improve docker build, log debug, improve logging
++ improve docker build
 
 + upgrade protocol to NIP-17
   + add warning sign to all kind:4 messages. read them but never send them
@@ -292,3 +292,45 @@
   Option C: Last-write-wins with hysteresis (closest to current)
   showInfo(text) // shows immediately
   // Auto-clears after 300ms of inactivity (no new showInfo calls)
+
+** TODO [#C] Backup Relays
+
++ add configuration for backup relays and copy incoming messages
+
+⏺ Based on the message flow, here's what you'd need to do to pipe incoming messages to a backup relay:
+
+  Key Insertion Point
+
+  src/main/nostling/service.ts in handleIncomingEvent() (lines 1170-1185)
+
+  This is where the raw NostrEvent arrives from relays - still encrypted, with all original fields intact (id, pubkey, sig, etc.). This is
+   the ideal place to republish before any processing.
+
+  Implementation Approach
+
+  // In handleIncomingEvent() - after dedup check, before processing
+  private handleIncomingEvent(identityId: string, event: NostrEvent): void {
+    if (this.seenEventIds.has(event.id)) return;
+    this.seenEventIds.add(event.id);
+
+    // >>> BACKUP HERE - raw event with encrypted content
+    this.publishToBackupRelay(event);
+
+    // Continue with normal processing...
+    this.eventQueue.push(async () => { ... });
+  }
+
+  What You'd Need to Add
+
+  1. Backup relay connection - Either:
+    - Add a dedicated SimplePool instance for the backup relay
+    - Or extend RelayPool to support a "backup" relay list
+  2. Publish method - The RelayPool already has publish() (line ~250 in relay-pool.ts) that could be reused or adapted
+  3. Configuration - Store the backup relay URL somewhere (settings, config file)
+
+  Important Notes
+
+  - The raw event is already signed by the original author - you're just re-broadcasting it
+  - The content is still NIP-04 encrypted - no need to re-encrypt
+  - You'd republish the exact same event, not create a new one
+  - Consider making this async/non-blocking so it doesn't slow down message processing

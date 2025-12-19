@@ -394,4 +394,63 @@ describe('NostlingService', () => {
     const contacts = await service.listContacts(identity.id);
     expect(contacts).toHaveLength(0);
   });
+
+  it('persists and returns message kind for incoming messages', async () => {
+    /**
+     * Message kind persistence
+     *
+     * The Nostr event kind (e.g., 4 for NIP-04 DM, 14 for NIP-17) should be
+     * stored in the database and returned when listing messages.
+     */
+    const identity = await service.createIdentity({ label: 'Receiver', nsec: 'secret', npub: 'npub1' });
+    await service.addContact({ identityId: identity.id, npub: 'npub-sender', alias: 'Sender' });
+
+    // Ingest a kind 4 message
+    const incoming = await service.ingestIncomingMessage({
+      identityId: identity.id,
+      senderNpub: 'npub-sender',
+      recipientNpub: 'npub1',
+      content: 'Hello via NIP-04',
+      eventId: 'evt-kind4',
+      kind: 4,
+    });
+
+    expect(incoming).not.toBeNull();
+    expect(incoming?.kind).toBe(4);
+
+    // Verify persistence via listMessages
+    const contact = (await service.listContacts(identity.id))[0];
+    const messages = await service.listMessages(identity.id, contact.id);
+    expect(messages).toHaveLength(1);
+    expect(messages[0].kind).toBe(4);
+  });
+
+  it('handles legacy messages without kind (backwards compatibility)', async () => {
+    /**
+     * Backwards compatibility for legacy messages
+     *
+     * Messages ingested without a kind should have undefined kind, not throw errors.
+     * This ensures existing messages in the database are handled correctly.
+     */
+    const identity = await service.createIdentity({ label: 'Legacy', nsec: 'secret', npub: 'npub-legacy' });
+    await service.addContact({ identityId: identity.id, npub: 'npub-old-sender', alias: 'Old Sender' });
+
+    // Ingest a message without specifying kind (simulating legacy behavior)
+    const incoming = await service.ingestIncomingMessage({
+      identityId: identity.id,
+      senderNpub: 'npub-old-sender',
+      recipientNpub: 'npub-legacy',
+      content: 'Legacy message',
+      eventId: 'evt-legacy',
+      // No kind specified
+    });
+
+    expect(incoming).not.toBeNull();
+    expect(incoming?.kind).toBeUndefined();
+
+    // Verify persistence
+    const contact = (await service.listContacts(identity.id))[0];
+    const messages = await service.listMessages(identity.id, contact.id);
+    expect(messages[0].kind).toBeUndefined();
+  });
 });
