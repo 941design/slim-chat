@@ -14,6 +14,8 @@ import * as migration4 from './migrations/20251213130000_add_contacts_unique_con
 import * as migration5 from './migrations/20251214100000_add_contact_deleted_at';
 import * as migration6 from './migrations/20251214200000_add_message_is_read';
 import * as migration7 from './migrations/20251215100000_add_private_profile_tables';
+import * as migration8 from './migrations/20251218100000_add_p2p_connection_tables';
+import * as migration9 from './migrations/20251219100000_add_p2p_replay_protection';
 
 export interface Migration {
   up: (knex: any) => Promise<void>;
@@ -29,6 +31,8 @@ export const MIGRATIONS_MAP: Record<string, Migration> = {
   '20251214100000_add_contact_deleted_at': migration5,
   '20251214200000_add_message_is_read': migration6,
   '20251215100000_add_private_profile_tables': migration7,
+  '20251218100000_add_p2p_connection_tables': migration8,
+  '20251219100000_add_p2p_replay_protection': migration9,
 };
 
 export const MIGRATION_NAMES: string[] = [
@@ -40,4 +44,6 @@ export const MIGRATION_NAMES: string[] = [
   '20251214100000_add_contact_deleted_at',
   '20251214200000_add_message_is_read',
   '20251215100000_add_private_profile_tables',
+  '20251218100000_add_p2p_connection_tables',
+  '20251219100000_add_p2p_replay_protection',
 ];

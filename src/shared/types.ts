@@ -273,4 +273,9 @@ export interface NostlingApi {
     cache(url: string): Promise<import('./image-cache-types').CachedImage>;
     invalidate(url: string): Promise<boolean>;
   };
+  p2p: {
+    attemptConnection(contactId: string): Promise<import('./p2p-types').P2PAttemptResult>;
+    getConnectionStatus(contactId: string): Promise<import('./p2p-types').P2PContactInfo | null>;
+    closeConnection(sessionId: string): Promise<void>;
+  };
 }

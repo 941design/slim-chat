@@ -127,6 +127,14 @@ jest.mock('./ipc/image-cache-handlers', () => ({
   registerImageCacheHandlers: jest.fn(),
 }));
 
+jest.mock('./ipc/p2p-handlers', () => ({
+  registerP2PIpcHandlers: jest.fn(),
+}));
+
+jest.mock('./nostling/p2p-service-integration', () => ({
+  triggerP2PConnectionsOnOnline: jest.fn(() => Promise.resolve()),
+}));
+
 jest.mock('./nostling/service', () => ({
   NostlingService: jest.fn().mockImplementation(() => ({
     initialize: jest.fn(() => Promise.resolve()),

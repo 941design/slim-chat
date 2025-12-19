@@ -79,6 +79,11 @@ async function toDataUrl(cached: CachedImage): Promise<string | null> {
  *        - Returns boolean
  */
 export function registerImageCacheHandlers(imageCacheService: any): void {
+  // Guard against undefined ipcMain in test environments
+  if (!ipcMain?.handle) {
+    return;
+  }
+
   const imageFetcher = new ImageFetcher();
 
   ipcMain.handle('nostling:image-cache:get', async (_event, url: string): Promise<{ dataUrl: string } | null> => {

@@ -204,6 +204,17 @@ const api: RendererApi = {
         return ipcRenderer.invoke('nostling:image-cache:invalidate', url);
       },
     },
+    p2p: {
+      async attemptConnection(contactId: string) {
+        return ipcRenderer.invoke('nostling:p2p:attempt-connection', contactId);
+      },
+      async getConnectionStatus(contactId: string) {
+        return ipcRenderer.invoke('nostling:p2p:get-status', contactId);
+      },
+      async closeConnection(sessionId: string) {
+        return ipcRenderer.invoke('nostling:p2p:close-connection', sessionId);
+      },
+    },
   },
 };
 

@@ -44,6 +44,8 @@ import { createSecretStore } from './nostling/secret-store';
 import { NostlingService } from './nostling/service';
 import { ImageCacheService } from './image-cache/image-cache-service';
 import { registerImageCacheHandlers } from './ipc/image-cache-handlers';
+import { registerP2PIpcHandlers } from './ipc/p2p-handlers';
+import { triggerP2PConnectionsOnOnline } from './nostling/p2p-service-integration';
 let mainWindow: BrowserWindow | null = null;
 let config: AppConfig = loadConfig();
 setLogLevel(config.logLevel);
@@ -495,6 +497,13 @@ app.on('ready', async () => {
   // Register image cache IPC handlers
   registerImageCacheHandlers(imageCacheService);
 
+  // Register P2P IPC handlers
+  registerP2PIpcHandlers({
+    getDatabase: () => database,
+    getRelayPool: () => getNostlingService().getRelayPool(),
+    getMainWindow: () => mainWindow,
+  });
+
   // Start message polling based on config
   const pollingMs = pollingIntervalToMilliseconds(config.messagePollingInterval || '10s');
   nostlingService.startPolling(pollingMs);
@@ -559,6 +568,16 @@ app.on('ready', async () => {
   config = loadConfig();
   setLogLevel(config.logLevel);
   createWindow();
+
+  // Trigger P2P connections after window is created
+  // This is deferred to allow the renderer to set up its IPC listeners first
+  setTimeout(async () => {
+    try {
+      await getNostlingService().triggerP2PConnections(mainWindow);
+    } catch (error) {
+      log('error', `Failed to trigger P2P connections: ${error}`);
+    }
+  }, 2000);  // 2 second delay to allow renderer to initialize
   setupAutoUpdater();
   startAutoCheckTimer();
 

@@ -41,6 +41,8 @@ import {
 } from './service-profile-status';
 import { schedulePublicProfileDiscovery, discoverPublicProfile } from './public-profile-discovery';
 import { handleReceivedWrappedEvent } from './profile-receiver';
+import { triggerP2PConnectionsOnOnline } from './p2p-service-integration';
+import { BrowserWindow } from 'electron';
 
 interface IdentityRow {
   id: string;
@@ -827,6 +829,64 @@ export class NostlingService {
 
     this.online = false;
     log('info', 'Nostling service shut down');
+  }
+
+  /**
+   * Get the relay pool instance
+   * Used for P2P integration to send/receive signaling messages
+   */
+  getRelayPool(): RelayPool | null {
+    return this.relayPool;
+  }
+
+  /**
+   * Get the database instance
+   * Used for P2P integration to access connection state
+   */
+  getDatabase(): Database {
+    return this.database;
+  }
+
+  /**
+   * Trigger P2P connection attempts for all identities
+   * Called when app goes online or relay connections are established
+   */
+  async triggerP2PConnections(mainWindow: BrowserWindow | null): Promise<void> {
+    if (!this.online || !this.relayPool) {
+      log('debug', 'Skipping P2P trigger: service offline or relay pool not ready');
+      return;
+    }
+
+    const identities = await this.listIdentities();
+    if (identities.length === 0) {
+      log('debug', 'Skipping P2P trigger: no identities');
+      return;
+    }
+
+    log('info', `Triggering P2P connections for ${identities.length} identities`);
+
+    for (const identity of identities) {
+      try {
+        // Get keypair from secret store
+        const secretKey = await this.secretStore.getSecret(identity.secretRef);
+        if (!secretKey) {
+          log('warn', `Cannot trigger P2P for identity ${identity.npub}: secret not found`);
+          continue;
+        }
+
+        const keypair = deriveKeypair(secretKey);
+
+        await triggerP2PConnectionsOnOnline(
+          this.database,
+          this.relayPool,
+          keypair.pubkeyHex,
+          keypair,
+          mainWindow
+        );
+      } catch (error) {
+        log('error', `P2P trigger failed for identity ${identity.npub}: ${error}`);
+      }
+    }
   }
 
   // ============================================================================

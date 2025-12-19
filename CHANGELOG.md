@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **P2P Connection Resource Exhaustion (Severity 8)**: Batch simultaneous P2P connection attempts to prevent renderer event loop blocking
+  - With 50+ contacts, parallel RTCPeerConnection creation blocked event loop
+  - Added `MAX_CONCURRENT_CONNECTIONS: 5` to P2P_CONFIG
+  - Batched connection attempts (5 at a time) with 500ms delays between batches
+  - Bug report: bug-reports/bug-003-resource-exhaustion.md
+- **P2P IPC Routing Bug (Severity 7)**: Fixed signal routing callback dispatching to both handlers regardless of channel
+  - Signal routing callback now conditionally dispatches based on channel parameter
+  - Prevents incorrect message dispatch for `p2p:initiate-connection` vs `p2p:remote-signal`
+  - Bug report: bug-reports/bug-004-ipc-dispatch.md
+- **P2P Database Race Condition (Severity 7)**: Wrapped p2p_connection_state writes in transactions
+  - Concurrent writes to p2p_connection_state now protected with BEGIN/COMMIT/ROLLBACK
+  - Prevents race conditions with multiple simultaneous connection status updates
+  - Bug report: bug-reports/bug-005-race-condition.md
+- **P2P Error Logging Enhancement (Severity 7)**: Added comprehensive WebRTC error logging
+  - Added ICE gathering state change handlers (`onicegatheringstatechange`)
+  - Added ICE connection state change handlers (`oniceconnectionstatechange`)
+  - Added DataChannel error and close handlers (`onerror`, `onclose`)
+  - Added `.catch()` to all WebRTC promise chains (createOffer, setLocalDescription, createAnswer, setRemoteDescription)
+  - Includes session ID and phase information in all failure logs
+  - Bug report: bug-reports/bug-006-error-logging.md
+
 ### Added
 - **Emoji Picker**: Integrated emoji insertion with accessibility and layout resilience
   - 26 emojis displayed in a 4×7 grid layout accessible from message input field

@@ -1,24 +1,44 @@
 * TODO
 
++ improve docker build, log debug, improve logging
+
++ upgrade protocol to NIP-17
+  + add warning sign to all kind:4 messages. read them but never send them
+
++ use a config file format that can be commented (MUST be migrated backwards compatible!!!)
+  
++ add desktop feedback when messages arrive and app is not focused/in background
+
++ out-of-band transmission (direct link via ipv6)
+  + add state indicator to contact when p2p connection is established
+
 + banner and avatar uploads
+  + either select one of the built-in avatars/banners and only send the metadata event or exchange data out of band
+
++ letter in avatar placeholder in contact details view is not centered. please compare to identity details view, where positioning is correct.
 
 + developer mode where messages can be inspected on double click (modal overlay); requires --dev flag
   + highlight/error log if messages are not kind 4
+  + add transmission protocol (nostr or p2p)
+
 + allow removing identites
 
-+ add desktop feedback when messages arrive and app is not focused/in background
-+ on network connection loss during download, resume
-+ use a config file format that can be commented (MUST be migrated backwards compatible!!!)
 + bug: download status does not update in a timely manner
+
 + consolidate documentation
+
 + amethyst sent this: `[//]: # (nip18)`
-  + examine what message type that was
+  + examine what message type that was (developer mode)
+
 + edit relays per identity
+
 + html/markdown messages
-+ backup
-+ consider direct link via ipv6
-  + status?
+  
++ mnemonic backup, nsec export
+
 + add nostling icon
+  
++ on network connection loss during download, resume
 
 ** TODO [#A] Themes
 

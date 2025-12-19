@@ -8,8 +8,47 @@
 jest.mock('electron', () => ({
   app: {
     getPath: jest.fn().mockReturnValue('/tmp/nostling-test'),
+    getVersion: jest.fn().mockReturnValue('1.0.0'),
+    on: jest.fn(),
+    quit: jest.fn(),
+    isPackaged: false,
   },
-}), { virtual: true });
+  ipcMain: {
+    handle: jest.fn(),
+    on: jest.fn(),
+    removeHandler: jest.fn(),
+  },
+  ipcRenderer: {
+    invoke: jest.fn(),
+    on: jest.fn(),
+    send: jest.fn(),
+    removeListener: jest.fn(),
+    removeAllListeners: jest.fn(),
+  },
+  BrowserWindow: jest.fn(() => ({
+    loadURL: jest.fn(),
+    loadFile: jest.fn(),
+    webContents: {
+      send: jest.fn(),
+      openDevTools: jest.fn(),
+    },
+    on: jest.fn(),
+    show: jest.fn(),
+  })),
+  contextBridge: {
+    exposeInMainWorld: jest.fn(),
+  },
+  Menu: {
+    setApplicationMenu: jest.fn(),
+    buildFromTemplate: jest.fn(() => ({})),
+  },
+  shell: {
+    openExternal: jest.fn(),
+  },
+  dialog: {
+    showErrorBox: jest.fn(),
+  },
+}));
 
 const originalLog = console.log;
 const originalWarn = console.warn;
