@@ -1,7 +1,5 @@
 * TODO
 
-+ improve docker build
-
 + upgrade protocol to NIP-17
   + add warning sign to all kind:4 messages. read them but never send them
 

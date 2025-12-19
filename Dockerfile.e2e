@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Dockerfile for testing E2E tests in Linux environment (simulating GitHub Actions Ubuntu runner)
 FROM ubuntu:22.04
 
@@ -5,7 +6,12 @@ FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Node.js 20.x, Xvfb, and dependencies required by Electron/Playwright
-RUN apt-get update && apt-get install -y \
+# Using BuildKit cache mounts to persist apt packages across builds
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache && \
+    apt-get update && apt-get install -y \
     curl \
     git \
     xvfb \
@@ -46,8 +52,10 @@ RUN apt-get update && apt-get install -y \
     libcap2-bin \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js 20.x
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+# Install Node.js 20.x (also uses apt cache mounts)
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
@@ -63,11 +71,13 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN echo "==> Installing npm dependencies..." && npm ci
+# Install dependencies (using npm cache mount for faster rebuilds)
+RUN --mount=type=cache,target=/root/.npm \
+    echo "==> Installing npm dependencies..." && npm ci
 
-# Install Playwright browsers and system dependencies
-RUN echo "==> Installing Playwright browsers..." && \
+# Install Playwright browsers and system dependencies (using cache mount for browser binaries)
+RUN --mount=type=cache,target=/root/.cache/ms-playwright \
+    echo "==> Installing Playwright browsers..." && \
     npx playwright install --with-deps chromium
 
 # Copy source code
