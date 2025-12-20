@@ -330,10 +330,22 @@ The app stores configuration and data in:
 - **Linux**: `~/.config/Nostling/`
 
 Files:
-- `config.json` - Application configuration
+- `config.yaml` - Application configuration (YAML format with helpful comments)
 - `nostling.db` - SQLite database for application state
-- `identities/<id>/relays.json` - Per-identity relay configurations with read/write policies
+- `identities/<id>/relays.yaml` - Per-identity relay configurations with read/write policies (YAML format)
 - `image-cache/` - Cached profile images and banners with 100MB LRU limit
+
+### Configuration Migration
+
+The app automatically migrates configuration files from JSON to YAML format:
+
+- **Automatic migration**: When you first run an updated version, any existing `config.json` or `relays.json` files are automatically converted to YAML format
+- **Backwards compatible**: Original JSON files are preserved for downgrade safety
+- **Dual-write support**: While both formats exist, the app keeps them in sync
+- **Deprecation warnings**: Info messages are logged when both formats are detected
+- **Safe to remove JSON**: Once you've confirmed the app works correctly, you can safely delete the old JSON files
+
+YAML files include helpful comments explaining each configuration option. The JSON format is deprecated and will be auto-removed in the next major version
 
 ## Log Files
 

@@ -30,6 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Bug report: bug-reports/bug-006-error-logging.md
 
 ### Added
+- **YAML Configuration Format**: Migrated configuration files from JSON to YAML format
+  - App config (`config.yaml`) and per-identity relay configs (`relays.yaml`) now use YAML with helpful comments
+  - Automatic lazy migration: JSON configs are converted to YAML on first read
+  - Backwards compatible: Original JSON files preserved for downgrade safety
+  - Dual-write support: While JSON files exist, both formats are kept in sync
+  - Deprecation warnings: Info messages logged when both formats exist
+  - YAML files include helpful comments explaining each configuration option
+  - Hash-based conflict detection for relay configs prevents accidental overwrites
+  - Property-based tests: 120+ tests covering migration, round-trip, and conflict detection
+  - JSON format will be auto-removed in the next major version
+
 - **Emoji Picker**: Integrated emoji insertion with accessibility and layout resilience
   - 26 emojis displayed in a 4×7 grid layout accessible from message input field
   - Emoji button positioned in bottom-right corner of textarea using relative units (rem)

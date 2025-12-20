@@ -1,8 +1,9 @@
 import { promises as fs } from 'fs';
-import { createHash } from 'crypto';
 import path from 'path';
 import { NostlingRelayEndpoint, RelayConfigResult } from '../../shared/types';
 import { log } from '../logging';
+import { logDeprecationWarning } from '../yaml-utils';
+import { loadRelaysYaml, saveRelaysYaml, checkForDualFormatRelay } from './relay-config-yaml-migration';
 
 /**
  * Default relay endpoints for new identities
@@ -37,89 +38,6 @@ export class RelayConfigManager {
     this.writeLocks = new Map();
   }
 
-  /**
-   * getIdentityConfigPath(identityId)
-   *
-   * CONTRACT:
-   *   Inputs:
-   *     - identityId: non-empty string, unique identifier for an identity
-   *
-   *   Outputs:
-   *     - absolute file path: string, points to the relay config file for this identity
-   *       Example: "~/.config/nostling/identities/<identityId>/relays.json"
-   *
-   *   Invariants:
-   *     - output path always ends with "/relays.json"
-   *     - output path contains identityId as a directory component
-   *     - output is an absolute path (no relative components)
-   *
-   *   Algorithm:
-   *     1. Construct path: join(configDir, "identities", identityId, "relays.json")
-   *     2. Return absolute path
-   */
-  getIdentityConfigPath(identityId: string): string {
-    return path.join(this.configDir, 'identities', identityId, 'relays.json');
-  }
-
-  /**
-   * ensureDirectoryExists(dirPath)
-   *
-   * CONTRACT:
-   *   Inputs:
-   *     - dirPath: string, absolute path to directory that may or may not exist
-   *
-   *   Outputs:
-   *     - Promise resolving to void
-   *
-   *   Invariants:
-   *     - After completion, directory at dirPath exists
-   *     - Parent directories are created if they don't exist (recursive)
-   *     - If directory already exists, no error is thrown
-   *
-   *   Properties:
-   *     - Idempotent: calling twice with same path has same effect as calling once
-   *
-   *   Algorithm:
-   *     1. Call fs.mkdir with recursive flag
-   *     2. Ignore EEXIST errors
-   */
-  async ensureDirectoryExists(dirPath: string): Promise<void> {
-    try {
-      await fs.mkdir(dirPath, { recursive: true, mode: 0o700 });
-    } catch (error: any) {
-      if (error.code !== 'EEXIST') {
-        throw error;
-      }
-    }
-  }
-
-  /**
-   * computeFileHash(content)
-   *
-   * CONTRACT:
-   *   Inputs:
-   *     - content: string, file content to hash
-   *
-   *   Outputs:
-   *     - hash: string, SHA-256 hash in hexadecimal format
-   *
-   *   Invariants:
-   *     - Same content always produces same hash (deterministic)
-   *     - Different content produces different hash (collision resistance)
-   *     - Hash is 64 characters long (SHA-256 hex encoding)
-   *
-   *   Properties:
-   *     - Deterministic: computeFileHash(x) always equals computeFileHash(x)
-   *     - Collision resistant: computeFileHash(x) ≠ computeFileHash(y) when x ≠ y (cryptographic guarantee)
-   *
-   *   Algorithm:
-   *     1. Create SHA-256 hash instance
-   *     2. Update with content as UTF-8
-   *     3. Digest and return as hexadecimal string
-   */
-  computeFileHash(content: string): string {
-    return createHash('sha256').update(content, 'utf-8').digest('hex');
-  }
 
   /**
    * loadRelays(identityId)
@@ -172,9 +90,6 @@ export class RelayConfigManager {
   }
 
   async loadRelays(identityId: string): Promise<NostlingRelayEndpoint[]> {
-    const configPath = this.getIdentityConfigPath(identityId);
-    const configDir = path.dirname(configPath);
-
     // When NOSTLING_DEV_RELAY is set, always use dev relay (overrides config file)
     const devRelayUrl = process.env.NOSTLING_DEV_RELAY;
     if (devRelayUrl) {
@@ -182,44 +97,16 @@ export class RelayConfigManager {
       return [{ url: devRelayUrl, read: true, write: true, order: 0 }];
     }
 
-    try {
-      await this.ensureDirectoryExists(configDir);
+    const identityDir = path.join(this.configDir, 'identities', identityId);
+    const defaultRelays = this.getDefaultRelays();
+    const relays = await loadRelaysYaml(identityDir, identityId, defaultRelays, this.fileHashes);
 
-      try {
-        const content = await fs.readFile(configPath, 'utf-8');
-        const hash = this.computeFileHash(content);
-        this.fileHashes.set(identityId, hash);
-
-        const parsed = JSON.parse(content);
-        if (!Array.isArray(parsed)) {
-          log('warn', `Malformed relay config for identity ${identityId}: expected array, got ${typeof parsed}`);
-          return [];
-        }
-        const relays = parsed as NostlingRelayEndpoint[];
-        relays.sort((a, b) => a.order - b.order);
-        return relays;
-      } catch (error: any) {
-        if (error.code === 'ENOENT') {
-          // No config file - use default relays
-          const defaultRelays = this.getDefaultRelays();
-          const content = JSON.stringify(defaultRelays, null, 2);
-          await fs.writeFile(configPath, content, { encoding: 'utf-8', mode: 0o600 });
-          const hash = this.computeFileHash(content);
-          this.fileHashes.set(identityId, hash);
-          return defaultRelays;
-        }
-
-        if (error instanceof SyntaxError) {
-          log('warn', `Malformed relay config for identity ${identityId}: ${error.message}`);
-          return [];
-        }
-
-        throw error;
-      }
-    } catch (error) {
-      log('error', `Failed to load relays for identity ${identityId}: ${error instanceof Error ? error.message : String(error)}`);
-      throw error;
+    // Check for dual-format and log deprecation warning (FR-5)
+    if (await checkForDualFormatRelay(identityDir)) {
+      logDeprecationWarning('relay', identityId);
     }
+
+    return relays;
   }
 
   /**
@@ -276,40 +163,14 @@ export class RelayConfigManager {
     this.writeLocks.set(identityId, lockPromise);
 
     try {
-      const configPath = this.getIdentityConfigPath(identityId);
-      const configDir = path.dirname(configPath);
+      const identityDir = path.join(this.configDir, 'identities', identityId);
+      const result = await saveRelaysYaml(identityDir, identityId, relays, this.fileHashes);
 
-      await this.ensureDirectoryExists(configDir);
-
-      const storedHash = this.fileHashes.get(identityId);
-      if (storedHash) {
-        try {
-          const currentContent = await fs.readFile(configPath, 'utf-8');
-          const currentHash = this.computeFileHash(currentContent);
-
-          if (currentHash !== storedHash) {
-            return {
-              conflict: {
-                conflicted: true,
-                message: 'Relay configuration was modified externally. Reload to get latest changes.',
-              },
-            };
-          }
-        } catch (error: any) {
-          if (error.code !== 'ENOENT') {
-            throw error;
-          }
-        }
+      if (result.conflict) {
+        return {
+          conflict: result.conflict
+        };
       }
-
-      const content = JSON.stringify(relays, null, 2);
-      const tempPath = configPath + '.tmp';
-
-      await fs.writeFile(tempPath, content, { encoding: 'utf-8', mode: 0o600 });
-      await fs.rename(tempPath, configPath);
-
-      const newHash = this.computeFileHash(content);
-      this.fileHashes.set(identityId, newHash);
 
       return {
         config: {

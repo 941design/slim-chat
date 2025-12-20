@@ -10,6 +10,7 @@ import { RelayConfigManager, DEFAULT_RELAYS } from './relay-config-manager';
 import { NostlingRelayEndpoint } from '../../shared/types';
 import { runMigrations } from '../database/migrations';
 import { log } from '../logging';
+import { getRelayConfigPaths } from './relay-config-yaml-migration';
 
 jest.mock('electron', () => ({
   app: {
@@ -252,7 +253,8 @@ describe('RelayConfigManager Integration with NostlingService', () => {
       expect(relays.length).toBeGreaterThan(0);
 
       // Manually modify the file externally
-      const configPath = service['relayConfigManager'].getIdentityConfigPath(identity.id);
+      const identityDir = path.join(service['relayConfigManager']['configDir'], 'identities', identity.id);
+      const configPath = getRelayConfigPaths(identityDir).yaml;
       const externalRelays: NostlingRelayEndpoint[] = [
         { url: 'wss://externally-modified.example.com', read: true, write: false, order: 0 },
       ];
@@ -277,7 +279,8 @@ describe('RelayConfigManager Integration with NostlingService', () => {
       const originalUrl = relays[0].url;
 
       // Manually modify the file externally
-      const configPath = service['relayConfigManager'].getIdentityConfigPath(identity.id);
+      const identityDir = path.join(service['relayConfigManager']['configDir'], 'identities', identity.id);
+      const configPath = getRelayConfigPaths(identityDir).yaml;
       const externalRelays: NostlingRelayEndpoint[] = [
         { url: 'wss://externally-modified.example.com', read: true, write: false, order: 0 },
       ];
@@ -297,14 +300,16 @@ describe('RelayConfigManager Integration with NostlingService', () => {
           const identity = await service.createIdentity({ label: 'Test', nsec: 'secret', npub: uniqueNpub });
 
           // Write malformed JSON to the config file
-          const configPath = service['relayConfigManager'].getIdentityConfigPath(identity.id);
+          const identityDir = path.join(service['relayConfigManager']['configDir'], 'identities', identity.id);
+          const configPath = getRelayConfigPaths(identityDir).yaml;
           const malformedJson = '{invalid json' + junkData.join(',');
           await fs.writeFile(configPath, malformedJson, 'utf-8');
 
-          // Should handle gracefully and return empty array with warning log
+          // Should handle gracefully and return default relays with warning log
+          // (graceful degradation: malformed files → defaults, not empty array)
           const relays = await service.getRelaysForIdentity(identity.id);
-          expect(relays).toEqual([]);
-          expect(log).toHaveBeenCalledWith('warn', expect.stringContaining('Malformed relay config'));
+          expect(relays.length).toBeGreaterThan(0);
+          expect(log).toHaveBeenCalledWith('warn', expect.stringContaining('Failed to parse YAML relay config'));
         }),
         { numRuns: 5 },
       );
@@ -356,8 +361,9 @@ describe('RelayConfigManager Integration with NostlingService', () => {
       const relays = await nestedService.getRelaysForIdentity(identity.id);
       expect(relays).toBeDefined();
 
-      // Verify directories were created
-      const configPath = nestedService['relayConfigManager'].getIdentityConfigPath(identity.id);
+      // Verify directories were created (use nestedService, not service)
+      const identityDir = path.join(nestedService['relayConfigManager']['configDir'], 'identities', identity.id);
+      const configPath = getRelayConfigPaths(identityDir).yaml;
       const stat = await fs.stat(path.dirname(configPath)).catch(() => null);
       expect(stat?.isDirectory()).toBe(true);
     });
@@ -438,7 +444,8 @@ describe('RelayConfigManager Integration with NostlingService', () => {
 
             for (const id of createdIds) {
               // Delete the relay config file to simulate missing file
-              const configPath = service['relayConfigManager'].getIdentityConfigPath(id);
+              const identityDir = path.join(service['relayConfigManager']['configDir'], 'identities', id);
+              const configPath = getRelayConfigPaths(identityDir).yaml;
               await fs.unlink(configPath).catch(() => {
                 /* ignore if doesn't exist */
               });

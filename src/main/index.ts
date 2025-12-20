@@ -16,6 +16,7 @@ import { autoUpdater } from 'electron-updater';
 import { AppConfig, AppStatus, UpdateState, UpdatePhase, DownloadProgress } from '../shared/types';
 import { getRecentLogs, log, setLogLevel } from './logging';
 import { loadConfig, saveConfig } from './config';
+import { checkForDualFormat, logDeprecationWarning } from './config-yaml-migration';
 import { verifyDownloadedUpdate, constructManifestUrl, sanitizeError, fetchManifest } from './integration';
 import { registerHandlers, broadcastUpdateState } from './ipc/handlers';
 import { downloadUpdate, setupUpdater, GITHUB_OWNER, GITHUB_REPO } from './update/controller';
@@ -479,6 +480,11 @@ app.on('ready', async () => {
 
   // Initialize database and run migrations before window creation
   await initializeDatabaseWithMigrations();
+
+  // Check for dual-format config and log deprecation warning if needed
+  if (checkForDualFormat()) {
+    logDeprecationWarning('app');
+  }
 
   const database = getDatabase();
   if (!database) {

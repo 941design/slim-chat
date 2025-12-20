@@ -1,13 +1,15 @@
 * TODO
 
-+ upgrade protocol to NIP-17
-
 + use a config file format that can be commented (MUST be migrated backwards compatible!!!)
   
++ upgrade protocol to NIP-17
+
 + add desktop feedback when messages arrive and app is not focused/in background
 
 + out-of-band transmission (direct link via ipv6)
   + add state indicator to contact when p2p connection is established
+
++ mnemonic backup, nsec export
 
 + banner and avatar uploads
   + either select one of the built-in avatars/banners and only send the metadata event or exchange data out of band
@@ -31,8 +33,6 @@
 
 + html/markdown messages
   
-+ mnemonic backup, nsec export
-
 + add nostling icon
   
 + on network connection loss during download, resume
