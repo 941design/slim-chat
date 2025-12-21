@@ -57,6 +57,18 @@ import {
   DEFAULT_DERIVATION_PATH,
 } from './mnemonic-crypto';
 import { saveSeed } from './mnemonic-storage';
+import {
+  getMinTimestampForKind,
+  batchUpdateTimestamps,
+  deleteSyncStatesForIdentity,
+  TimestampUpdate,
+} from '../database/relay-sync-state';
+
+// Constants for timestamp-based sparse polling
+const CLOCK_SKEW_BUFFER = 60; // seconds subtracted from 'since' to handle clock drift
+const FIRST_POLL_LOOKBACK = 5 * 60; // seconds (5 min) for first poll when no prior state
+const FIRST_STREAM_LOOKBACK = 24 * 60 * 60; // seconds (24h) for first subscription
+const TIMESTAMP_UPDATE_DEBOUNCE_MS = 2000; // milliseconds between DB writes
 
 interface IdentityRow {
   id: string;
@@ -125,6 +137,10 @@ export class NostlingService {
   private pollingTimer: NodeJS.Timeout | null = null;
   private pollingIntervalMs: number = 0;
   private mainWindow: BrowserWindow | null = null;
+
+  // Debounced timestamp updates for sparse polling
+  private pendingTimestampUpdates: Map<string, { kind: number; timestamp: number }> = new Map();
+  private timestampUpdateTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly database: Database, private readonly secretStore: NostlingSecretStore, configDir: string, options: NostlingServiceOptions = {}) {
     this.online = Boolean(options.online);
@@ -283,6 +299,8 @@ export class NostlingService {
     this.database.run('DELETE FROM nostr_contacts WHERE identity_id = ?', [id]);
     this.database.run('DELETE FROM nostr_relays WHERE identity_id = ?', [id]);
     this.database.run('DELETE FROM nostr_identities WHERE id = ?', [id]);
+    // Clean up relay sync state for this identity
+    deleteSyncStatesForIdentity(this.database, id);
     log('info', `Removed nostling identity ${id}`);
   }
 
@@ -880,6 +898,13 @@ export class NostlingService {
     // Stop polling timer
     this.stopPolling();
 
+    // Flush any pending timestamp updates before shutdown
+    if (this.timestampUpdateTimer) {
+      clearTimeout(this.timestampUpdateTimer);
+      this.timestampUpdateTimer = null;
+    }
+    this.flushTimestampUpdates();
+
     // Close all subscriptions
     for (const [identityId, subscription] of this.subscriptions.entries()) {
       subscription.close();
@@ -986,8 +1011,10 @@ export class NostlingService {
     }
 
     let processedCount = 0;
-    // Lookback window: 5 minutes (catches messages during brief disconnections)
-    const sinceTimestamp = Math.floor((Date.now() - 5 * 60 * 1000) / 1000);
+    const timestampUpdates: TimestampUpdate[] = [];
+    const connectedRelays = Array.from(this.relayPool.getStatus().entries())
+      .filter(([, status]) => status === 'connected')
+      .map(([url]) => url);
 
     for (const identity of identities) {
       const filters = await this.getKind4Filters(identity.id);
@@ -995,20 +1022,60 @@ export class NostlingService {
         continue;
       }
 
-      // Add 'since' filter to limit query scope
-      const pollFilters = filters.map(f => ({ ...f, since: sinceTimestamp }));
+      // Build filters with per-kind 'since' timestamps
+      const pollFilters = filters.map(f => {
+        const kind = f.kinds?.[0];
+        if (!kind) return f;
+
+        // Get last known timestamp for this identity/kind
+        const lastTimestamp = getMinTimestampForKind(this.database, identity.id, kind);
+
+        // Use last known timestamp with clock-skew buffer, or fallback for first sync
+        const sinceTimestamp = lastTimestamp
+          ? lastTimestamp - CLOCK_SKEW_BUFFER
+          : Math.floor(Date.now() / 1000) - FIRST_POLL_LOOKBACK;
+
+        return { ...f, since: sinceTimestamp };
+      });
 
       try {
         const events = await this.relayPool.querySync(pollFilters, { maxWait: 5000 });
+
+        // Track max timestamp per kind for this poll
+        const maxTimestampPerKind = new Map<number, number>();
 
         for (const event of events) {
           // handleIncomingEvent uses seenEventIds for deduplication
           this.handleIncomingEvent(identity.id, event);
           processedCount++;
+
+          // Track maximum timestamp per kind
+          const kind = event.kind;
+          const current = maxTimestampPerKind.get(kind) || 0;
+          if (event.created_at > current) {
+            maxTimestampPerKind.set(kind, event.created_at);
+          }
+        }
+
+        // Queue timestamp updates for all connected relays
+        for (const [kind, timestamp] of maxTimestampPerKind) {
+          for (const relayUrl of connectedRelays) {
+            timestampUpdates.push({
+              identityId: identity.id,
+              relayUrl,
+              eventKind: kind,
+              timestamp,
+            });
+          }
         }
       } catch (error) {
         log('warn', `Polling failed for identity ${identity.id}: ${this.toErrorMessage(error)}`);
       }
+    }
+
+    // Batch update all timestamps (debounced)
+    if (timestampUpdates.length > 0) {
+      this.debouncedUpdateTimestamps(timestampUpdates);
     }
 
     if (processedCount > 0) {
@@ -1051,6 +1118,72 @@ export class NostlingService {
       this.pollingTimer = null;
       log('info', 'Message polling stopped');
     }
+  }
+
+
+  /**
+   * Queue timestamp updates for debounced batch write to database.
+   * Merges updates and keeps highest timestamp per identity+kind.
+   */
+  private debouncedUpdateTimestamps(updates: TimestampUpdate[]): void {
+    // Merge into pending updates (keep highest timestamp per identity+kind)
+    for (const update of updates) {
+      const key = `${update.identityId}:${update.eventKind}:${update.relayUrl}`;
+      const existing = this.pendingTimestampUpdates.get(key);
+      if (!existing || update.timestamp > existing.timestamp) {
+        this.pendingTimestampUpdates.set(key, {
+          kind: update.eventKind,
+          timestamp: update.timestamp,
+        });
+      }
+    }
+
+    // Debounce the actual write
+    if (this.timestampUpdateTimer) {
+      clearTimeout(this.timestampUpdateTimer);
+    }
+
+    this.timestampUpdateTimer = setTimeout(() => {
+      this.flushTimestampUpdates();
+    }, TIMESTAMP_UPDATE_DEBOUNCE_MS);
+  }
+
+  /**
+   * Flush pending timestamp updates to database.
+   * Called on debounce timer expiry and during shutdown.
+   */
+  private flushTimestampUpdates(): void {
+    if (this.pendingTimestampUpdates.size === 0) return;
+
+    const updates: TimestampUpdate[] = [];
+
+    for (const [key, { kind, timestamp }] of this.pendingTimestampUpdates) {
+      const [identityId, , relayUrl] = key.split(':');
+      // Reconstruct relayUrl (may contain colons in URL)
+      const keyParts = key.split(':');
+      const actualIdentityId = keyParts[0];
+      const actualKind = parseInt(keyParts[1], 10);
+      const actualRelayUrl = keyParts.slice(2).join(':');
+
+      updates.push({
+        identityId: actualIdentityId,
+        relayUrl: actualRelayUrl,
+        eventKind: actualKind,
+        timestamp,
+      });
+    }
+
+    if (updates.length > 0) {
+      try {
+        batchUpdateTimestamps(this.database, updates);
+        log('debug', `Flushed ${updates.length} timestamp updates`);
+      } catch (error) {
+        log('warn', `Failed to flush timestamp updates: ${this.toErrorMessage(error)}`);
+      }
+    }
+
+    this.pendingTimestampUpdates.clear();
+    this.timestampUpdateTimer = null;
   }
 
   /**
@@ -1215,11 +1348,40 @@ export class NostlingService {
     }
 
     // Build filters for this identity (kind 4 DMs and kind 1059 gift wraps)
-    const filters = await this.getSubscriptionFilters(identityId);
+    const baseFilters = await this.getSubscriptionFilters(identityId);
 
-    // Subscribe to relay pool
-    const subscription = this.relayPool.subscribe(filters, (event) => {
+    // Add 'since' to streaming subscriptions for efficiency
+    // Use stored timestamp with buffer, or 24-hour lookback for first startup
+    const filtersWithSince = baseFilters.map(f => {
+      const kind = f.kinds?.[0];
+      if (!kind) return f;
+
+      const lastTimestamp = getMinTimestampForKind(this.database, identityId, kind);
+
+      const sinceTimestamp = lastTimestamp
+        ? lastTimestamp - CLOCK_SKEW_BUFFER
+        : Math.floor(Date.now() / 1000) - FIRST_STREAM_LOOKBACK;
+
+      return { ...f, since: sinceTimestamp };
+    });
+
+    // Get connected relays for timestamp tracking
+    const connectedRelays = Array.from(this.relayPool.getStatus().entries())
+      .filter(([, status]) => status === 'connected')
+      .map(([url]) => url);
+
+    // Subscribe to relay pool with timestamp update on event receive
+    const subscription = this.relayPool.subscribe(filtersWithSince, (event) => {
       this.handleIncomingEvent(identityId, event);
+
+      // Update timestamp on streaming receive (debounced)
+      const timestampUpdates: TimestampUpdate[] = connectedRelays.map(relayUrl => ({
+        identityId,
+        relayUrl,
+        eventKind: event.kind,
+        timestamp: event.created_at,
+      }));
+      this.debouncedUpdateTimestamps(timestampUpdates);
     });
 
     this.subscriptions.set(identityId, subscription);

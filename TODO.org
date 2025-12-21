@@ -13,7 +13,7 @@
 + out-of-band transmission (direct link via ipv6)
   + add state indicator to contact when p2p connection is established
 
-+ mnemonic backup, nsec export
++ mnemonic backup, nsec export -> e2e test
 
 + banner and avatar uploads
   + either select one of the built-in avatars/banners and only send the metadata event or exchange data out of band
