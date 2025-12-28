@@ -1,5 +1,14 @@
 * TODO
 
++ avatar
+  + browser scrolling
+  + fewer avatars per page, dynamically
+  + enlarge avatars
+
++ banner removal
+
++ relay configs as json
+
 + consider browser based application
 
 + add playwright mcp

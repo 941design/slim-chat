@@ -33,6 +33,7 @@ import {
   getUpdaterCacheDir,
 } from './update/dmg-installer';
 import { getDevUpdateConfig, isDevMode } from './dev-env';
+import { configureCertificateBypass } from './certificate-bypass';
 import {
   initializeDatabaseWithMigrations,
   closeDatabaseConnection,
@@ -486,14 +487,10 @@ app.on('ready', async () => {
   // Certificate error bypass for development (expired certs, self-signed)
   // Enable via: NOSTLING_IGNORE_CERT_ERRORS=true environment variable
   // or config.ignoreCertErrors in config file
-  const ignoreCertErrors = process.env.NOSTLING_IGNORE_CERT_ERRORS === 'true' || config.ignoreCertErrors;
-  if (ignoreCertErrors) {
-    log('warn', 'Certificate error bypass is enabled - TLS certificate validation is disabled');
-    session.defaultSession.setCertificateVerifyProc((_request, callback) => {
-      // Accept all certificates (0 = OK)
-      callback(0);
-    });
-  }
+  configureCertificateBypass({
+    configIgnoreCertErrors: config.ignoreCertErrors,
+    envIgnoreCertErrors: process.env.NOSTLING_IGNORE_CERT_ERRORS,
+  });
 
   // Initialize database and run migrations before window creation
   await initializeDatabaseWithMigrations();

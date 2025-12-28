@@ -181,6 +181,7 @@ export function AvatarSearchTab({ onAvatarSelected }: AvatarSearchTabProps): Rea
       setHasNextPage(result.items.length === PAGE_SIZE);
       setIsLoadingSearch(false);
     } catch (err) {
+      console.error('[AvatarSearchTab] Failed to load avatars:', err);
       const errorMessage = err instanceof Error && err.message.includes('Network')
         ? 'Unable to load avatars. Check your connection.'
         : err instanceof Error
@@ -190,7 +191,7 @@ export function AvatarSearchTab({ onAvatarSelected }: AvatarSearchTabProps): Rea
       setError(errorMessage);
       setIsLoadingSearch(false);
     }
-  }, []);
+  }, []);;
 
   // On component mount: fetch vocabulary and trigger initial search (per contract lines 45-53)
   useEffect(() => {
@@ -200,6 +201,7 @@ export function AvatarSearchTab({ onAvatarSelected }: AvatarSearchTabProps): Rea
         setVocabulary(vocab);
         setIsLoadingVocab(false);
       } catch (err) {
+        console.error('[AvatarSearchTab] Failed to load vocabulary:', err);
         setError('Unable to load filter options. Please try again.');
         setIsLoadingVocab(false);
       }
