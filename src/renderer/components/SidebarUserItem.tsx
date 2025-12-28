@@ -93,7 +93,7 @@ export function SidebarUserItem({
             : colors.border
       }
       borderRadius="md"
-      p="2"
+      p="1"
       bg={isSelected ? colors.surfaceBgSelected : 'transparent'}
       _hover={{
         borderColor: disabled ? undefined : 'brand.400',
@@ -136,7 +136,7 @@ export function SidebarUserItem({
             displayName={displayName}
             pictureUrl={pictureUrl}
             profileSource={profileSource}
-            size={32}
+            size={96}
             badgeBackgroundColor={colors.surfaceBg}
             badgeIconColor={colors.text}
           />

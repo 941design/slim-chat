@@ -38,6 +38,14 @@ interface RelayTableProps {
   onConflict: (message: string) => void;
 }
 
+/**
+ * Normalize relay URL to match status map keys.
+ * The relay pool adds a trailing slash to URLs for consistency with SimplePool.
+ */
+function normalizeRelayUrl(url: string): string {
+  return url.endsWith('/') ? url : url + '/';
+}
+
 interface SortableRelayRowProps {
   relay: NostlingRelayEndpoint;
   status: 'connected' | 'connecting' | 'disconnected' | 'error';
@@ -370,11 +378,11 @@ export function RelayTable({
   };
 
   const connectedCount = relays.filter(
-    (r) => status[r.url] === 'connected'
+    (r) => status[normalizeRelayUrl(r.url)] === 'connected'
   ).length;
   const failedCount = relays.filter(
     (r) =>
-      status[r.url] === 'error' || status[r.url] === 'disconnected'
+      status[normalizeRelayUrl(r.url)] === 'error' || status[normalizeRelayUrl(r.url)] === 'disconnected'
   ).length;
 
   return (
@@ -420,7 +428,7 @@ export function RelayTable({
                   <SortableRelayRow
                     key={relay.url}
                     relay={relay}
-                    status={status[relay.url] || 'disconnected'}
+                    status={status[normalizeRelayUrl(relay.url)] || 'disconnected'}
                     onUpdate={handleRelayUpdate}
                     onRemove={() => handleRemoveRelay(relay.url)}
                   />

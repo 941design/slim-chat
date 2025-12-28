@@ -5,6 +5,8 @@
   + fewer avatars per page, dynamically
   + enlarge avatars
 
++ old messages not retrieved
+
 + banner removal
 
 + relay configs as json
